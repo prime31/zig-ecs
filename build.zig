@@ -23,6 +23,8 @@ pub fn build(b: *Builder) void {
 
         // first element in the list is added as "run" so "zig build run" works
         if (i == 0) {
+            exe.name = "ecs";
+            exe.setOutputDir("zig-cache/bin");
             const run_exe_step = b.step("run", b.fmt("run {}.zig", .{name}));
             run_exe_step.dependOn(&run_cmd.step);
         }

@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "lldb Debug ecs binary",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/zig-cache/bin/ecs",
+            "args": [],
+            "preLaunchTask": "Build Project",
+        }
+    ]
+}
