@@ -10,7 +10,7 @@ pub fn build(b: *Builder) void {
     };
 
     for (examples) |example, i| {
-        const name = example[0];
+        const name = if (i == 0) "ecs" else example[0];
         const source = example[1];
 
         var exe = b.addExecutable(name, source);
@@ -23,7 +23,6 @@ pub fn build(b: *Builder) void {
 
         // first element in the list is added as "run" so "zig build run" works
         if (i == 0) {
-            exe.name = "ecs";
             exe.setOutputDir("zig-cache/bin");
             const run_exe_step = b.step("run", b.fmt("run {}.zig", .{name}));
             run_exe_step.dependOn(&run_cmd.step);

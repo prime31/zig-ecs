@@ -227,7 +227,7 @@ pub const Registry = struct {
         _ = self.component_contexts.put(type_id, 0) catch unreachable;
     }
 
-   /// Returns a pointer to an object in the context of the Component type
+    /// Returns a pointer to an object in the context of the Component type
     pub fn getComponentContext(self: *Registry, comptime Component: type, comptime T: type) ?*T {
         var type_id: u8 = undefined;
         _ = self.typemap.getOrPut(Component, &type_id);
@@ -287,7 +287,7 @@ test "context not pointer" {
 }
 
 test "component context get/set/unset" {
-    const SomeType = struct { dummy: u1};
+    const SomeType = struct { dummy: u1 };
 
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();

@@ -19,13 +19,13 @@ pub fn main() !void {
     reg.add(e2, Position{ .x = 10, .y = 10 });
     reg.add(e2, Velocity{ .x = 15, .y = 17 });
 
-    var view = reg.view(.{Velocity, Position});
+    var view = reg.view(.{ Velocity, Position });
 
     var iter = view.iterator();
     while (iter.next()) |entity| {
         var pos = view.get(Position, entity);
         const vel = view.getConst(Velocity, entity);
-        std.debug.warn("entity: {}, pos: {d}, vel: {d}\n", .{entity, pos.*, vel});
+        std.debug.warn("entity: {}, pos: {d}, vel: {d}\n", .{ entity, pos.*, vel });
         pos.*.x += vel.x;
         pos.*.y += vel.y;
     }
@@ -36,6 +36,6 @@ pub fn main() !void {
     while (iter.next()) |entity| {
         const pos = view.getConst(Position, entity);
         const vel = view.getConst(Velocity, entity);
-        std.debug.warn("entity: {}, pos: {d}, vel: {d}\n", .{entity, pos, vel});
+        std.debug.warn("entity: {}, pos: {d}, vel: {d}\n", .{ entity, pos, vel });
     }
 }
