@@ -32,7 +32,6 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
                 .instances = undefined,
                 .safe_deinit = struct {
                     fn deinit(self: *Self) void {
-                        std.debug.warn("------  (inner) T: {}, size: {}, is_empty_struct: {}\n", .{ @typeName(@TypeOf(self)), @sizeOf(CompT), is_empty_struct });
                         if (!is_empty_struct)
                             self.instances.deinit();
                     }
@@ -56,7 +55,6 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
             // since we are stored as a pointer, we need to catpure this
             store.safe_deinit = struct {
                 fn deinit(self: *Self) void {
-                    std.debug.warn("------  (inner) T: {}, size: {}, is_empty_struct: {}\n", .{ @typeName(@TypeOf(self)), @sizeOf(CompT), is_empty_struct });
                     if (!is_empty_struct)
                         self.instances.deinit();
                 }
@@ -69,7 +67,6 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
             // great care must be taken here. Due to how Registry keeps this struct as pointers anything touching a type
             // will be wrong since it has to cast to a random struct when deiniting. Because of all that, is_empty_struct
             // will allways be false here so we have to deinit the instances no matter what.
-            std.debug.warn("\n------ (deinit) T: {}, size: {}, is_empty_struct: {}\n", .{ @typeName(@TypeOf(self)), @sizeOf(CompT), is_empty_struct });
             self.safe_deinit(self);
             self.set.deinit();
 

@@ -30,8 +30,7 @@ pub const Registry = struct {
     typemap: TypeMap,
     handles: EntityHandles,
     components: std.AutoHashMap(u8, usize),
-    component_contexts: std.AutoHashMap(u8, usize),
-    context: usize = 0,
+    contexts: std.AutoHashMap(u8, usize),
     allocator: *std.mem.Allocator,
 
     pub fn init(allocator: *std.mem.Allocator) Registry {
@@ -39,7 +38,7 @@ pub const Registry = struct {
             .typemap = TypeMap.init(allocator),
             .handles = EntityHandles.init(allocator),
             .components = std.AutoHashMap(u8, usize).init(allocator),
-            .component_contexts = std.AutoHashMap(u8, usize).init(allocator),
+            .contexts = std.AutoHashMap(u8, usize).init(allocator),
             .allocator = allocator,
         };
     }
@@ -53,7 +52,7 @@ pub const Registry = struct {
         }
 
         self.components.deinit();
-        self.component_contexts.deinit();
+        self.contexts.deinit();
         self.typemap.deinit();
         self.handles.deinit();
     }
@@ -198,40 +197,28 @@ pub const Registry = struct {
     /// Binds an object to the context of the registry
     pub fn setContext(self: *Registry, context: var) void {
         std.debug.assert(@typeInfo(@TypeOf(context)) == .Pointer);
-        self.context = @ptrToInt(context);
+
+        var type_id: u8 = undefined;
+        _ = self.typemap.getOrPut(@typeInfo(@TypeOf(context)).Pointer.child, &type_id);
+        _ = self.contexts.put(type_id, @ptrToInt(context)) catch unreachable;
     }
 
     /// Unsets a context variable if it exists
-    pub fn unsetContext(self: *Registry) void {
-        self.context = 0;
+    pub fn unsetContext(self: *Registry, comptime T: type) void {
+        std.debug.assert(@typeInfo(T) != .Pointer);
+
+        var type_id: u8 = undefined;
+        _ = self.typemap.getOrPut(T, &type_id);
+        _ = self.contexts.put(type_id, 0) catch unreachable;
     }
 
     /// Returns a pointer to an object in the context of the registry
     pub fn getContext(self: *Registry, comptime T: type) ?*T {
-        return if (self.context > 0) @intToPtr(*T, self.context) else null;
-    }
-
-    /// Binds an object to the context of the Component type
-    pub fn setComponentContext(self: *Registry, comptime Component: type, context: var) void {
-        std.debug.assert(@typeInfo(@TypeOf(context)) == .Pointer);
+        std.debug.assert(@typeInfo(T) != .Pointer);
 
         var type_id: u8 = undefined;
-        _ = self.typemap.getOrPut(Component, &type_id);
-        _ = self.component_contexts.put(type_id, @ptrToInt(context)) catch unreachable;
-    }
-
-    /// Unsets a context variable associated with a Component type if it exists
-    pub fn unsetComponentContext(self: *Registry, comptime Component: type) void {
-        var type_id: u8 = undefined;
-        _ = self.typemap.getOrPut(Component, &type_id);
-        _ = self.component_contexts.put(type_id, 0) catch unreachable;
-    }
-
-    /// Returns a pointer to an object in the context of the Component type
-    pub fn getComponentContext(self: *Registry, comptime Component: type, comptime T: type) ?*T {
-        var type_id: u8 = undefined;
-        _ = self.typemap.getOrPut(Component, &type_id);
-        return if (self.component_contexts.get(type_id)) |ptr|
+        _ = self.typemap.getOrPut(T, &type_id);
+        return if (self.contexts.get(type_id)) |ptr|
             return if (ptr.value > 0) @intToPtr(*T, ptr.value) else null
         else
             null;
@@ -272,7 +259,7 @@ test "context get/set/unset" {
     ctx = reg.getContext(Position);
     std.testing.expectEqual(ctx.?, &pos);
 
-    reg.unsetContext();
+    reg.unsetContext(Position);
     ctx = reg.getContext(Position);
     std.testing.expectEqual(ctx, null);
 }
@@ -292,15 +279,15 @@ test "component context get/set/unset" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var ctx = reg.getComponentContext(Position, SomeType);
+    var ctx = reg.getContext(SomeType);
     std.testing.expectEqual(ctx, null);
 
     var pos = SomeType{ .dummy = 0 };
-    reg.setComponentContext(Position, &pos);
-    ctx = reg.getComponentContext(Position, SomeType);
+    reg.setContext(&pos);
+    ctx = reg.getContext(SomeType);
     std.testing.expectEqual(ctx.?, &pos);
 
-    reg.unsetComponentContext(Position);
-    ctx = reg.getComponentContext(Position, SomeType);
+    reg.unsetContext(SomeType);
+    ctx = reg.getContext(SomeType);
     std.testing.expectEqual(ctx, null);
 }
