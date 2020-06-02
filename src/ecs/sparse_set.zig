@@ -85,7 +85,7 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
 
         fn assure(self: *Self, pos: usize) []DenseT {
             // TODO: support paging
-            if (self.sparse.capacity < pos or self.sparse.capacity == 0) {
+            if (self.sparse.capacity <= pos or self.sparse.capacity == 0) {
                 const amount = pos + 1 - self.sparse.capacity;
 
                 // expand and fill with maxInt as an identifier

@@ -10,7 +10,7 @@ pub fn Signal(comptime Event: type) type {
         allocator: ?*std.mem.Allocator = null,
 
         pub fn init(allocator: *std.mem.Allocator) Self {
-            // we purposely do not store the allocator locally in this case!
+            // we purposely do not store the allocator locally in this case so we know not to destroy ourself in deint!
             return Self{
                 .calls = std.ArrayList(Delegate(Event)).init(allocator),
             };

@@ -3,7 +3,11 @@ const warn = std.debug.warn;
 const utils = @import("utils.zig");
 
 const SparseSet = @import("sparse_set.zig").SparseSet;
+const Signal = @import("../signals/signal.zig").Signal;
+const Sink = @import("../signals/sink.zig").Sink;
 
+/// Stores an ArrayList of components along with a SparseSet of entities. The max amount that can be stored is
+/// based on the max value of DenseT
 pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime DenseT: type) type {
     std.debug.assert(!utils.isComptime(CompT));
 
@@ -25,6 +29,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
         instances: std.ArrayList(CompOrAlmostEmptyT),
         allocator: ?*std.mem.Allocator,
         safe_deinit: fn (*Self) void,
+        construction: Signal(EntityT),
+        update: Signal(EntityT),
+        destruction: Signal(EntityT),
 
         pub fn init(allocator: *std.mem.Allocator) Self {
             var store = Self{
@@ -37,6 +44,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
                     }
                 }.deinit,
                 .allocator = null,
+                .construction = Signal(EntityT).init(allocator),
+                .update = Signal(EntityT).init(allocator),
+                .destruction = Signal(EntityT).init(allocator),
             };
 
             if (!is_empty_struct)
@@ -51,6 +61,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
             if (!is_empty_struct)
                 store.instances = std.ArrayList(CompOrAlmostEmptyT).init(allocator);
             store.allocator = allocator;
+            store.construction = Signal(EntityT).init(allocator);
+            store.update = Signal(EntityT).init(allocator);
+            store.destruction = Signal(EntityT).init(allocator);
 
             // since we are stored as a pointer, we need to catpure this
             store.safe_deinit = struct {
@@ -69,9 +82,24 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
             // will allways be false here so we have to deinit the instances no matter what.
             self.safe_deinit(self);
             self.set.deinit();
+            self.construction.deinit();
+            self.update.deinit();
+            self.destruction.deinit();
 
             if (self.allocator) |allocator|
                 allocator.destroy(self);
+        }
+
+        pub fn onConstruct(self: *Self) Sink(EntityT) {
+            return self.construction.sink();
+        }
+
+        pub fn onUpdate(self: *Self) Sink(EntityT) {
+            return self.update.sink();
+        }
+
+        pub fn onDestruct(self: *Self) Sink(EntityT) {
+            return self.destruction.sink();
         }
 
         /// Increases the capacity of a component storage
@@ -81,11 +109,20 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
                 self.instances.items.reserve(cap);
         }
 
-        /// Assigns an entity to a storage and constructs its object
+        /// Assigns an entity to a storage and assigns its object
         pub fn add(self: *Self, entity: EntityT, value: CompT) void {
             if (!is_empty_struct)
                 _ = self.instances.append(value) catch unreachable;
             self.set.add(entity);
+            self.construction.publish(entity);
+        }
+
+        /// Removes an entity from a storage
+        pub fn remove(self: *Self, entity: EntityT) void {
+            if (!is_empty_struct)
+                _ = self.instances.swapRemove(self.set.index(entity));
+            self.destruction.publish(entity);
+            self.set.remove(entity);
         }
 
         /// Checks if a view contains an entity
@@ -104,6 +141,12 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
                 /// Direct access to the array of objects
                 pub fn raw(self: Self) []CompT {
                     return self.instances.items;
+                }
+
+                /// Replaces the given component for an entity
+                pub fn replace(self: *Self, entity: EntityT, value: CompT) void {
+                    self.get(entity).* = value;
+                    self.update.publish(entity);
                 }
 
                 /// Returns the object associated with an entity
@@ -129,13 +172,6 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
         /// Direct access to the array of entities
         pub fn data(self: Self) *const []EntityT {
             return self.set.data();
-        }
-
-        /// Removes an entity from a storage
-        pub fn remove(self: *Self, entity: EntityT) void {
-            if (!is_empty_struct)
-                _ = self.instances.swapRemove(self.set.index(entity));
-            self.set.remove(entity);
         }
 
         /// Swaps entities and objects in the internal packed arrays
@@ -207,4 +243,35 @@ test "empty component" {
 
     store.add(3, Empty{});
     store.remove(3);
+}
+
+fn construct(e: u32) void {
+    std.debug.assert(e == 3);
+}
+fn update(e: u32) void {
+    std.debug.assert(e == 3);
+}
+fn destruct(e: u32) void {
+    std.debug.assert(e == 3);
+}
+
+test "signals" {
+    var store = ComponentStorage(f32, u32, u8).init(std.testing.allocator);
+    defer store.deinit();
+
+    store.onConstruct().connect(construct);
+    store.onUpdate().connect(update);
+    store.onDestruct().connect(destruct);
+
+    store.add(3, 66.45);
+    store.replace(3, 45.64);
+    store.remove(3);
+
+    store.onConstruct().disconnect(construct);
+    store.onUpdate().disconnect(update);
+    store.onDestruct().disconnect(destruct);
+
+    store.add(4, 66.45);
+    store.replace(4, 45.64);
+    store.remove(4);
 }

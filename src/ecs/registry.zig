@@ -70,20 +70,29 @@ pub const Registry = struct {
         return @intToPtr(*Storage(T), ptr);
     }
 
+    /// Prepares a pool for the given type if required
     pub fn prepare(self: *Registry, comptime T: type) void {
-        unreachable;
+        _ = self.assure(T);
     }
 
+    /// Returns the number of existing components of the given type
     pub fn len(self: *Registry, comptime T: type) usize {
         self.assure(T).len();
     }
 
+    /// Increases the capacity of the registry or of the pools for the given component
+    pub fn reserve(self: *Self, comptime T: type, cap: usize) void {
+        self.assure(T).reserve(cap);
+    }
+
+    /// Direct access to the list of components of a given pool
     pub fn raw(self: Registry, comptime T: type) []T {
         return self.assure(T).raw();
     }
 
-    pub fn reserve(self: *Self, comptime T: type, cap: usize) void {
-        self.assure(T).reserve(cap);
+    /// Direct access to the list of entities of a given pool
+    pub fn data(self: Registry, comptime T: type) []Entity {
+        return self.assure(T).data();
     }
 
     pub fn valid(self: *Registry, entity: Entity) bool {
@@ -122,10 +131,10 @@ pub const Registry = struct {
         self.add(entity, value);
     }
 
+    /// Replaces the given component for an entity
     pub fn replace(self: *Registry, entity: Entity, value: var) void {
         assert(self.valid(entity));
-        var ptr = self.assure(@TypeOf(value)).get(entity);
-        ptr.* = value;
+        self.assure(@TypeOf(value)).replace(entity, value);
     }
 
     /// shortcut for replacing raw comptime_int/float without having to @as cast
@@ -165,7 +174,13 @@ pub const Registry = struct {
     /// Removes all the components from an entity and makes it orphaned
     pub fn removeAll(self: *Registry, entity: Entity) void {
         assert(self.valid(entity));
-        // unreachable;
+
+        var it = self.components.iterator();
+        while (it.next()) |ptr| {
+            // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
+            var store = @intToPtr(*Storage(u128), ptr.value);
+            if (store.contains(entity)) store.remove(entity);
+        }
     }
 
     pub fn has(self: *Registry, comptime T: type, entity: Entity) bool {
@@ -192,6 +207,21 @@ pub const Registry = struct {
 
     pub fn tryGet(self: *Registry, comptime T: type, entity: Entity) ?*T {
         return self.assure(T).tryGet(entity);
+    }
+
+    /// Returns a Sink object for the given component to add/remove listeners with
+    pub fn onConstruct(self: *Self, comptime T: type) Sink(Entity) {
+        return self.assure(T).onConstruct();
+    }
+
+    /// Returns a Sink object for the given component to add/remove listeners with
+    pub fn onUpdate(self: *Self, comptime T: type) Sink(Entity) {
+        return self.assure(T).onUpdate();
+    }
+
+    /// Returns a Sink object for the given component to add/remove listeners with
+    pub fn onDestruct(self: *Self, comptime T: type) Sink(Entity) {
+        return self.assure(T).onDestruct();
     }
 
     /// Binds an object to the context of the registry
@@ -290,4 +320,41 @@ test "component context get/set/unset" {
     reg.unsetContext(SomeType);
     ctx = reg.getContext(SomeType);
     std.testing.expectEqual(ctx, null);
+}
+
+test "destroy" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var i = @as(u8, 0);
+    while (i < 255) : (i += 1) {
+        const e = reg.create();
+        reg.add(e, Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) });
+    }
+
+    reg.destroy(3);
+    reg.destroy(4);
+
+    i = 0;
+    while (i < 6) : (i += 1) {
+        if (i != 3 and i != 4)
+            std.testing.expectEqual(Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i)}, reg.getConst(Position, i));
+    }
+}
+
+test "remove all" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var e = reg.create();
+    reg.add(e, Position{.x = 1, .y = 1});
+    reg.addTyped(u32, e, 666);
+
+    std.testing.expect(reg.has(Position, e));
+    std.testing.expect(reg.has(u32, e));
+
+    reg.removeAll(e);
+
+    std.testing.expect(!reg.has(Position, e));
+    std.testing.expect(!reg.has(u32, e));
 }
