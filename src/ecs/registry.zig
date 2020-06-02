@@ -254,24 +254,34 @@ pub const Registry = struct {
             null;
     }
 
-    pub fn view(self: *Registry, comptime includes: var) ViewType(includes) {
+    pub fn view(self: *Registry, comptime includes: var, comptime excludes: var) ViewType(includes, excludes) {
+        if (@typeInfo(@TypeOf(includes)) != .Struct)
+            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(args)));
+        if (@typeInfo(@TypeOf(excludes)) != .Struct)
+            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(excludes)));
         std.debug.assert(includes.len > 0);
 
-        if (includes.len == 1)
+        if (includes.len == 1 and excludes.len == 0)
             return BasicView(includes[0]).init(self.assure(includes[0]));
 
-        var arr: [includes.len]u32 = undefined;
+        var includes_arr: [includes.len]u32 = undefined;
         inline for (includes) |t, i| {
             _ = self.assure(t);
-            arr[i] = @as(u32, self.typemap.get(t));
+            includes_arr[i] = @as(u32, self.typemap.get(t));
         }
 
-        return BasicMultiView(includes.len).init(arr, self);
+        var excludes_arr: [excludes.len]u32 = undefined;
+        inline for (excludes) |t, i| {
+            _ = self.assure(t);
+            excludes_arr[i] = @as(u32, self.typemap.get(t));
+        }
+
+        return BasicMultiView(includes.len, excludes.len).init(includes_arr, excludes_arr, self);
     }
 
-    fn ViewType(comptime includes: var) type {
-        if (includes.len == 1) return BasicView(includes[0]);
-        return BasicMultiView(includes.len);
+    fn ViewType(comptime includes: var, comptime excludes: var) type {
+        if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
+        return BasicMultiView(includes.len, excludes.len);
     }
 };
 

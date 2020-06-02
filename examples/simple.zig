@@ -19,7 +19,7 @@ pub fn main() !void {
     reg.add(e2, Position{ .x = 10, .y = 10 });
     reg.add(e2, Velocity{ .x = 15, .y = 17 });
 
-    var view = reg.view(.{ Velocity, Position });
+    var view = reg.view(.{ Velocity, Position }, .{});
 
     var iter = view.iterator();
     while (iter.next()) |entity| {
