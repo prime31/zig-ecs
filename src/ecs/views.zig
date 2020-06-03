@@ -47,9 +47,9 @@ pub fn BasicMultiView(comptime n_includes: usize, comptime n_excludes: usize) ty
     return struct {
         const Self = @This();
 
+        registry: *Registry,
         type_ids: [n_includes]u32,
         exclude_type_ids: [n_excludes]u32,
-        registry: *Registry,
 
         pub const Iterator = struct {
             view: *Self,
@@ -99,26 +99,20 @@ pub fn BasicMultiView(comptime n_includes: usize, comptime n_excludes: usize) ty
             }
         };
 
-        pub fn init(type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32, registry: *Registry) Self {
+        pub fn init(registry: *Registry, type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
             return Self{
+                .registry = registry,
                 .type_ids = type_ids,
                 .exclude_type_ids = exclude_type_ids,
-                .registry = registry,
             };
         }
 
         pub fn get(self: *Self, comptime T: type, entity: Entity) *T {
-            const type_id = self.registry.typemap.get(T);
-            const ptr = self.registry.components.getValue(type_id).?;
-            const store = @intToPtr(*Storage(T), ptr);
-            return store.get(entity);
+            return self.registry.assure(T).get(entity);
         }
 
         pub fn getConst(self: *Self, comptime T: type, entity: Entity) T {
-            const type_id = self.registry.typemap.get(T);
-            const ptr = self.registry.components.getValue(type_id).?;
-            const store = @intToPtr(*Storage(T), ptr);
-            return store.getConst(entity);
+            return self.registry.assure(T).getConst(entity);
         }
 
         fn sort(self: *Self) void {

@@ -15,8 +15,9 @@ const entity_traits = if (@hasDecl(root, "EntityTraits")) root.EntityTraits.init
 const EntityHandles = Handles(entity_traits.entity_type, entity_traits.index_type, entity_traits.version_type);
 pub const Entity = entity_traits.entity_type;
 
-pub const BasicView = @import("view.zig").BasicView;
-pub const BasicMultiView = @import("view.zig").BasicMultiView;
+pub const BasicView = @import("views.zig").BasicView;
+pub const BasicMultiView = @import("views.zig").BasicMultiView;
+pub const NonOwningGroup = @import("groups.zig").NonOwningGroup;
 
 /// Stores an ArrayList of components. The max amount that can be stored is based on the type below
 pub fn Storage(comptime CompT: type) type {
@@ -31,7 +32,43 @@ pub const Registry = struct {
     handles: EntityHandles,
     components: std.AutoHashMap(u8, usize),
     contexts: std.AutoHashMap(u8, usize),
+    groups: std.ArrayList(GroupData),
     allocator: *std.mem.Allocator,
+
+    const GroupData = struct {
+        hash: u32,
+        entity_set: SparseSet(Entity, u16) = undefined,
+        owned: []u32,
+        include: []u32,
+        exclude: []u32,
+
+        pub fn init(allocator: *std.mem.Allocator, registry: *Registry, hash: u32, owned: []u32, include: []u32, exclude: []u32) GroupData {
+            std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
+            std.debug.assert(std.mem.indexOfAny(u32, owned, exclude) == null);
+            std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
+
+            const group_data = GroupData{
+                .hash = hash,
+                .entity_set = SparseSet(Entity, u16).init(allocator),
+                .owned = std.mem.dupe(allocator, u32, owned) catch unreachable,
+                .include = std.mem.dupe(allocator, u32, include) catch unreachable,
+                .exclude = std.mem.dupe(allocator, u32, exclude) catch unreachable,
+            };
+
+            return group_data;
+        }
+
+        pub fn deinit(self: *GroupData, allocator: *std.mem.Allocator) void {
+            self.entity_set.deinit();
+            allocator.free(self.owned);
+            allocator.free(self.include);
+            allocator.free(self.exclude);
+        }
+
+        pub fn hasSameConstraints(self: *GroupData, owned: []u32, include: []u32, exclude: []u32) bool {
+            return std.mem.eql(u32, self.owned, owned) and std.mem.eql(u32, self.include, include) and std.mem.eql(u32, self.exclude, exclude);
+        }
+    };
 
     pub fn init(allocator: *std.mem.Allocator) Registry {
         return Registry{
@@ -39,6 +76,7 @@ pub const Registry = struct {
             .handles = EntityHandles.init(allocator),
             .components = std.AutoHashMap(u8, usize).init(allocator),
             .contexts = std.AutoHashMap(u8, usize).init(allocator),
+            .groups = std.ArrayList(GroupData).init(allocator),
             .allocator = allocator,
         };
     }
@@ -51,8 +89,13 @@ pub const Registry = struct {
             storage.deinit();
         }
 
+        for (self.groups.items) |*grp| {
+            grp.deinit(self.allocator);
+        }
+
         self.components.deinit();
         self.contexts.deinit();
+        self.groups.deinit();
         self.typemap.deinit();
         self.handles.deinit();
     }
@@ -276,95 +319,73 @@ pub const Registry = struct {
             excludes_arr[i] = @as(u32, self.typemap.get(t));
         }
 
-        return BasicMultiView(includes.len, excludes.len).init(includes_arr, excludes_arr, self);
+        return BasicMultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
     }
 
+    /// returns the Type that a view will be based on the includes and excludes
     fn ViewType(comptime includes: var, comptime excludes: var) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
         return BasicMultiView(includes.len, excludes.len);
     }
+
+    pub fn group(self: *Registry, comptime owned: var, comptime includes: var, comptime excludes: var) GroupType(owned, includes, excludes) {
+        if (@typeInfo(@TypeOf(owned)) != .Struct)
+            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(owned)));
+        if (@typeInfo(@TypeOf(includes)) != .Struct)
+            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(includes)));
+        if (@typeInfo(@TypeOf(excludes)) != .Struct)
+            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(excludes)));
+        std.debug.assert(includes.len + owned.len > 0);
+        std.debug.assert(includes.len + owned.len + excludes.len >= 1);
+
+        var owned_arr: [owned.len]u32 = undefined;
+        inline for (owned) |t, i| {
+            _ = self.assure(t);
+            owned_arr[i] = @as(u32, self.typemap.get(t));
+        }
+
+        var includes_arr: [includes.len]u32 = undefined;
+        inline for (includes) |t, i| {
+            _ = self.assure(t);
+            includes_arr[i] = @as(u32, self.typemap.get(t));
+        }
+
+        var excludes_arr: [excludes.len]u32 = undefined;
+        inline for (excludes) |t, i| {
+            _ = self.assure(t);
+            excludes_arr[i] = @as(u32, self.typemap.get(t));
+        }
+
+        // create a unique hash to identify the group
+        var group_data: ?*GroupData = null;
+        comptime const hash = owned.len + (31 * includes.len) + (31 * 31 * excludes.len);
+
+        for (self.groups.items) |*grp| {
+            if (grp.hash == hash and grp.hasSameConstraints(owned_arr[0..], includes_arr[0..], excludes_arr[0..])) {
+                group_data = grp;
+                break;
+            }
+        }
+
+
+        // non-owning groups
+        if (owned.len == 0) {
+            if (group_data != null) {
+                return NonOwningGroup(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
+            }
+
+            var new_group_data = GroupData.init(self.allocator, self, hash, &[_]u32{}, includes_arr[0..], excludes_arr[0..]);
+            new_group_data.entity_set.reserve(5);
+            self.groups.append(new_group_data) catch unreachable;
+            return NonOwningGroup(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
+        }
+
+        @compileLog("owned groups not implemented");
+    }
+
+    /// returns the Type that a view will be based on the includes and excludes
+    fn GroupType(comptime owned: var, comptime includes: var, comptime excludes: var) type {
+        if (owned.len == 0) return NonOwningGroup(includes.len, excludes.len);
+        unreachable;
+    }
 };
-
-const Position = struct { x: f32, y: f32 };
-
-test "context get/set/unset" {
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    var ctx = reg.getContext(Position);
-    std.testing.expectEqual(ctx, null);
-
-    var pos = Position{ .x = 5, .y = 5 };
-    reg.setContext(&pos);
-    ctx = reg.getContext(Position);
-    std.testing.expectEqual(ctx.?, &pos);
-
-    reg.unsetContext(Position);
-    ctx = reg.getContext(Position);
-    std.testing.expectEqual(ctx, null);
-}
-
-// this test should fail
-test "context not pointer" {
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    var pos = Position{ .x = 5, .y = 5 };
-    // reg.setContext(pos);
-}
-
-test "component context get/set/unset" {
-    const SomeType = struct { dummy: u1 };
-
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    var ctx = reg.getContext(SomeType);
-    std.testing.expectEqual(ctx, null);
-
-    var pos = SomeType{ .dummy = 0 };
-    reg.setContext(&pos);
-    ctx = reg.getContext(SomeType);
-    std.testing.expectEqual(ctx.?, &pos);
-
-    reg.unsetContext(SomeType);
-    ctx = reg.getContext(SomeType);
-    std.testing.expectEqual(ctx, null);
-}
-
-test "destroy" {
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    var i = @as(u8, 0);
-    while (i < 255) : (i += 1) {
-        const e = reg.create();
-        reg.add(e, Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) });
-    }
-
-    reg.destroy(3);
-    reg.destroy(4);
-
-    i = 0;
-    while (i < 6) : (i += 1) {
-        if (i != 3 and i != 4)
-            std.testing.expectEqual(Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i)}, reg.getConst(Position, i));
-    }
-}
-
-test "remove all" {
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    var e = reg.create();
-    reg.add(e, Position{.x = 1, .y = 1});
-    reg.addTyped(u32, e, 666);
-
-    std.testing.expect(reg.has(Position, e));
-    std.testing.expect(reg.has(u32, e));
-
-    reg.removeAll(e);
-
-    std.testing.expect(!reg.has(Position, e));
-    std.testing.expect(!reg.has(u32, e));
-}
