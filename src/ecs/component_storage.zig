@@ -35,7 +35,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
 
         pub fn init(allocator: *std.mem.Allocator) Self {
             var store = Self{
-                .set = SparseSet(EntityT, DenseT).init(allocator),
+                .set = SparseSet(EntityT, DenseT).initPtr(allocator),
                 .instances = undefined,
                 .safe_deinit = struct {
                     fn deinit(self: *Self) void {
@@ -57,7 +57,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
 
         pub fn initPtr(allocator: *std.mem.Allocator) *Self {
             var store = allocator.create(Self) catch unreachable;
-            store.set = SparseSet(EntityT, DenseT).init(allocator);
+            store.set = SparseSet(EntityT, DenseT).initPtr(allocator);
             if (!is_empty_struct)
                 store.instances = std.ArrayList(CompOrAlmostEmptyT).init(allocator);
             store.allocator = allocator;

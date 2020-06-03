@@ -26,3 +26,85 @@ test "Registry" {
     reg.remove(Empty, e1);
     std.testing.expect(!reg.has(Empty, e1));
 }
+
+test "context get/set/unset" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var ctx = reg.getContext(Position);
+    std.testing.expectEqual(ctx, null);
+
+    var pos = Position{ .x = 5, .y = 5 };
+    reg.setContext(&pos);
+    ctx = reg.getContext(Position);
+    std.testing.expectEqual(ctx.?, &pos);
+
+    reg.unsetContext(Position);
+    ctx = reg.getContext(Position);
+    std.testing.expectEqual(ctx, null);
+}
+
+// this test should fail
+test "context not pointer" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var pos = Position{ .x = 5, .y = 5 };
+    // reg.setContext(pos);
+}
+
+test "component context get/set/unset" {
+    const SomeType = struct { dummy: u1 };
+
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var ctx = reg.getContext(SomeType);
+    std.testing.expectEqual(ctx, null);
+
+    var pos = SomeType{ .dummy = 0 };
+    reg.setContext(&pos);
+    ctx = reg.getContext(SomeType);
+    std.testing.expectEqual(ctx.?, &pos);
+
+    reg.unsetContext(SomeType);
+    ctx = reg.getContext(SomeType);
+    std.testing.expectEqual(ctx, null);
+}
+
+test "destroy" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var i = @as(u8, 0);
+    while (i < 255) : (i += 1) {
+        const e = reg.create();
+        reg.add(e, Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) });
+    }
+
+    reg.destroy(3);
+    reg.destroy(4);
+
+    i = 0;
+    while (i < 6) : (i += 1) {
+        if (i != 3 and i != 4)
+            std.testing.expectEqual(Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) }, reg.getConst(Position, i));
+    }
+}
+
+test "remove all" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var e = reg.create();
+    reg.add(e, Position{ .x = 1, .y = 1 });
+    reg.addTyped(u32, e, 666);
+
+    std.testing.expect(reg.has(Position, e));
+    std.testing.expect(reg.has(u32, e));
+
+    reg.removeAll(e);
+
+    std.testing.expect(!reg.has(Position, e));
+    std.testing.expect(!reg.has(u32, e));
+}

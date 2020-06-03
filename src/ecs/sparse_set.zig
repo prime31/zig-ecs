@@ -58,23 +58,32 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
         sparse: std.ArrayList(DenseT),
         dense: std.ArrayList(SparseT),
         entity_mask: SparseT,
-        allocator: *std.mem.Allocator,
+        allocator: ?*std.mem.Allocator,
 
-        pub fn init(allocator: *std.mem.Allocator) *Self {
+        pub fn initPtr(allocator: *std.mem.Allocator) *Self {
             var set = allocator.create(Self) catch unreachable;
-
             set.sparse = std.ArrayList(DenseT).init(allocator);
             set.dense = std.ArrayList(SparseT).init(allocator);
             set.entity_mask = std.math.maxInt(SparseT);
             set.allocator = allocator;
-
             return set;
+        }
+
+        pub fn init(allocator: *std.mem.Allocator) Self {
+            return Self{
+                .sparse = std.ArrayList(DenseT).init(allocator),
+                .dense = std.ArrayList(SparseT).init(allocator),
+                .entity_mask = std.math.maxInt(SparseT),
+                .allocator = null,
+            };
         }
 
         pub fn deinit(self: *Self) void {
             self.dense.deinit();
             self.sparse.deinit();
-            self.allocator.destroy(self);
+
+            if (self.allocator) |allocator|
+                allocator.destroy(self);
         }
 
         fn page(self: Self, sparse: SparseT) usize {
@@ -106,7 +115,7 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
 
         /// Increases the capacity of a sparse set.
         pub fn reserve(self: *Self, cap: usize) void {
-            self.dense.resize(cap);
+            self.dense.resize(cap) catch unreachable;
         }
 
         /// Returns the number of elements that a sparse set has currently allocated space for
@@ -197,7 +206,7 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
 }
 
 test "add/remove/clear" {
-    var set = SparseSet(u32, u8).init(std.testing.allocator);
+    var set = SparseSet(u32, u8).initPtr(std.testing.allocator);
     defer set.deinit();
 
     set.add(4);
@@ -214,7 +223,7 @@ test "add/remove/clear" {
 }
 
 test "grow" {
-    var set = SparseSet(u32, u8).init(std.testing.allocator);
+    var set = SparseSet(u32, u8).initPtr(std.testing.allocator);
     defer set.deinit();
 
     var i = @as(usize, std.math.maxInt(u8));
@@ -226,7 +235,7 @@ test "grow" {
 }
 
 test "swap" {
-    var set = SparseSet(u32, u8).init(std.testing.allocator);
+    var set = SparseSet(u32, u8).initPtr(std.testing.allocator);
     defer set.deinit();
 
     set.add(4);
@@ -240,7 +249,7 @@ test "swap" {
 }
 
 test "data() synced" {
-    var set = SparseSet(u32, u8).init(std.testing.allocator);
+    var set = SparseSet(u32, u8).initPtr(std.testing.allocator);
     defer set.deinit();
 
     set.add(0);
