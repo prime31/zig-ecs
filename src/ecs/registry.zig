@@ -6,6 +6,7 @@ const Handles = @import("handles.zig").Handles;
 const SparseSet = @import("sparse_set.zig").SparseSet;
 const TypeMap = @import("type_map.zig").TypeMap;
 const ComponentStorage = @import("component_storage.zig").ComponentStorage;
+const Sink = @import("../signals/sink.zig").Sink;
 
 // allow overriding EntityTraits by setting in root via: EntityTraits = EntityTraitsType(.medium);
 const root = @import("root");
@@ -16,8 +17,8 @@ const EntityHandles = Handles(entity_traits.entity_type, entity_traits.index_typ
 pub const Entity = entity_traits.entity_type;
 
 pub const BasicView = @import("views.zig").BasicView;
-pub const BasicMultiView = @import("views.zig").BasicMultiView;
-pub const NonOwningGroup = @import("groups.zig").NonOwningGroup;
+pub const MultiView = @import("views.zig").MultiView;
+pub const BasicGroup = @import("groups.zig").BasicGroup;
 
 /// Stores an ArrayList of components. The max amount that can be stored is based on the type below
 pub fn Storage(comptime CompT: type) type {
@@ -32,28 +33,29 @@ pub const Registry = struct {
     handles: EntityHandles,
     components: std.AutoHashMap(u8, usize),
     contexts: std.AutoHashMap(u8, usize),
-    groups: std.ArrayList(GroupData),
+    groups: std.ArrayList(*GroupData),
     allocator: *std.mem.Allocator,
 
     const GroupData = struct {
         hash: u32,
-        entity_set: SparseSet(Entity, u16) = undefined,
+        entity_set: SparseSet(Entity, u16), // TODO: dont hardcode this. put it in EntityTraits maybe. All SparseSets would need to use the value.
         owned: []u32,
         include: []u32,
         exclude: []u32,
+        registry: *Registry,
 
-        pub fn init(allocator: *std.mem.Allocator, registry: *Registry, hash: u32, owned: []u32, include: []u32, exclude: []u32) GroupData {
+        pub fn initPtr(allocator: *std.mem.Allocator, registry: *Registry, hash: u32, owned: []u32, include: []u32, exclude: []u32) *GroupData {
             std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
             std.debug.assert(std.mem.indexOfAny(u32, owned, exclude) == null);
             std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
 
-            const group_data = GroupData{
-                .hash = hash,
-                .entity_set = SparseSet(Entity, u16).init(allocator),
-                .owned = std.mem.dupe(allocator, u32, owned) catch unreachable,
-                .include = std.mem.dupe(allocator, u32, include) catch unreachable,
-                .exclude = std.mem.dupe(allocator, u32, exclude) catch unreachable,
-            };
+            var group_data = allocator.create(GroupData) catch unreachable;
+            group_data.hash = hash;
+            group_data.entity_set = SparseSet(Entity, u16).init(allocator);
+            group_data.owned = std.mem.dupe(allocator, u32, owned) catch unreachable;
+            group_data.include = std.mem.dupe(allocator, u32, include) catch unreachable;
+            group_data.exclude = std.mem.dupe(allocator, u32, exclude) catch unreachable;
+            group_data.registry = registry;
 
             return group_data;
         }
@@ -63,10 +65,46 @@ pub const Registry = struct {
             allocator.free(self.owned);
             allocator.free(self.include);
             allocator.free(self.exclude);
+            allocator.destroy(self);
         }
 
-        pub fn hasSameConstraints(self: *GroupData, owned: []u32, include: []u32, exclude: []u32) bool {
-            return std.mem.eql(u32, self.owned, owned) and std.mem.eql(u32, self.include, include) and std.mem.eql(u32, self.exclude, exclude);
+        fn maybeValidIf(self: *GroupData, entity: Entity) void {
+            const isValid: bool = blk: {
+                for (self.owned) |tid| {
+                    const ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                    if (!@intToPtr(*Storage(u1), ptr).contains(entity))
+                        break :blk false;
+                }
+
+                for (self.include) |tid| {
+                    const ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                    if (!@intToPtr(*Storage(u1), ptr).contains(entity))
+                        break :blk false;
+                }
+
+                for (self.exclude) |tid| {
+                    const ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                    if (@intToPtr(*Storage(u1), ptr).contains(entity))
+                        break :blk false;
+                }
+                break :blk true;
+            };
+
+            if (self.owned.len == 0) {
+                if (isValid and !self.entity_set.contains(entity))
+                    self.entity_set.add(entity);
+            } else {
+                std.debug.assert(self.owned.len >= 0);
+            }
+        }
+
+        fn discardIf(self: *GroupData, entity: Entity) void {
+            if (self.owned.len == 0) {
+                if (self.entity_set.contains(entity))
+                    self.entity_set.remove(entity);
+            } else {
+                std.debug.assert(self.owned.len == 0);
+            }
         }
     };
 
@@ -76,7 +114,7 @@ pub const Registry = struct {
             .handles = EntityHandles.init(allocator),
             .components = std.AutoHashMap(u8, usize).init(allocator),
             .contexts = std.AutoHashMap(u8, usize).init(allocator),
-            .groups = std.ArrayList(GroupData).init(allocator),
+            .groups = std.ArrayList(*GroupData).init(allocator),
             .allocator = allocator,
         };
     }
@@ -89,7 +127,7 @@ pub const Registry = struct {
             storage.deinit();
         }
 
-        for (self.groups.items) |*grp| {
+        for (self.groups.items) |grp| {
             grp.deinit(self.allocator);
         }
 
@@ -253,17 +291,17 @@ pub const Registry = struct {
     }
 
     /// Returns a Sink object for the given component to add/remove listeners with
-    pub fn onConstruct(self: *Self, comptime T: type) Sink(Entity) {
+    pub fn onConstruct(self: *Registry, comptime T: type) Sink(Entity) {
         return self.assure(T).onConstruct();
     }
 
     /// Returns a Sink object for the given component to add/remove listeners with
-    pub fn onUpdate(self: *Self, comptime T: type) Sink(Entity) {
+    pub fn onUpdate(self: *Registry, comptime T: type) Sink(Entity) {
         return self.assure(T).onUpdate();
     }
 
     /// Returns a Sink object for the given component to add/remove listeners with
-    pub fn onDestruct(self: *Self, comptime T: type) Sink(Entity) {
+    pub fn onDestruct(self: *Registry, comptime T: type) Sink(Entity) {
         return self.assure(T).onDestruct();
     }
 
@@ -319,13 +357,13 @@ pub const Registry = struct {
             excludes_arr[i] = @as(u32, self.typemap.get(t));
         }
 
-        return BasicMultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
+        return MultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
     }
 
     /// returns the Type that a view will be based on the includes and excludes
     fn ViewType(comptime includes: var, comptime excludes: var) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
-        return BasicMultiView(includes.len, excludes.len);
+        return MultiView(includes.len, excludes.len);
     }
 
     pub fn group(self: *Registry, comptime owned: var, comptime includes: var, comptime excludes: var) GroupType(owned, includes, excludes) {
@@ -335,8 +373,8 @@ pub const Registry = struct {
             @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(includes)));
         if (@typeInfo(@TypeOf(excludes)) != .Struct)
             @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(excludes)));
-        std.debug.assert(includes.len + owned.len > 0);
-        std.debug.assert(includes.len + owned.len + excludes.len >= 1);
+        std.debug.assert(owned.len + includes.len > 0);
+        std.debug.assert(owned.len + includes.len + excludes.len > 1);
 
         var owned_arr: [owned.len]u32 = undefined;
         inline for (owned) |t, i| {
@@ -357,35 +395,45 @@ pub const Registry = struct {
         }
 
         // create a unique hash to identify the group
-        var group_data: ?*GroupData = null;
+        var maybe_group_data: ?*GroupData = null;
         comptime const hash = owned.len + (31 * includes.len) + (31 * 31 * excludes.len);
 
-        for (self.groups.items) |*grp| {
-            if (grp.hash == hash and grp.hasSameConstraints(owned_arr[0..], includes_arr[0..], excludes_arr[0..])) {
-                group_data = grp;
+        for (self.groups.items) |grp| {
+            if (grp.hash == hash and std.mem.eql(u32, grp.owned, owned_arr[0..]) and std.mem.eql(u32, grp.include, includes_arr[0..]) and std.mem.eql(u32, grp.exclude, excludes_arr[0..])) {
+                maybe_group_data = grp;
                 break;
             }
         }
 
-
-        // non-owning groups
-        if (owned.len == 0) {
-            if (group_data != null) {
-                return NonOwningGroup(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
+        // do we already have the GroupData?
+        if (maybe_group_data) |group_data| {
+            // non-owning groups
+            if (owned.len == 0) {
+                return BasicGroup(includes.len, excludes.len).init(&group_data.entity_set, self, includes_arr, excludes_arr);
+            } else {
+                @compileLog("owned groups not implemented");
             }
-
-            var new_group_data = GroupData.init(self.allocator, self, hash, &[_]u32{}, includes_arr[0..], excludes_arr[0..]);
-            new_group_data.entity_set.reserve(5);
-            self.groups.append(new_group_data) catch unreachable;
-            return NonOwningGroup(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
         }
 
-        @compileLog("owned groups not implemented");
+        // we need to create a new GroupData
+        var new_group_data = GroupData.initPtr(self.allocator, self, hash, &[_]u32{}, includes_arr[0..], excludes_arr[0..]);
+
+        // wire up our listeners
+        inline for (owned) |t| self.onConstruct(t).connectBound(new_group_data, "maybeValidIf");
+        inline for (includes) |t| self.onConstruct(t).connectBound(new_group_data, "maybeValidIf");
+        inline for (excludes) |t| self.onDestruct(t).connectBound(new_group_data, "maybeValidIf");
+
+        inline for (owned) |t| self.onDestruct(t).connectBound(new_group_data, "discardIf");
+        inline for (includes) |t| self.onDestruct(t).connectBound(new_group_data, "discardIf");
+        inline for (excludes) |t| self.onConstruct(t).connectBound(new_group_data, "discardIf");
+
+        self.groups.append(new_group_data) catch unreachable;
+        return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);
     }
 
     /// returns the Type that a view will be based on the includes and excludes
     fn GroupType(comptime owned: var, comptime includes: var, comptime excludes: var) type {
-        if (owned.len == 0) return NonOwningGroup(includes.len, excludes.len);
+        if (owned.len == 0) return BasicGroup(includes.len, excludes.len);
         unreachable;
     }
 };
