@@ -43,7 +43,7 @@ pub fn BasicView(comptime T: type) type {
     };
 }
 
-pub fn BasicMultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
+pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
     return struct {
         const Self = @This();
 

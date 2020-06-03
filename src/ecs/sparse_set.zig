@@ -1,55 +1,6 @@
 const std = @import("std");
 const warn = std.debug.warn;
 
-fn printSet(set: var) void {
-    warn("-------- sparse to dense (len: {}, cap: {}) ------\n", .{ set.len(), set.capacity() });
-    var dense = set.toDenseSlice();
-    for (dense) |item| {
-        warn("[{}] ", .{item});
-    }
-
-    warn("\n", .{});
-
-    var sparse = set.data();
-    for (sparse) |item| {
-        warn("[{}] ", .{item});
-    }
-    warn("\n", .{});
-}
-
-pub fn main() !void {
-    var set = SparseSet(u32, u8).init();
-    defer set.deinit();
-
-    warn("add 0, 3\n", .{});
-    set.add(1);
-    printSet(set);
-    set.add(3);
-    printSet(set);
-    warn("contains 0: {}, index: {}\n", .{ set.contains(1), set.index(1) });
-    warn("contains 3: {}, index: {}\n", .{ set.contains(3), set.index(3) });
-    warn("contains 2: {}\n", .{set.contains(2)});
-
-    printSet(set);
-    set.swap(1, 3);
-    warn("----- swap! ----\n", .{});
-    warn("contains 0: {}, index: {}\n", .{ set.contains(1), set.index(1) });
-    warn("contains 3: {}, index: {}\n", .{ set.contains(3), set.index(3) });
-
-    printSet(set);
-
-    warn("remove 1\n", .{});
-    set.remove(1);
-    warn("contains 3: {}, index: {}\n", .{ set.contains(3), set.index(3) });
-    printSet(set);
-
-    warn("clear\n", .{});
-    set.clear();
-    printSet(set);
-
-    warn("dense cap: {}\n", .{set.dense.capacity});
-}
-
 // TODO: fix entity_mask. it should come from EntityTraitsDefinition.
 pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
     return struct {
@@ -113,18 +64,18 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
             return sparse & self.entity_mask;
         }
 
-        /// Increases the capacity of a sparse set.
+        /// Increases the capacity of a sparse sets index array
         pub fn reserve(self: *Self, cap: usize) void {
-            self.dense.resize(cap) catch unreachable;
+            self.sparse.resize(cap) catch unreachable;
         }
 
-        /// Returns the number of elements that a sparse set has currently allocated space for
+        /// Returns the number of dense elements that a sparse set has currently allocated space for
         pub fn capacity(self: *Self) usize {
             return self.dense.capacity;
         }
 
-        /// Returns the number of elements in a sparse set
-        pub fn len(self: *Self) usize {
+        /// Returns the number of dense elements in a sparse set
+        pub fn len(self: Self) usize {
             return self.dense.items.len;
         }
 
@@ -197,10 +148,6 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
         pub fn clear(self: *Self) void {
             self.sparse.items.len = 0;
             self.dense.items.len = 0;
-        }
-
-        pub fn toDenseSlice(self: Self) []DenseT {
-            return self.sparse.items;
         }
     };
 }
