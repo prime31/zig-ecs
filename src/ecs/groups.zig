@@ -97,7 +97,7 @@ test "BasicGroup creation" {
     std.debug.assert(group.len() == 0);
 }
 
-test "BasicGroup exclides" {
+test "BasicGroup excludes" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
@@ -118,4 +118,16 @@ test "BasicGroup exclides" {
 
     reg.add(e0, @as(u32, 55));
     std.debug.assert(group.len() == 0);
+}
+
+test "BasicGroup create late" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var e0 = reg.create();
+    reg.add(e0, @as(i32, 44));
+    reg.add(e0, @as(u32, 55));
+
+    var group = reg.group(.{}, .{ i32, u32 }, .{});
+    std.testing.expectEqual(group.len(), 1);
 }

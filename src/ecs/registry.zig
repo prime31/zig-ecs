@@ -417,6 +417,7 @@ pub const Registry = struct {
 
         // we need to create a new GroupData
         var new_group_data = GroupData.initPtr(self.allocator, self, hash, &[_]u32{}, includes_arr[0..], excludes_arr[0..]);
+        self.groups.append(new_group_data) catch unreachable;
 
         // wire up our listeners
         inline for (owned) |t| self.onConstruct(t).connectBound(new_group_data, "maybeValidIf");
@@ -427,7 +428,17 @@ pub const Registry = struct {
         inline for (includes) |t| self.onDestruct(t).connectBound(new_group_data, "discardIf");
         inline for (excludes) |t| self.onConstruct(t).connectBound(new_group_data, "discardIf");
 
-        self.groups.append(new_group_data) catch unreachable;
+        // pre-fill the GroupData with any existing entitites that match
+        if (owned.len == 0) {
+            var tmp_view = self.view(owned ++ includes, excludes);
+            var view_iter = tmp_view.iterator();
+            while (view_iter.next()) |entity| {
+                new_group_data.entity_set.add(entity);
+            }
+        } else {
+            unreachable;
+        }
+
         return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);
     }
 
