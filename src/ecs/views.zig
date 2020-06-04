@@ -57,7 +57,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             entities: *const []Entity,
 
             pub fn init(view: *Self) Iterator {
-                const ptr = view.registry.components.getValue(@intCast(u8, view.type_ids[0])).?;
+                const ptr = view.registry.components.getValue(view.type_ids[0]).?;
                 return .{
                     .view = view,
                     .entities = @intToPtr(*Storage(u8), ptr).data(),
@@ -72,7 +72,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
 
                     // entity must be in all other Storages
                     for (it.view.type_ids) |tid| {
-                        const ptr = it.view.registry.components.getValue(@intCast(u8, tid)).?;
+                        const ptr = it.view.registry.components.getValue(tid).?;
                         if (!@intToPtr(*Storage(u1), ptr).contains(entity)) {
                             break :blk;
                         }
@@ -80,7 +80,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
 
                     // entity must not be in all other excluded Storages
                     for (it.view.exclude_type_ids) |tid| {
-                        const ptr = it.view.registry.components.getValue(@intCast(u8, tid)).?;
+                        const ptr = it.view.registry.components.getValue(tid).?;
                         if (@intToPtr(*Storage(u1), ptr).contains(entity)) {
                             break :blk;
                         }
@@ -119,7 +119,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             // get our component counts in an array so we can sort the type_ids based on how many entities are in each
             var sub_items: [n_includes]usize = undefined;
             for (self.type_ids) |tid, i| {
-                const ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                const ptr = self.registry.components.getValue(tid).?;
                 const store = @intToPtr(*Storage(u8), ptr);
                 sub_items[i] = store.len();
             }

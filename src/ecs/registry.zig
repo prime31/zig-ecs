@@ -4,7 +4,6 @@ const utils = @import("utils.zig");
 
 const Handles = @import("handles.zig").Handles;
 const SparseSet = @import("sparse_set.zig").SparseSet;
-const TypeMap = @import("type_map.zig").TypeMap;
 const ComponentStorage = @import("component_storage.zig").ComponentStorage;
 const Sink = @import("../signals/sink.zig").Sink;
 
@@ -30,10 +29,9 @@ pub fn Storage(comptime CompT: type) type {
 /// no errors to keep the API clean and because if a component array cant be allocated you've got bigger problems.
 /// Stores a maximum of u8 (256) component Storage(T).
 pub const Registry = struct {
-    typemap: TypeMap,
     handles: EntityHandles,
-    components: std.AutoHashMap(u8, usize),
-    contexts: std.AutoHashMap(u8, usize),
+    components: std.AutoHashMap(u32, usize),
+    contexts: std.AutoHashMap(u32, usize),
     groups: std.ArrayList(*GroupData),
     allocator: *std.mem.Allocator,
 
@@ -80,19 +78,19 @@ pub const Registry = struct {
         fn maybeValidIf(self: *GroupData, entity: Entity) void {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
-                    const ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                    const ptr = self.registry.components.getValue(tid).?;
                     if (!@intToPtr(*Storage(u1), ptr).contains(entity))
                         break :blk false;
                 }
 
                 for (self.include) |tid| {
-                    const ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                    const ptr = self.registry.components.getValue(tid).?;
                     if (!@intToPtr(*Storage(u1), ptr).contains(entity))
                         break :blk false;
                 }
 
                 for (self.exclude) |tid| {
-                    const ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                    const ptr = self.registry.components.getValue(tid).?;
                     if (@intToPtr(*Storage(u1), ptr).contains(entity))
                         break :blk false;
                 }
@@ -104,10 +102,10 @@ pub const Registry = struct {
                     self.entity_set.add(entity);
             } else {
                 if (isValid) {
-                    const ptr = self.registry.components.getValue(@intCast(u8, self.owned[0])).?;
+                    const ptr = self.registry.components.getValue(self.owned[0]).?;
                     if (!(@intToPtr(*Storage(u1), ptr).set.index(entity) < self.current)) {
                         for (self.owned) |tid| {
-                            const store_ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                            const store_ptr = self.registry.components.getValue(tid).?;
                             var store = @intToPtr(*Storage(u1), store_ptr);
                             store.swap(store.data().*[self.current], entity);
                         }
@@ -123,14 +121,13 @@ pub const Registry = struct {
                 if (self.entity_set.contains(entity))
                     self.entity_set.remove(entity);
             } else {
-                const ptr = self.registry.components.getValue(@intCast(u8, self.owned[0])).?;
+                const ptr = self.registry.components.getValue(self.owned[0]).?;
                 var store = @intToPtr(*Storage(u1), ptr);
                 if (store.contains(entity) and store.set.index(entity) < self.current) {
                     self.current -= 1;
                     for (self.owned) |tid| {
-                        const store_ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                        const store_ptr = self.registry.components.getValue(tid).?;
                         store = @intToPtr(*Storage(u1), store_ptr);
-                        std.debug.warn("\n-------- len: {}, curr: {}, ent: {} \n", .{store.data().*.len, self.current, entity});
                         store.swap(store.data().*[self.current], entity);
                     }
                 }
@@ -140,10 +137,9 @@ pub const Registry = struct {
 
     pub fn init(allocator: *std.mem.Allocator) Registry {
         return Registry{
-            .typemap = TypeMap.init(allocator),
             .handles = EntityHandles.init(allocator),
-            .components = std.AutoHashMap(u8, usize).init(allocator),
-            .contexts = std.AutoHashMap(u8, usize).init(allocator),
+            .components = std.AutoHashMap(u32, usize).init(allocator),
+            .contexts = std.AutoHashMap(u32, usize).init(allocator),
             .groups = std.ArrayList(*GroupData).init(allocator),
             .allocator = allocator,
         };
@@ -164,21 +160,19 @@ pub const Registry = struct {
         self.components.deinit();
         self.contexts.deinit();
         self.groups.deinit();
-        self.typemap.deinit();
         self.handles.deinit();
     }
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
-        var type_id: u8 = undefined;
-        if (!self.typemap.getOrPut(T, &type_id)) {
-            var comp_set = Storage(T).initPtr(self.allocator);
-            var comp_set_ptr = @ptrToInt(comp_set);
-            _ = self.components.put(type_id, comp_set_ptr) catch unreachable;
-            return comp_set;
+        var type_id = utils.typeId(T);
+        if (self.components.get(type_id)) |kv| {
+            return @intToPtr(*Storage(T), kv.value);
         }
 
-        const ptr = self.components.getValue(type_id).?;
-        return @intToPtr(*Storage(T), ptr);
+        var comp_set = Storage(T).initPtr(self.allocator);
+        var comp_set_ptr = @ptrToInt(comp_set);
+        _ = self.components.put(type_id, comp_set_ptr) catch unreachable;
+        return comp_set;
     }
 
     /// Prepares a pool for the given type if required
@@ -339,27 +333,21 @@ pub const Registry = struct {
     pub fn setContext(self: *Registry, context: var) void {
         std.debug.assert(@typeInfo(@TypeOf(context)) == .Pointer);
 
-        var type_id: u8 = undefined;
-        _ = self.typemap.getOrPut(@typeInfo(@TypeOf(context)).Pointer.child, &type_id);
+        var type_id = utils.typeId(@typeInfo(@TypeOf(context)).Pointer.child);
         _ = self.contexts.put(type_id, @ptrToInt(context)) catch unreachable;
     }
 
     /// Unsets a context variable if it exists
     pub fn unsetContext(self: *Registry, comptime T: type) void {
         std.debug.assert(@typeInfo(T) != .Pointer);
-
-        var type_id: u8 = undefined;
-        _ = self.typemap.getOrPut(T, &type_id);
-        _ = self.contexts.put(type_id, 0) catch unreachable;
+        _ = self.contexts.put(utils.typeId(T), 0) catch unreachable;
     }
 
     /// Returns a pointer to an object in the context of the registry
     pub fn getContext(self: *Registry, comptime T: type) ?*T {
         std.debug.assert(@typeInfo(T) != .Pointer);
 
-        var type_id: u8 = undefined;
-        _ = self.typemap.getOrPut(T, &type_id);
-        return if (self.contexts.get(type_id)) |ptr|
+        return if (self.contexts.get(utils.typeId(T))) |ptr|
             return if (ptr.value > 0) @intToPtr(*T, ptr.value) else null
         else
             null;
@@ -383,13 +371,13 @@ pub const Registry = struct {
         var includes_arr: [includes.len]u32 = undefined;
         inline for (includes) |t, i| {
             _ = self.assure(t);
-            includes_arr[i] = @as(u32, self.typemap.get(t));
+            includes_arr[i] = utils.typeId(t);
         }
 
         var excludes_arr: [excludes.len]u32 = undefined;
         inline for (excludes) |t, i| {
             _ = self.assure(t);
-            excludes_arr[i] = @as(u32, self.typemap.get(t));
+            excludes_arr[i] = utils.typeId(t);
         }
 
         return MultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
@@ -414,19 +402,19 @@ pub const Registry = struct {
         var owned_arr: [owned.len]u32 = undefined;
         inline for (owned) |t, i| {
             _ = self.assure(t);
-            owned_arr[i] = @as(u32, self.typemap.get(t));
+            owned_arr[i] = utils.typeId(t);
         }
 
         var includes_arr: [includes.len]u32 = undefined;
         inline for (includes) |t, i| {
             _ = self.assure(t);
-            includes_arr[i] = @as(u32, self.typemap.get(t));
+            includes_arr[i] = utils.typeId(t);
         }
 
         var excludes_arr: [excludes.len]u32 = undefined;
         inline for (excludes) |t, i| {
             _ = self.assure(t);
-            excludes_arr[i] = @as(u32, self.typemap.get(t));
+            excludes_arr[i] = utils.typeId(t);
         }
 
         // create a unique hash to identify the group
@@ -470,9 +458,7 @@ pub const Registry = struct {
             while (view_iter.next()) |entity| {
                 new_group_data.entity_set.add(entity);
             }
-        } else {
-
-        }
+        } else {}
 
         if (owned.len == 0) {
             return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);

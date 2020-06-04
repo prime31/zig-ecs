@@ -1,17 +1,15 @@
 const std = @import("std");
 const Sink = @import("sink.zig").Sink;
 const Signal = @import("signal.zig").Signal;
-const TypeMap = @import("../ecs/type_map.zig").TypeMap;
+const utils = @import("../ecs/utils.zig");
 
 pub const Dispatcher = struct {
-    typemap: TypeMap,
-    signals: std.AutoHashMap(u8, usize),
+    signals: std.AutoHashMap(u32, usize),
     allocator: *std.mem.Allocator,
 
     pub fn init(allocator: *std.mem.Allocator) Dispatcher {
-        return Dispatcher {
-            .typemap = TypeMap.init(allocator),
-            .signals = std.AutoHashMap(u8, usize).init(allocator),
+        return Dispatcher{
+            .signals = std.AutoHashMap(u32, usize).init(allocator),
             .allocator = allocator,
         };
     }
@@ -24,21 +22,19 @@ pub const Dispatcher = struct {
             signal.deinit();
         }
 
-        self.typemap.deinit();
         self.signals.deinit();
     }
 
     fn assure(self: *Dispatcher, comptime T: type) *Signal(T) {
-        var type_id: u8 = undefined;
-        if (!self.typemap.getOrPut(T, &type_id)) {
-            var signal = Signal(T).create(self.allocator);
-            var signal_ptr = @ptrToInt(signal);
-            _ = self.signals.put(type_id, signal_ptr) catch unreachable;
-            return signal;
+        var type_id = utils.typeId(T);
+        if (self.signals.get(type_id)) |kv| {
+            return @intToPtr(*Signal(T), kv.value);
         }
 
-        const ptr = self.signals.getValue(type_id).?;
-        return @intToPtr(*Signal(T), ptr);
+        var signal = Signal(T).create(self.allocator);
+        var signal_ptr = @ptrToInt(signal);
+        _ = self.signals.put(type_id, signal_ptr) catch unreachable;
+        return signal;
     }
 
     pub fn sink(self: *Dispatcher, comptime T: type) Sink(T) {

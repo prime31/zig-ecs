@@ -6,7 +6,6 @@ comptime {
     _ = @import("ecs/entity.zig");
     _ = @import("ecs/handles.zig");
     _ = @import("ecs/sparse_set.zig");
-    _ = @import("ecs/type_map.zig");
     _ = @import("ecs/views.zig");
     _ = @import("ecs/groups.zig");
 

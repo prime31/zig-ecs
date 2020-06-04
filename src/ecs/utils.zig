@@ -1,3 +1,4 @@
+const std = @import("std");
 
 /// sorts items using lessThan and keeps sub_items with the same sort
 pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, lessThan: fn (lhs: T1, rhs: T1) bool) void {
@@ -16,12 +17,16 @@ pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T
 }
 
 /// comptime string hashing for the type names
-pub fn typeHash(comptime T: type) comptime_int {
-    return stringHash(@typeName(T));
+pub fn typeId(comptime T: type) u32 {
+    return hashString(@typeName(T));
 }
 
-/// comptime string hashing, djb2 by Dan Bernstein
-pub fn stringHash(comptime str: []const u8) comptime_int {
+pub fn hashString(comptime str: []const u8) u32 {
+    return @truncate(u32, std.hash.Wyhash.hash(0, str));
+}
+
+/// comptime string hashing, djb2 by Dan Bernstein. Fails on large strings.
+pub fn hashStringDjb2(comptime str: []const u8) comptime_int {
     var hash: comptime_int = 5381;
     for (str) |c| {
         hash = ((hash << 5) + hash) + @intCast(comptime_int, c);
