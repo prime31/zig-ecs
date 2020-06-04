@@ -29,6 +29,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
         instances: std.ArrayList(CompOrAlmostEmptyT),
         allocator: ?*std.mem.Allocator,
         safe_deinit: fn (*Self) void,
+        safe_swap: fn (*Self, EntityT, EntityT) void,
         construction: Signal(EntityT),
         update: Signal(EntityT),
         destruction: Signal(EntityT),
@@ -43,6 +44,13 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
                             self.instances.deinit();
                     }
                 }.deinit,
+                .safe_swap = struct {
+                    fn swap(self: *Self, lhs: EntityT, rhs: EntityT) void {
+                        if (!is_empty_struct)
+                            std.mem.swap(CompT, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
+                        self.set.swap(lhs, rhs);
+                    }
+                }.swap,
                 .allocator = null,
                 .construction = Signal(EntityT).init(allocator),
                 .update = Signal(EntityT).init(allocator),
@@ -72,6 +80,14 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
                         self.instances.deinit();
                 }
             }.deinit;
+
+            store.safe_swap = struct {
+                fn swap(self: *Self, lhs: EntityT, rhs: EntityT) void {
+                    if (!is_empty_struct)
+                        std.mem.swap(CompT, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
+                    self.set.swap(lhs, rhs);
+                }
+            }.swap;
 
             return store;
         }
@@ -119,9 +135,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
 
         /// Removes an entity from a storage
         pub fn remove(self: *Self, entity: EntityT) void {
+            self.destruction.publish(entity);
             if (!is_empty_struct)
                 _ = self.instances.swapRemove(self.set.index(entity));
-            self.destruction.publish(entity);
             self.set.remove(entity);
         }
 
@@ -176,9 +192,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
 
         /// Swaps entities and objects in the internal packed arrays
         pub fn swap(self: *Self, lhs: EntityT, rhs: EntityT) void {
-            if (!is_empty_struct)
-                std.mem.swap(CompT, &self.instances[self.set.index(lhs)], &self.instances[self.set.index(rhs)]);
-            self.set.swap(lhs, rhs);
+            self.safe_swap(self, lhs, rhs);
         }
 
         pub fn clear(self: *Self) void {

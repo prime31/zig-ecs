@@ -73,6 +73,32 @@ pub fn BasicGroup(comptime n_includes: usize, comptime n_excludes: usize) type {
     };
 }
 
+pub fn OwningGroup(comptime n_owned: usize, comptime n_includes: usize, comptime n_excludes: usize) type {
+    return struct {
+        const Self = @This();
+
+        current: *usize,
+        registry: *Registry,
+        owned_type_ids: [n_owned]u32,
+        include_type_ids: [n_includes]u32,
+        exclude_type_ids: [n_excludes]u32,
+
+        pub fn init(current: *usize, registry: *Registry, owned_type_ids: [n_owned]u32, include_type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
+            return Self{
+                .current = current,
+                .registry = registry,
+                .owned_type_ids = owned_type_ids,
+                .include_type_ids = include_type_ids,
+                .exclude_type_ids = exclude_type_ids,
+            };
+        }
+
+        pub fn len(self: Self) usize {
+            return self.current.*;
+        }
+    };
+}
+
 test "BasicGroup creation" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
@@ -130,4 +156,31 @@ test "BasicGroup create late" {
 
     var group = reg.group(.{}, .{ i32, u32 }, .{});
     std.testing.expectEqual(group.len(), 1);
+}
+
+test "OwningGroup" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var group = reg.group(.{i32, u32}, .{}, .{});
+
+    var e0 = reg.create();
+    reg.add(e0, @as(i32, 44));
+    reg.add(e0, @as(u32, 55));
+    std.testing.expectEqual(group.len(), 1);
+}
+
+test "OwningGroup add/remove" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var group = reg.group(.{i32, u32}, .{}, .{});
+
+    var e0 = reg.create();
+    reg.add(e0, @as(i32, 44));
+    reg.add(e0, @as(u32, 55));
+    std.testing.expectEqual(group.len(), 1);
+
+    reg.remove(i32, e0);
+    std.testing.expectEqual(group.len(), 0);
 }

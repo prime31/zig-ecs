@@ -19,6 +19,7 @@ pub const Entity = entity_traits.entity_type;
 pub const BasicView = @import("views.zig").BasicView;
 pub const MultiView = @import("views.zig").MultiView;
 pub const BasicGroup = @import("groups.zig").BasicGroup;
+pub const OwningGroup = @import("groups.zig").OwningGroup;
 
 /// Stores an ArrayList of components. The max amount that can be stored is based on the type below
 pub fn Storage(comptime CompT: type) type {
@@ -39,11 +40,12 @@ pub const Registry = struct {
     /// internal, persistant data structure to manage the entities in a group
     const GroupData = struct {
         hash: u32,
-        entity_set: SparseSet(Entity, u16), // TODO: dont hardcode this. put it in EntityTraits maybe. All SparseSets would need to use the value.
+        entity_set: SparseSet(Entity, u16) = undefined, // TODO: dont hardcode this. put it in EntityTraits maybe. All SparseSets would need to use the value.
         owned: []u32,
         include: []u32,
         exclude: []u32,
         registry: *Registry,
+        current: usize,
 
         pub fn initPtr(allocator: *std.mem.Allocator, registry: *Registry, hash: u32, owned: []u32, include: []u32, exclude: []u32) *GroupData {
             std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
@@ -52,17 +54,23 @@ pub const Registry = struct {
 
             var group_data = allocator.create(GroupData) catch unreachable;
             group_data.hash = hash;
-            group_data.entity_set = SparseSet(Entity, u16).init(allocator);
+            if (owned.len == 0) {
+                group_data.entity_set = SparseSet(Entity, u16).init(allocator);
+            }
             group_data.owned = std.mem.dupe(allocator, u32, owned) catch unreachable;
             group_data.include = std.mem.dupe(allocator, u32, include) catch unreachable;
             group_data.exclude = std.mem.dupe(allocator, u32, exclude) catch unreachable;
             group_data.registry = registry;
+            group_data.current = 0;
 
             return group_data;
         }
 
         pub fn deinit(self: *GroupData, allocator: *std.mem.Allocator) void {
-            self.entity_set.deinit();
+            // only deinit th SparseSet for non-owning groups
+            if (self.owned.len == 0) {
+                self.entity_set.deinit();
+            }
             allocator.free(self.owned);
             allocator.free(self.include);
             allocator.free(self.exclude);
@@ -95,6 +103,17 @@ pub const Registry = struct {
                 if (isValid and !self.entity_set.contains(entity))
                     self.entity_set.add(entity);
             } else {
+                if (isValid) {
+                    const ptr = self.registry.components.getValue(@intCast(u8, self.owned[0])).?;
+                    if (!(@intToPtr(*Storage(u1), ptr).set.index(entity) < self.current)) {
+                        for (self.owned) |tid| {
+                            const store_ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                            var store = @intToPtr(*Storage(u1), store_ptr);
+                            store.swap(store.data().*[self.current], entity);
+                        }
+                        self.current += 1;
+                    }
+                }
                 std.debug.assert(self.owned.len >= 0);
             }
         }
@@ -104,7 +123,17 @@ pub const Registry = struct {
                 if (self.entity_set.contains(entity))
                     self.entity_set.remove(entity);
             } else {
-                std.debug.assert(self.owned.len == 0);
+                const ptr = self.registry.components.getValue(@intCast(u8, self.owned[0])).?;
+                var store = @intToPtr(*Storage(u1), ptr);
+                if (store.contains(entity) and store.set.index(entity) < self.current) {
+                    self.current -= 1;
+                    for (self.owned) |tid| {
+                        const store_ptr = self.registry.components.getValue(@intCast(u8, tid)).?;
+                        store = @intToPtr(*Storage(u1), store_ptr);
+                        std.debug.warn("\n-------- len: {}, curr: {}, ent: {} \n", .{store.data().*.len, self.current, entity});
+                        store.swap(store.data().*[self.current], entity);
+                    }
+                }
             }
         }
     };
@@ -336,6 +365,11 @@ pub const Registry = struct {
             null;
     }
 
+    /// Checks whether the given component belongs to any group
+    pub fn sortable(self: Registry, comptime T: type) bool {
+        return true;
+    }
+
     pub fn view(self: *Registry, comptime includes: var, comptime excludes: var) ViewType(includes, excludes) {
         if (@typeInfo(@TypeOf(includes)) != .Struct)
             @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(args)));
@@ -412,12 +446,12 @@ pub const Registry = struct {
             if (owned.len == 0) {
                 return BasicGroup(includes.len, excludes.len).init(&group_data.entity_set, self, includes_arr, excludes_arr);
             } else {
-                @compileLog("owned groups not implemented");
+                return OwningGroup(owned.len, includes.len, excludes.len).init(&group_data.current, self, owned_arr, includes_arr, excludes_arr);
             }
         }
 
         // we need to create a new GroupData
-        var new_group_data = GroupData.initPtr(self.allocator, self, hash, &[_]u32{}, includes_arr[0..], excludes_arr[0..]);
+        var new_group_data = GroupData.initPtr(self.allocator, self, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
         self.groups.append(new_group_data) catch unreachable;
 
         // wire up our listeners
@@ -437,15 +471,19 @@ pub const Registry = struct {
                 new_group_data.entity_set.add(entity);
             }
         } else {
-            unreachable;
+
         }
 
-        return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);
+        if (owned.len == 0) {
+            return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);
+        } else {
+            return OwningGroup(owned.len, includes.len, excludes.len).init(&new_group_data.current, self, owned_arr, includes_arr, excludes_arr);
+        }
     }
 
     /// returns the Type that a view will be based on the includes and excludes
     fn GroupType(comptime owned: var, comptime includes: var, comptime excludes: var) type {
         if (owned.len == 0) return BasicGroup(includes.len, excludes.len);
-        unreachable;
+        return OwningGroup(owned.len, includes.len, excludes.len);
     }
 };
