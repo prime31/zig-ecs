@@ -36,6 +36,7 @@ pub const Registry = struct {
     groups: std.ArrayList(*GroupData),
     allocator: *std.mem.Allocator,
 
+    /// internal, persistant data structure to manage the entities in a group
     const GroupData = struct {
         hash: u32,
         entity_set: SparseSet(Entity, u16), // TODO: dont hardcode this. put it in EntityTraits maybe. All SparseSets would need to use the value.

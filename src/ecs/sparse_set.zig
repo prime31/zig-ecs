@@ -43,6 +43,12 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
             return sparse & self.entity_mask;
         }
 
+        fn offset(self: Self, sparse: SparseT) usize {
+            // TODO: support paging
+            // return entt & (sparse_per_page - 1)
+            return sparse & self.entity_mask;
+        }
+
         fn assure(self: *Self, pos: usize) []DenseT {
             // TODO: support paging
             if (self.sparse.capacity <= pos or self.sparse.capacity == 0) {
@@ -56,12 +62,6 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
             }
 
             return self.sparse.items;
-        }
-
-        fn offset(self: Self, sparse: SparseT) usize {
-            // TODO: support paging
-            // return entt & (sparse_per_page - 1)
-            return sparse & self.entity_mask;
         }
 
         /// Increases the capacity of a sparse sets index array
@@ -126,7 +126,7 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
             _ = self.dense.pop();
         }
 
-        /// Swaps two entities in the internal packed array
+        /// Swaps two entities in the internal packed and sparse arrays
         pub fn swap(self: *Self, sparse_l: SparseT, sparse_r: SparseT) void {
             var from = &self.sparse.items[sparse_l];
             var to = &self.sparse.items[sparse_r];
@@ -136,13 +136,28 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
         }
 
         /// Sort elements according to the given comparison function
-        pub fn sort(self: *Self) void {
-            unreachable;
+        pub fn sort(self: *Self, sortFn: fn (SparseT, SparseT) bool) void {
+            std.sort.insertionSort(SparseT, self.dense.items, sortFn);
+
+            var i = @as(usize, 0);
+            for (self.dense.items) |sparse| {
+                // self.assure(self.page(sparse))[self.offset(sparse)] = @intCast(DenseT, sparse);
+                self.sparse.items[self.page(sparse)] = @intCast(DenseT, sparse);
+            }
         }
 
-        /// Sort entities according to their order in another sparse set
+        /// Sort entities according to their order in another sparse set. Other is the master in this case.
         pub fn respect(self: *Self, other: *Self) void {
-            unreachable;
+            var pos = @as(DenseT, 0);
+            var i = @as(DenseT, 0);
+            while (i < other.dense.items.len) : (i += 1) {
+                if (self.contains(other.dense.items[i])) {
+                    if (other.dense.items[i] != self.dense.items[pos]) {
+                        self.swap(self.dense.items[pos], other.dense.items[i]);
+                    }
+                    pos += 1;
+                }
+            }
         }
 
         pub fn clear(self: *Self) void {
@@ -150,6 +165,19 @@ pub fn SparseSet(comptime SparseT: type, comptime DenseT: type) type {
             self.dense.items.len = 0;
         }
     };
+}
+
+fn printSet(set: *SparseSet(u32, u8)) void {
+    std.debug.warn("\nsparse -----\n", .{});
+    for (set.sparse.items) |sparse| {
+        std.debug.warn("{}\t", .{sparse});
+    }
+
+    std.debug.warn("\ndense -----\n", .{});
+    for (set.dense.items) |dense| {
+        std.debug.warn("{}\t", .{dense});
+    }
+    std.debug.warn("\n\n", .{});
 }
 
 test "add/remove/clear" {
@@ -211,4 +239,46 @@ test "data() synced" {
     set.remove(0);
     set.remove(1);
     std.testing.expectEqual(set.len(), data.len);
+}
+
+test "respect" {
+    var set1 = SparseSet(u32, u8).initPtr(std.testing.allocator);
+    defer set1.deinit();
+
+    var set2 = SparseSet(u32, u8).initPtr(std.testing.allocator);
+    defer set2.deinit();
+
+    set1.add(3);
+    set1.add(4);
+    set1.add(5);
+    set1.add(6);
+    set1.add(7);
+
+    set2.add(8);
+    set2.add(6);
+    set2.add(4);
+
+    set1.respect(set2);
+
+    std.testing.expectEqual(set1.dense.items[0], set2.dense.items[1]);
+    std.testing.expectEqual(set1.dense.items[1], set2.dense.items[2]);
+}
+
+test "respect" {
+    var set = SparseSet(u32, u8).initPtr(std.testing.allocator);
+    defer set.deinit();
+
+    set.add(5);
+    set.add(2);
+    set.add(4);
+    set.add(1);
+    set.add(3);
+
+    set.sort(std.sort.desc(u32));
+
+    for (set.dense.items) |item, i| {
+        if (i < set.dense.items.len - 1) {
+            std.debug.assert(item > set.dense.items[i + 1]);
+        }
+    }
 }
