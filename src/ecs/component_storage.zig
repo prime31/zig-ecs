@@ -6,9 +6,8 @@ const SparseSet = @import("sparse_set.zig").SparseSet;
 const Signal = @import("../signals/signal.zig").Signal;
 const Sink = @import("../signals/sink.zig").Sink;
 
-/// Stores an ArrayList of components along with a SparseSet of entities. The max amount that can be stored is
-/// based on the max value of DenseT
-pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime DenseT: type) type {
+/// Stores an ArrayList of components along with a SparseSet of entities
+pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
     std.debug.assert(!utils.isComptime(CompT));
 
     // empty (zero-sized) structs will not have an array created
@@ -25,7 +24,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
     return struct {
         const Self = @This();
 
-        set: *SparseSet(EntityT, DenseT),
+        set: *SparseSet(EntityT),
         instances: std.ArrayList(CompOrAlmostEmptyT),
         allocator: ?*std.mem.Allocator,
         safe_deinit: fn (*Self) void,
@@ -36,7 +35,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
 
         pub fn init(allocator: *std.mem.Allocator) Self {
             var store = Self{
-                .set = SparseSet(EntityT, DenseT).initPtr(allocator),
+                .set = SparseSet(EntityT).initPtr(allocator),
                 .instances = undefined,
                 .safe_deinit = struct {
                     fn deinit(self: *Self) void {
@@ -65,7 +64,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
 
         pub fn initPtr(allocator: *std.mem.Allocator) *Self {
             var store = allocator.create(Self) catch unreachable;
-            store.set = SparseSet(EntityT, DenseT).initPtr(allocator);
+            store.set = SparseSet(EntityT).initPtr(allocator);
             if (!is_empty_struct)
                 store.instances = std.ArrayList(CompOrAlmostEmptyT).init(allocator);
             store.allocator = allocator;
@@ -204,7 +203,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type, comptime D
 }
 
 test "add/try-get/remove/clear" {
-    var store = ComponentStorage(f32, u32, u8).init(std.testing.allocator);
+    var store = ComponentStorage(f32, u32).init(std.testing.allocator);
     defer store.deinit();
 
     store.add(3, 66.45);
@@ -220,7 +219,7 @@ test "add/try-get/remove/clear" {
 }
 
 test "add/get/remove" {
-    var store = ComponentStorage(f32, u32, u8).init(std.testing.allocator);
+    var store = ComponentStorage(f32, u32).init(std.testing.allocator);
     defer store.deinit();
 
     store.add(3, 66.45);
@@ -232,7 +231,7 @@ test "add/get/remove" {
 }
 
 test "iterate" {
-    var store = ComponentStorage(f32, u32, u8).initPtr(std.testing.allocator);
+    var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
     defer store.deinit();
 
     store.add(3, 66.45);
@@ -252,7 +251,7 @@ test "iterate" {
 test "empty component" {
     const Empty = struct {};
 
-    var store = ComponentStorage(Empty, u32, u8).initPtr(std.testing.allocator);
+    var store = ComponentStorage(Empty, u32).initPtr(std.testing.allocator);
     defer store.deinit();
 
     store.add(3, Empty{});
@@ -270,7 +269,7 @@ fn destruct(e: u32) void {
 }
 
 test "signals" {
-    var store = ComponentStorage(f32, u32, u8).init(std.testing.allocator);
+    var store = ComponentStorage(f32, u32).init(std.testing.allocator);
     defer store.deinit();
 
     store.onConstruct().connect(construct);

@@ -11,7 +11,7 @@ pub fn BasicGroup(comptime n_includes: usize, comptime n_excludes: usize) type {
     return struct {
         const Self = @This();
 
-        entity_set: *SparseSet(Entity, u16),
+        entity_set: *SparseSet(Entity),
         registry: *Registry,
         type_ids: [n_includes]u32,
         exclude_type_ids: [n_excludes]u32,
@@ -41,7 +41,7 @@ pub fn BasicGroup(comptime n_includes: usize, comptime n_excludes: usize) type {
             }
         };
 
-        pub fn init(entity_set: *SparseSet(Entity, u16), registry: *Registry, type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
+        pub fn init(entity_set: *SparseSet(Entity), registry: *Registry, type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
             return Self{
                 .entity_set = entity_set,
                 .registry = registry,

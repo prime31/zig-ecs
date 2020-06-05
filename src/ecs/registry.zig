@@ -22,7 +22,7 @@ pub const OwningGroup = @import("groups.zig").OwningGroup;
 
 /// Stores an ArrayList of components. The max amount that can be stored is based on the type below
 pub fn Storage(comptime CompT: type) type {
-    return ComponentStorage(CompT, Entity, u16); // 65,535 components
+    return ComponentStorage(CompT, Entity);
 }
 
 /// the registry is the main gateway to all ecs functionality. It assumes all internal allocations will succeed and returns
@@ -38,7 +38,7 @@ pub const Registry = struct {
     /// internal, persistant data structure to manage the entities in a group
     const GroupData = struct {
         hash: u32,
-        entity_set: SparseSet(Entity, u16) = undefined, // TODO: dont hardcode this. put it in EntityTraits maybe. All SparseSets would need to use the value.
+        entity_set: SparseSet(Entity) = undefined, /// optional. there will be an entity_set for non-owning groups and current for owning
         owned: []u32,
         include: []u32,
         exclude: []u32,
@@ -53,7 +53,7 @@ pub const Registry = struct {
             var group_data = allocator.create(GroupData) catch unreachable;
             group_data.hash = hash;
             if (owned.len == 0) {
-                group_data.entity_set = SparseSet(Entity, u16).init(allocator);
+                group_data.entity_set = SparseSet(Entity).init(allocator);
             }
             group_data.owned = std.mem.dupe(allocator, u32, owned) catch unreachable;
             group_data.include = std.mem.dupe(allocator, u32, include) catch unreachable;
