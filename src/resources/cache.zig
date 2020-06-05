@@ -15,7 +15,8 @@ pub fn Cache(comptime T: type, TLoader: type) type {
             };
         }
 
-        pub fn deinit(self: @This()) void {
+        pub fn deinit(self: *@This()) void {
+            self.clear();
             self.resources.deinit();
         }
 

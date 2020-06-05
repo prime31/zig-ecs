@@ -22,7 +22,7 @@ pub fn Delegate(comptime Event: type) type {
                 .callback = .{
                     .bound = struct {
                         fn cb(self: usize, param: Event) void {
-                            return @call(.{ .modifier = .always_inline }, @field(@intToPtr(T, self), fn_name), .{param});
+                            @call(.{ .modifier = .always_inline }, @field(@intToPtr(T, self), fn_name), .{param});
                         }
                     }.cb,
                 },
