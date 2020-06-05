@@ -15,4 +15,5 @@ comptime {
 
     // resources
     _ = @import("resources/cache.zig");
+    _ = @import("resources/assets.zig");
 }

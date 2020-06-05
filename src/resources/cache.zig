@@ -1,31 +1,88 @@
 const std = @import("std");
 
+pub const ErasedPtr = struct {
+    ptr: usize,
+
+    pub fn init(ptr: var) ErasedPtr {
+        if (@sizeOf(@TypeOf(ptr)) == 0) {
+            return .{ .ptr = undefined };
+        }
+        return .{ .ptr = @ptrToInt(ptr) };
+    }
+
+    pub fn as(self: ErasedPtr, comptime T: type) *T {
+        if (@sizeOf(T) == 0)
+            return @as(T, undefined);
+        return self.asPtr(*T);
+    }
+
+    pub fn asPtr(self: ErasedPtr, comptime PtrT: type) PtrT {
+        if (@sizeOf(PtrT) == 0)
+            return @as(PtrT, undefined);
+        return @intToPtr(PtrT, self.ptr);
+    }
+};
+
 /// Simple cache for resources of a given type. TLoader should be a struct that implements a single
 /// method: load(args: var) *T. If any resource has a deinit method it will be called when clear
 /// or remove is called.
-pub fn Cache(comptime T: type, TLoader: type) type {
+pub fn Cache(comptime T: type) type {
     return struct {
-        loader: TLoader,
-        resources: std.AutoHashMap(u16, *T),
+        const Self = @This();
 
-        pub fn init(allocator: *std.mem.Allocator, comptime loader: TLoader) @This() {
+        safe_deinit: fn (*@This()) void,
+        resources: std.AutoHashMap(u16, *T),
+        loader: ErasedPtr,
+        allocator: ?*std.mem.Allocator = null,
+
+        pub fn initPtr(allocator: *std.mem.Allocator, comptime LoaderT: type) *@This() {
+            const ptr = if (@sizeOf(LoaderT) > 0)
+                ErasedPtr.init(allocator.create(LoaderT) catch unreachable)
+            else
+                ErasedPtr.init(LoaderT);
+
+            var cache = allocator.create(@This()) catch unreachable;
+            cache.safe_deinit = struct {
+                fn deinit(self: *Self) void {
+                    self.clear();
+                    self.resources.deinit();
+                    self.allocator.?.destroy(self);
+                }
+            }.deinit;
+            cache.loader = ptr;
+            cache.resources = std.AutoHashMap(u16, *T).init(allocator);
+            cache.allocator = allocator;
+            return cache;
+        }
+
+        pub fn init(allocator: *std.mem.Allocator, comptime LoaderT: type) @This() {
+            const ptr = if (@sizeOf(LoaderT) > 0)
+                ErasedPtr.init(std.testing.allocator.create(LoaderT) catch unreachable)
+            else
+                ErasedPtr.init(LoaderT);
+
             return .{
-                .loader = loader,
+                .safe_deinit = struct {
+                    fn deinit(self: *Self) void {
+                        self.clear();
+                        self.resources.deinit();
+                    }
+                }.deinit,
+                .loader = ptr,
                 .resources = std.AutoHashMap(u16, *T).init(allocator),
             };
         }
 
         pub fn deinit(self: *@This()) void {
-            self.clear();
-            self.resources.deinit();
+            self.safe_deinit(self);
         }
 
-        pub fn load(self: *@This(), id: u16, args: var) *T {
+        fn load(self: *@This(), id: u16, comptime LoaderT: type, args: LoaderT.LoadArgs) *T {
             if (self.resources.getValue(id)) |resource| {
                 return resource;
             }
 
-            var resource = self.loader.load(args);
+            var resource = self.loader.as(LoaderT).load(args);
             _ = self.resources.put(id, resource) catch unreachable;
             return resource;
         }
@@ -62,23 +119,23 @@ pub fn Cache(comptime T: type, TLoader: type) type {
 test "cache" {
     const Thing = struct {
         fart: i32,
-
         pub fn deinit(self: *@This()) void {
             std.testing.allocator.destroy(self);
         }
     };
 
     const ThingLoader = struct {
+        pub const LoadArgs = struct {};
         pub fn load(self: @This(), args: var) *Thing {
             return std.testing.allocator.create(Thing) catch unreachable;
         }
     };
 
-    var cache = Cache(Thing, ThingLoader).init(std.testing.allocator, ThingLoader{});
+    var cache = Cache(Thing).init(std.testing.allocator, ThingLoader);
     defer cache.deinit();
 
-    var thing = cache.load(6, .{});
-    var thing2 = cache.load(2, .{});
+    var thing = cache.load(6, ThingLoader, ThingLoader.LoadArgs{});
+    var thing2 = cache.load(2, ThingLoader, ThingLoader.LoadArgs{});
     std.testing.expectEqual(cache.size(), 2);
 
     cache.remove(2);
