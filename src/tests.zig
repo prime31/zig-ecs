@@ -12,4 +12,7 @@ comptime {
     // signals
     _ = @import("signals/delegate.zig");
     _ = @import("signals/signal.zig");
+
+    // resources
+    _ = @import("resources/cache.zig");
 }
