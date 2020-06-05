@@ -18,11 +18,28 @@ pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T
 
 /// comptime string hashing for the type names
 pub fn typeId(comptime T: type) u32 {
-    return hashString(@typeName(T));
+    return hashStringFnv(u32, @typeName(T));
+}
+
+/// comptime string hashing for the type names
+pub fn typeId64(comptime T: type) u64 {
+    return hashStringFnv(u64, @typeName(T));
 }
 
 pub fn hashString(comptime str: []const u8) u32 {
     return @truncate(u32, std.hash.Wyhash.hash(0, str));
+}
+
+/// Fowler–Noll–Vo string hash. ReturnType should be u32/u64
+pub fn hashStringFnv(comptime ReturnType: type, comptime str: []const u8) ReturnType {
+    std.debug.assert(ReturnType == u32 or ReturnType == u64);
+
+    const prime = if (ReturnType == u32) @as(u32, 16777619) else @as(u64, 1099511628211);
+    var value = if (ReturnType == u32) @as(u32, 2166136261) else @as(u64, 14695981039346656037);
+    for (str) |c| {
+        value = (value ^ @intCast(u32, c)) *% prime;
+    }
+    return value;
 }
 
 /// comptime string hashing, djb2 by Dan Bernstein. Fails on large strings.
@@ -31,7 +48,6 @@ pub fn hashStringDjb2(comptime str: []const u8) comptime_int {
     for (str) |c| {
         hash = ((hash << 5) + hash) + @intCast(comptime_int, c);
     }
-
     return hash;
 }
 
