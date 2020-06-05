@@ -1,5 +1,28 @@
 const std = @import("std");
 
+pub const ErasedPtr = struct {
+    ptr: usize,
+
+    pub fn init(ptr: var) ErasedPtr {
+        if (@sizeOf(@TypeOf(ptr)) == 0) {
+            return .{ .ptr = undefined };
+        }
+        return .{ .ptr = @ptrToInt(ptr) };
+    }
+
+    pub fn as(self: ErasedPtr, comptime T: type) *T {
+        if (@sizeOf(T) == 0)
+            return @as(T, undefined);
+        return self.asPtr(*T);
+    }
+
+    pub fn asPtr(self: ErasedPtr, comptime PtrT: type) PtrT {
+        if (@sizeOf(PtrT) == 0)
+            return @as(PtrT, undefined);
+        return @intToPtr(PtrT, self.ptr);
+    }
+};
+
 /// sorts items using lessThan and keeps sub_items with the same sort
 pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, lessThan: fn (lhs: T1, rhs: T1) bool) void {
     var i: usize = 1;

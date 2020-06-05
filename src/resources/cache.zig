@@ -1,27 +1,5 @@
 const std = @import("std");
-
-pub const ErasedPtr = struct {
-    ptr: usize,
-
-    pub fn init(ptr: var) ErasedPtr {
-        if (@sizeOf(@TypeOf(ptr)) == 0) {
-            return .{ .ptr = undefined };
-        }
-        return .{ .ptr = @ptrToInt(ptr) };
-    }
-
-    pub fn as(self: ErasedPtr, comptime T: type) *T {
-        if (@sizeOf(T) == 0)
-            return @as(T, undefined);
-        return self.asPtr(*T);
-    }
-
-    pub fn asPtr(self: ErasedPtr, comptime PtrT: type) PtrT {
-        if (@sizeOf(PtrT) == 0)
-            return @as(PtrT, undefined);
-        return @intToPtr(PtrT, self.ptr);
-    }
-};
+const ErasedPtr = @import("../ecs/utils.zig").ErasedPtr;
 
 /// Simple cache for resources of a given type. TLoader should be a struct that implements a single
 /// method: load(args: var) *T. If any resource has a deinit method it will be called when clear
