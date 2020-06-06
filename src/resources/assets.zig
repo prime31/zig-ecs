@@ -23,22 +23,26 @@ pub const Assets = struct {
         self.caches.deinit();
     }
 
-    pub fn registerCache(self: *Assets, comptime AssetT: type, comptime LoaderT: type) *Cache(AssetT) {
-        var cache = Cache(AssetT).initPtr(self.allocator, LoaderT);
+    pub fn get(self: *Assets, comptime AssetT: type) *Cache(AssetT) {
+        if (self.caches.getValue(utils.typeId(AssetT))) |tid| {
+            return @intToPtr(*Cache(AssetT), tid);
+        }
+
+        var cache = Cache(AssetT).initPtr(self.allocator);
         _ = self.caches.put(utils.typeId(AssetT), @ptrToInt(cache)) catch unreachable;
         return cache;
     }
 
-    pub fn get(self: Assets, comptime AssetT: type) *Cache(AssetT) {
-        if (self.caches.getValue(utils.typeId(AssetT))) |tid| {
-            return @intToPtr(*Cache(AssetT), tid);
-        }
-        unreachable;
+    pub fn load(self: *Assets, id: u16, comptime loader: var) ReturnType(loader, false) {
+        return self.get(ReturnType(loader, true)).load(id, loader);
     }
 
-    pub fn load(self: Assets, comptime AssetT: type, comptime LoaderT: type, args: LoaderT.LoadArgs) *AssetT {
-        var cache = self.get(AssetT);
-        return cache.load(666, LoaderT, args);
+    fn ReturnType(comptime loader: var, strip_ptr: bool) type {
+        var ret = @typeInfo(@TypeOf(@field(loader, "load"))).BoundFn.return_type.?;
+        if (strip_ptr) {
+            return ret.Child;
+        }
+        return ret;
     }
 };
 
@@ -50,13 +54,6 @@ test "assets" {
         }
     };
 
-    const ThingLoader = struct {
-        pub const LoadArgs = struct {};
-        pub fn load(self: @This(), args: var) *Thing {
-            return std.testing.allocator.create(Thing) catch unreachable;
-        }
-    };
-
     const OtherThing = struct {
         fart: i32,
         pub fn deinit(self: *@This()) void {
@@ -64,20 +61,33 @@ test "assets" {
         }
     };
 
-    const OtherThingLoader = struct {
-        pub const LoadArgs = struct {};
-        pub fn load(self: @This(), args: var) *OtherThing {
+    const OtherThingLoadArgs = struct {
+        pub fn load(self: @This()) *OtherThing {
             return std.testing.allocator.create(OtherThing) catch unreachable;
+        }
+    };
+
+    const ThingLoadArgs = struct {
+        pub fn load(self: @This()) *Thing {
+            return std.testing.allocator.create(Thing) catch unreachable;
         }
     };
 
     var assets = Assets.init(std.testing.allocator);
     defer assets.deinit();
 
-    var cache = assets.registerCache(Thing, ThingLoader);
-    var thing = assets.get(Thing).load(6, ThingLoader, ThingLoader.LoadArgs{});
-    std.testing.expectEqual(cache.size(), 1);
+    var thing = assets.get(Thing).load(6, ThingLoadArgs{});
+    std.testing.expectEqual(assets.get(Thing).size(), 1);
 
-    var thing2 = assets.load(Thing, ThingLoader, ThingLoader.LoadArgs{});
-    std.testing.expectEqual(cache.size(), 2);
+    var thing2 = assets.load(4, ThingLoadArgs{});
+    std.testing.expectEqual(assets.get(Thing).size(), 2);
+
+    var other_thing = assets.get(OtherThing).load(6, OtherThingLoadArgs{});
+    std.testing.expectEqual(assets.get(OtherThing).size(), 1);
+
+    var other_thing2 = assets.load(8, OtherThingLoadArgs{});
+    std.testing.expectEqual(assets.get(OtherThing).size(), 2);
+
+    assets.get(OtherThing).clear();
+    std.testing.expectEqual(assets.get(OtherThing).size(), 0);
 }

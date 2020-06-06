@@ -49,8 +49,9 @@ pub fn typeId64(comptime T: type) u64 {
     return hashStringFnv(u64, @typeName(T));
 }
 
+/// u32 Fowler-Noll-Vo string hash
 pub fn hashString(comptime str: []const u8) u32 {
-    return @truncate(u32, std.hash.Wyhash.hash(0, str));
+    return hashStringFnv(u32, str);
 }
 
 /// Fowler–Noll–Vo string hash. ReturnType should be u32/u64
