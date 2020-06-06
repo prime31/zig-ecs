@@ -8,6 +8,7 @@ comptime {
     _ = @import("ecs/sparse_set.zig");
     _ = @import("ecs/views.zig");
     _ = @import("ecs/groups.zig");
+    _ = @import("ecs/type_store.zig");
 
     // signals
     _ = @import("signals/delegate.zig");

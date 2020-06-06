@@ -6,6 +6,7 @@ const Handles = @import("handles.zig").Handles;
 const SparseSet = @import("sparse_set.zig").SparseSet;
 const ComponentStorage = @import("component_storage.zig").ComponentStorage;
 const Sink = @import("../signals/sink.zig").Sink;
+const TypeStore = @import("type_store.zig").TypeStore;
 
 // allow overriding EntityTraits by setting in root via: EntityTraits = EntityTraitsType(.medium);
 const root = @import("root");
@@ -15,10 +16,10 @@ const entity_traits = if (@hasDecl(root, "EntityTraits")) root.EntityTraits.init
 const EntityHandles = Handles(entity_traits.entity_type, entity_traits.index_type, entity_traits.version_type);
 pub const Entity = entity_traits.entity_type;
 
-pub const BasicView = @import("views.zig").BasicView;
-pub const MultiView = @import("views.zig").MultiView;
-pub const BasicGroup = @import("groups.zig").BasicGroup;
-pub const OwningGroup = @import("groups.zig").OwningGroup;
+const BasicView = @import("views.zig").BasicView;
+const MultiView = @import("views.zig").MultiView;
+const BasicGroup = @import("groups.zig").BasicGroup;
+const OwningGroup = @import("groups.zig").OwningGroup;
 
 /// Stores an ArrayList of components. The max amount that can be stored is based on the type below
 pub fn Storage(comptime CompT: type) type {
@@ -33,6 +34,7 @@ pub const Registry = struct {
     components: std.AutoHashMap(u32, usize),
     contexts: std.AutoHashMap(u32, usize),
     groups: std.ArrayList(*GroupData),
+    singletons: TypeStore,
     allocator: *std.mem.Allocator,
 
     /// internal, persistant data structure to manage the entities in a group
@@ -141,6 +143,7 @@ pub const Registry = struct {
             .components = std.AutoHashMap(u32, usize).init(allocator),
             .contexts = std.AutoHashMap(u32, usize).init(allocator),
             .groups = std.ArrayList(*GroupData).init(allocator),
+            .singletons = TypeStore.init(allocator),
             .allocator = allocator,
         };
     }
@@ -160,6 +163,7 @@ pub const Registry = struct {
         self.components.deinit();
         self.contexts.deinit();
         self.groups.deinit();
+        self.singletons.deinit();
         self.handles.deinit();
     }
 
@@ -303,7 +307,7 @@ pub const Registry = struct {
         return self.assure(T).getConst(entity);
     }
 
-    /// Returns a reference to the given component for an entity
+    /// Returns a reference to the given component for an entity creating it if necessary
     pub fn getOrAdd(self: *Registry, comptime T: type, entity: Entity) *T {
         if (self.has(T, entity)) return self.get(T, entity);
         self.add(T, entity, std.mem.zeros(T));
@@ -351,6 +355,11 @@ pub const Registry = struct {
             return if (ptr.value > 0) @intToPtr(*T, ptr.value) else null
         else
             null;
+    }
+
+    /// provides access to a TypeStore letting you add singleton components to the registry
+    pub fn singletons(self: Registry) TypeStore {
+        return self.singletons;
     }
 
     /// Checks whether the given component belongs to any group

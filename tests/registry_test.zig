@@ -53,7 +53,7 @@ test "context not pointer" {
     // reg.setContext(pos);
 }
 
-test "component context get/set/unset" {
+test "context get/set/unset" {
     const SomeType = struct { dummy: u1 };
 
     var reg = Registry.init(std.testing.allocator);
@@ -70,6 +70,19 @@ test "component context get/set/unset" {
     reg.unsetContext(SomeType);
     ctx = reg.getContext(SomeType);
     std.testing.expectEqual(ctx, null);
+}
+
+test "singletons" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var pos = Position{ .x = 5, .y = 5 };
+    var inserted = reg.singletons.add(pos);
+    std.testing.expect(reg.singletons.has(Position));
+    std.testing.expectEqual(inserted.*, pos);
+
+    reg.singletons.remove(Position);
+    std.testing.expect(!reg.singletons.has(Position));
 }
 
 test "destroy" {
