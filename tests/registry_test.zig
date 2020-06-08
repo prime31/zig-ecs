@@ -77,9 +77,9 @@ test "singletons" {
     defer reg.deinit();
 
     var pos = Position{ .x = 5, .y = 5 };
-    var inserted = reg.singletons.add(pos);
+    reg.singletons.add(pos);
     std.testing.expect(reg.singletons.has(Position));
-    std.testing.expectEqual(inserted.*, pos);
+    std.testing.expectEqual(reg.singletons.get(Position).*, pos);
 
     reg.singletons.remove(Position);
     std.testing.expect(!reg.singletons.has(Position));

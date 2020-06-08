@@ -78,13 +78,15 @@ pub fn OwningGroup(comptime n_owned: usize, comptime n_includes: usize, comptime
         const Self = @This();
 
         current: *usize,
+        super: *usize,
         registry: *Registry,
         owned_type_ids: [n_owned]u32,
         include_type_ids: [n_includes]u32,
         exclude_type_ids: [n_excludes]u32,
 
-        pub fn init(current: *usize, registry: *Registry, owned_type_ids: [n_owned]u32, include_type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
+        pub fn init(super: *usize, current: *usize, registry: *Registry, owned_type_ids: [n_owned]u32, include_type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
             return Self{
+                .super = super,
                 .current = current,
                 .registry = registry,
                 .owned_type_ids = owned_type_ids,
@@ -95,6 +97,10 @@ pub fn OwningGroup(comptime n_owned: usize, comptime n_includes: usize, comptime
 
         pub fn len(self: Self) usize {
             return self.current.*;
+        }
+
+        pub fn sortable(self: *Registry, comptime T: type) bool {
+            return self.super.* == n_owned + n_includes + n_excludes;
         }
     };
 }
@@ -183,4 +189,33 @@ test "OwningGroup add/remove" {
 
     reg.remove(i32, e0);
     std.testing.expectEqual(group.len(), 0);
+}
+
+test "multiple OwningGroups" {
+    const Sprite = struct { x: f32 };
+    const Transform = struct { x: f32 };
+    const Renderable = struct { x: f32 };
+    const Rotation = struct { x: f32 };
+
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    // var group1 = reg.group(.{u64, u32}, .{}, .{});
+    // var group2 = reg.group(.{u64, u32, u8}, .{}, .{});
+
+    var group5 = reg.group(.{Sprite, Transform}, .{Renderable, Rotation}, .{});
+    var group3 = reg.group(.{Sprite}, .{Renderable}, .{});
+    var group4 = reg.group(.{Sprite, Transform}, .{Renderable}, .{});
+
+    var last_size: u8 = 0;
+    for (reg.groups.items) |grp| {
+        std.testing.expect(last_size <= grp.size);
+        last_size = grp.size;
+        std.debug.warn("grp: {}\n", .{grp.size});
+    }
+
+    std.testing.expect(!reg.sortable(Sprite));
+
+    // this will break the group
+    // var group6 = reg.group(.{Sprite, Rotation}, .{}, .{});
 }

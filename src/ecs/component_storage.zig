@@ -27,6 +27,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
         set: *SparseSet(EntityT),
         instances: std.ArrayList(CompOrAlmostEmptyT),
         allocator: ?*std.mem.Allocator,
+        super: usize = 0, /// doesnt really belong here...used to denote group ownership
         safe_deinit: fn (*Self) void,
         safe_swap: fn (*Self, EntityT, EntityT) void,
         construction: Signal(EntityT),
@@ -68,6 +69,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
             if (!is_empty_struct)
                 store.instances = std.ArrayList(CompOrAlmostEmptyT).init(allocator);
             store.allocator = allocator;
+            store.super = 0;
             store.construction = Signal(EntityT).init(allocator);
             store.update = Signal(EntityT).init(allocator);
             store.destruction = Signal(EntityT).init(allocator);

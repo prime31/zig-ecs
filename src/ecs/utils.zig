@@ -41,12 +41,12 @@ pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T
 
 /// comptime string hashing for the type names
 pub fn typeId(comptime T: type) u32 {
-    return hashStringFnv(u32, @typeName(T));
+    comptime return hashStringFnv(u32, @typeName(T));
 }
 
 /// comptime string hashing for the type names
 pub fn typeId64(comptime T: type) u64 {
-    return hashStringFnv(u64, @typeName(T));
+    comptime return hashStringFnv(u64, @typeName(T));
 }
 
 /// u32 Fowler-Noll-Vo string hash

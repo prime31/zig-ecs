@@ -22,12 +22,10 @@ pub const TypeStore = struct {
     }
 
     /// adds instance, returning a pointer to the item as it lives in the store
-    pub fn add(self: *TypeStore, instance: var) *@TypeOf(instance) {
+    pub fn add(self: *TypeStore, instance: var) void {
         var bytes = self.allocator.alloc(u8, @sizeOf(@TypeOf(instance))) catch unreachable;
-        var ptr = @ptrCast(*@TypeOf(instance), @alignCast(@alignOf(@TypeOf(instance)), bytes));
-        ptr.* = instance;
+        std.mem.copy(u8, bytes, std.mem.asBytes(&instance));
         _ = self.map.put(utils.typeId(@TypeOf(instance)), bytes) catch unreachable;
-        return ptr;
     }
 
     pub fn get(self: *TypeStore, comptime T: type) *T {
@@ -42,9 +40,11 @@ pub const TypeStore = struct {
     }
 
     pub fn getOrAdd(self: *TypeStore, comptime T: type) *T {
-        if (self.has(T)) return self.get(T);
-        var instance = std.mem.zeroes(T);
-        return self.add(instance);
+        if (!self.has(T)) {
+            var instance = std.mem.zeroes(T);
+            self.add(instance);
+        }
+        return self.get(T);
     }
 
     pub fn remove(self: *TypeStore, comptime T: type) void {
@@ -60,22 +60,22 @@ pub const TypeStore = struct {
 };
 
 test "TypeStore" {
-    const Vector = struct { x: f32 = 0, y: f32 = 0, z: f32 = 0};
+    const Vector = struct { x: f32 = 0, y: f32 = 0, z: f32 = 0 };
 
     var store = TypeStore.init(std.testing.allocator);
     defer store.deinit();
 
-    var orig = Vector{.x = 5, .y = 6, .z = 8};
-    var inserted = store.add(orig);
+    var orig = Vector{ .x = 5, .y = 6, .z = 8 };
+    store.add(orig);
     std.testing.expect(store.has(Vector));
-    std.testing.expectEqual(inserted.*, Vector{.x = 5, .y = 6, .z = 8});
+    std.testing.expectEqual(store.get(Vector).*, orig);
 
     var v = store.get(Vector);
-    std.testing.expectEqual(v.*, Vector{.x = 5, .y = 6, .z = 8});
+    std.testing.expectEqual(v.*, Vector{ .x = 5, .y = 6, .z = 8 });
     v.*.x = 666;
 
     var v2 = store.get(Vector);
-    std.testing.expectEqual(v2.*, Vector{.x = 666, .y = 6, .z = 8});
+    std.testing.expectEqual(v2.*, Vector{ .x = 666, .y = 6, .z = 8 });
 
     store.remove(Vector);
     std.testing.expect(!store.has(Vector));
