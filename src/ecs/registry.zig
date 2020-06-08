@@ -283,6 +283,13 @@ pub const Registry = struct {
         self.add(entity, value);
     }
 
+    /// adds all the component types passed in as zero-initialized values
+    pub fn addTypes(self: *Registry, entity: Entity, comptime types: var) void {
+        inline for (types) |t| {
+            self.assure(t).add(entity, std.mem.zeroes(t));
+        }
+    }
+
     /// Replaces the given component for an entity
     pub fn replace(self: *Registry, entity: Entity, value: var) void {
         assert(self.valid(entity));
@@ -519,7 +526,6 @@ pub const Registry = struct {
                 }
 
                 const check = overlapping == 0 or ((sz == size) or (sz == grp.size));
-                std.debug.warn("overlapping: {}, sz: {}, (sz == size): {}, (sz == gdata.size): {}\t--- check: {}\n", .{ overlapping, sz, sz == size, sz == grp.size, check });
                 std.debug.assert(check);
             }
         }
@@ -571,8 +577,7 @@ pub const Registry = struct {
                 new_group_data.entity_set.add(entity);
             }
         } else {
-            // we cannot iterate backwards because we want to leave behind valid entities in case of owned types
-            // maybeValidIf all the entities in the first owned group
+            // ??we cannot iterate backwards because we want to leave behind valid entities in case of owned types
             var first_owned_storage = self.assure(owned[0]);
             for (first_owned_storage.data().*) |entity| {
                 new_group_data.maybeValidIf(entity);
