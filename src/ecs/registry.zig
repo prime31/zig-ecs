@@ -28,7 +28,6 @@ pub fn Storage(comptime CompT: type) type {
 
 /// the registry is the main gateway to all ecs functionality. It assumes all internal allocations will succeed and returns
 /// no errors to keep the API clean and because if a component array cant be allocated you've got bigger problems.
-/// Stores a maximum of u8 (256) component Storage(T).
 pub const Registry = struct {
     handles: EntityHandles,
     components: std.AutoHashMap(u32, usize),
@@ -39,21 +38,23 @@ pub const Registry = struct {
 
     /// internal, persistant data structure to manage the entities in a group
     const GroupData = struct {
-        hash: u32,
-        entity_set: SparseSet(Entity) = undefined, /// optional. there will be an entity_set for non-owning groups and current for owning
+        hash: u64,
+        size: u8,
+        /// optional. there will be an entity_set for non-owning groups and current for owning
+        entity_set: SparseSet(Entity) = undefined,
         owned: []u32,
         include: []u32,
         exclude: []u32,
         registry: *Registry,
         current: usize,
 
-        pub fn initPtr(allocator: *std.mem.Allocator, registry: *Registry, hash: u32, owned: []u32, include: []u32, exclude: []u32) *GroupData {
-            std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
-            std.debug.assert(std.mem.indexOfAny(u32, owned, exclude) == null);
-            std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
-
+        pub fn initPtr(allocator: *std.mem.Allocator, registry: *Registry, hash: u64, owned: []u32, include: []u32, exclude: []u32) *GroupData {
+            // std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
+            // std.debug.assert(std.mem.indexOfAny(u32, owned, exclude) == null);
+            // std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
             var group_data = allocator.create(GroupData) catch unreachable;
             group_data.hash = hash;
+            group_data.size = @intCast(u8, owned.len + include.len + exclude.len);
             if (owned.len == 0) {
                 group_data.entity_set = SparseSet(Entity).init(allocator);
             }
@@ -107,6 +108,7 @@ pub const Registry = struct {
                     const ptr = self.registry.components.getValue(self.owned[0]).?;
                     if (!(@intToPtr(*Storage(u1), ptr).set.index(entity) < self.current)) {
                         for (self.owned) |tid| {
+                            // store.swap hides a safe version that types it correctly
                             const store_ptr = self.registry.components.getValue(tid).?;
                             var store = @intToPtr(*Storage(u1), store_ptr);
                             store.swap(store.data().*[self.current], entity);
@@ -134,6 +136,47 @@ pub const Registry = struct {
                     }
                 }
             }
+        }
+
+        /// finds the insertion point for this group by finding anything in the group family (overlapping owned)
+        /// and finds the least specialized (based on size). This allows the least specialized to update first
+        /// which ensures more specialized (ie less matches) will always be swapping inside the bounds of
+        /// the less specialized groups.
+        fn findInsertionIndex(self: GroupData, groups: []*GroupData) ?usize {
+            for (groups) |grp, i| {
+                var overlapping: u8 = 0;
+                for (grp.owned) |grp_owned| {
+                    if (std.mem.indexOfScalar(u32, self.owned, grp_owned)) |_| overlapping += 1;
+                }
+
+                if (overlapping > 0 and self.size <= grp.size) return i;
+            }
+
+            return null;
+        }
+
+        // TODO: is this the right logic? Should this return just the previous item in the family or be more specific about
+        // the group size for the index it returns?
+        /// for discards, the most specialized group in the family needs to do its discard and swap first. This will ensure
+        /// as each more specialized group does their discards the entity will always remain outside of the "current" index
+        /// for all groups in the family.
+        fn findPreviousIndex(self: GroupData, groups: []*GroupData, index: ?usize) ?usize {
+            if (groups.len == 0) return null;
+
+            // we iterate backwards and either index or groups.len is one tick passed where we want to start
+            var i = if (index) |ind| ind else groups.len;
+            if (i > 0) i -= 1;
+
+            while (i >= 0) : (i -= 1) {
+                var overlapping: u8 = 0;
+                for (groups[i].owned) |grp_owned| {
+                    if (std.mem.indexOfScalar(u32, self.owned, grp_owned)) |_| overlapping += 1;
+                }
+
+                if (overlapping > 0) return i;
+            }
+
+            return null;
         }
     };
 
@@ -201,7 +244,7 @@ pub const Registry = struct {
 
     /// Direct access to the list of entities of a given pool
     pub fn data(self: Registry, comptime T: type) []Entity {
-        return self.assure(T).data();
+        return self.assure(T).data().*;
     }
 
     pub fn valid(self: *Registry, entity: Entity) bool {
@@ -362,18 +405,23 @@ pub const Registry = struct {
         return self.singletons;
     }
 
-    /// Checks whether the given component belongs to any group
-    pub fn sortable(self: Registry, comptime T: type) bool {
-        return true;
+    pub fn sort(self: *Registry, comptime T: type) void {
+        const comp = self.assure(T);
+        std.debug.assert(comp.super == 0);
+        unreachable;
+    }
+
+    /// Checks whether the given component belongs to any group. If so, it is not sortable directly.
+    pub fn sortable(self: *Registry, comptime T: type) bool {
+        return self.assure(T).super == 0;
     }
 
     pub fn view(self: *Registry, comptime includes: var, comptime excludes: var) ViewType(includes, excludes) {
-        if (@typeInfo(@TypeOf(includes)) != .Struct)
-            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(args)));
-        if (@typeInfo(@TypeOf(excludes)) != .Struct)
-            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(excludes)));
+        std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
+        std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(includes.len > 0);
 
+        // just one include so use the optimized BasicView
         if (includes.len == 1 and excludes.len == 0)
             return BasicView(includes[0]).init(self.assure(includes[0]));
 
@@ -398,13 +446,12 @@ pub const Registry = struct {
         return MultiView(includes.len, excludes.len);
     }
 
+    /// creates an optimized group for iterating components. Note that types are ORDER DEPENDENDANT for now, so always pass component
+    /// types in the same order.
     pub fn group(self: *Registry, comptime owned: var, comptime includes: var, comptime excludes: var) GroupType(owned, includes, excludes) {
-        if (@typeInfo(@TypeOf(owned)) != .Struct)
-            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(owned)));
-        if (@typeInfo(@TypeOf(includes)) != .Struct)
-            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(includes)));
-        if (@typeInfo(@TypeOf(excludes)) != .Struct)
-            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(excludes)));
+        std.debug.assert(@typeInfo(@TypeOf(owned)) == .Struct);
+        std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
+        std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(owned.len + includes.len > 0);
         std.debug.assert(owned.len + includes.len + excludes.len > 1);
 
@@ -428,9 +475,11 @@ pub const Registry = struct {
 
         // create a unique hash to identify the group
         var maybe_group_data: ?*GroupData = null;
-        comptime const hash = owned.len + (31 * includes.len) + (31 * 31 * excludes.len);
+        comptime const hash = comptime hashGroupTypes(owned, includes, excludes);
 
         for (self.groups.items) |grp| {
+            // TODO: these checks rely on owned/include/exclude to all be in the same order. fix that.
+            // TODO: prolly dont need the mem.eql since hash is the same damn thing
             if (grp.hash == hash and std.mem.eql(u32, grp.owned, owned_arr[0..]) and std.mem.eql(u32, grp.include, includes_arr[0..]) and std.mem.eql(u32, grp.exclude, excludes_arr[0..])) {
                 maybe_group_data = grp;
                 break;
@@ -443,36 +492,101 @@ pub const Registry = struct {
             if (owned.len == 0) {
                 return BasicGroup(includes.len, excludes.len).init(&group_data.entity_set, self, includes_arr, excludes_arr);
             } else {
-                return OwningGroup(owned.len, includes.len, excludes.len).init(&group_data.current, self, owned_arr, includes_arr, excludes_arr);
+                var first_owned = self.assure(owned[0]);
+                return OwningGroup(owned.len, includes.len, excludes.len).init(&first_owned.super, &group_data.current, self, owned_arr, includes_arr, excludes_arr);
+            }
+        }
+
+        const size = owned.len + includes.len + excludes.len;
+
+        // before adding the group we need to do some checks to make sure there arent other owning groups with the same types
+        if (std.builtin.mode == .Debug and owned.len > 0) {
+            std.debug.warn("\n", .{});
+            for (self.groups.items) |grp| {
+                if (grp.owned.len == 0) continue;
+
+                var overlapping: u8 = 0;
+                for (grp.owned) |grp_owned| {
+                    if (std.mem.indexOfScalar(u32, &owned_arr, grp_owned)) |_| overlapping += 1;
+                }
+
+                var sz: u8 = overlapping;
+                for (grp.include) |grp_include| {
+                    if (std.mem.indexOfScalar(u32, &includes_arr, grp_include)) |_| sz += 1;
+                }
+                for (grp.exclude) |grp_exclude| {
+                    if (std.mem.indexOfScalar(u32, &excludes_arr, grp_exclude)) |_| sz += 1;
+                }
+
+                const check = overlapping == 0 or ((sz == size) or (sz == grp.size));
+                std.debug.warn("overlapping: {}, sz: {}, (sz == size): {}, (sz == gdata.size): {}\t--- check: {}\n", .{ overlapping, sz, sz == size, sz == grp.size, check });
+                std.debug.assert(check);
             }
         }
 
         // we need to create a new GroupData
         var new_group_data = GroupData.initPtr(self.allocator, self, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
-        self.groups.append(new_group_data) catch unreachable;
+
+        var maybe_valid_if: ?*GroupData = null;
+        var discard_if: ?*GroupData = null;
+
+        if (owned.len == 0) {
+            self.groups.append(new_group_data) catch unreachable;
+        } else {
+            // if this is a group in a family, we may need to do an insert so get the insertion index first
+            const maybe_index = new_group_data.findInsertionIndex(self.groups.items);
+
+            // if there is a previous group in this family, we use it for inserting our discardIf calls
+            if (new_group_data.findPreviousIndex(self.groups.items, maybe_index)) |prev| {
+                discard_if = self.groups.items[prev];
+            }
+
+            if (maybe_index) |index| {
+                maybe_valid_if = self.groups.items[index];
+                self.groups.insert(index, new_group_data) catch unreachable;
+            } else {
+                self.groups.append(new_group_data) catch unreachable;
+            }
+
+            // update super on all owned Storages to be the max of size and their current super value
+            inline for (owned) |t| {
+                var storage = self.assure(t);
+                storage.super = std.math.max(storage.super, size);
+            }
+        }
 
         // wire up our listeners
-        inline for (owned) |t| self.onConstruct(t).connectBound(new_group_data, "maybeValidIf");
-        inline for (includes) |t| self.onConstruct(t).connectBound(new_group_data, "maybeValidIf");
-        inline for (excludes) |t| self.onDestruct(t).connectBound(new_group_data, "maybeValidIf");
+        inline for (owned) |t| self.onConstruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, "maybeValidIf");
+        inline for (includes) |t| self.onConstruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, "maybeValidIf");
+        inline for (excludes) |t| self.onDestruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, "maybeValidIf");
 
-        inline for (owned) |t| self.onDestruct(t).connectBound(new_group_data, "discardIf");
-        inline for (includes) |t| self.onDestruct(t).connectBound(new_group_data, "discardIf");
-        inline for (excludes) |t| self.onConstruct(t).connectBound(new_group_data, "discardIf");
+        inline for (owned) |t| self.onDestruct(t).beforeBound(discard_if).connectBound(new_group_data, "discardIf");
+        inline for (includes) |t| self.onDestruct(t).beforeBound(discard_if).connectBound(new_group_data, "discardIf");
+        inline for (excludes) |t| self.onConstruct(t).beforeBound(discard_if).connectBound(new_group_data, "discardIf");
 
         // pre-fill the GroupData with any existing entitites that match
         if (owned.len == 0) {
-            var tmp_view = self.view(owned ++ includes, excludes);
-            var view_iter = tmp_view.iterator();
+            var view_iter = self.view(owned ++ includes, excludes).iterator();
             while (view_iter.next()) |entity| {
                 new_group_data.entity_set.add(entity);
             }
-        } else {}
+        } else {
+            // we cannot iterate backwards because we want to leave behind valid entities in case of owned types
+            // maybeValidIf all the entities in the first owned group
+            var first_owned_storage = self.assure(owned[0]);
+            for (first_owned_storage.data().*) |entity| {
+                new_group_data.maybeValidIf(entity);
+            }
+            // for(auto *first = std::get<0>(cpools).data(), *last = first + std::get<0>(cpools).size(); first != last; ++first) {
+            //     handler->template maybe_valid_if<std::tuple_element_t<0, std::tuple<std::decay_t<Owned>...>>>(*this, *first);
+            // }
+        }
 
         if (owned.len == 0) {
             return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);
         } else {
-            return OwningGroup(owned.len, includes.len, excludes.len).init(&new_group_data.current, self, owned_arr, includes_arr, excludes_arr);
+            var first_owned_storage = self.assure(owned[0]);
+            return OwningGroup(owned.len, includes.len, excludes.len).init(&first_owned_storage.super, &new_group_data.current, self, owned_arr, includes_arr, excludes_arr);
         }
     }
 
@@ -480,5 +594,35 @@ pub const Registry = struct {
     fn GroupType(comptime owned: var, comptime includes: var, comptime excludes: var) type {
         if (owned.len == 0) return BasicGroup(includes.len, excludes.len);
         return OwningGroup(owned.len, includes.len, excludes.len);
+    }
+
+    /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types.
+    inline fn hashGroupTypes(comptime owned: var, comptime includes: var, comptime excludes: var) u64 {
+        comptime {
+            for (owned) |t1| {
+                for (includes) |t2| {
+                    std.debug.assert(t1 != t2);
+
+                    for (excludes) |t3| {
+                        std.debug.assert(t1 != t3);
+                        std.debug.assert(t2 != t3);
+                    }
+                }
+            }
+
+            const owned_str = comptime concatTypes(owned);
+            const includes_str = comptime concatTypes(includes);
+            const excludes_str = comptime concatTypes(excludes);
+
+            return utils.hashStringFnv(u64, owned_str ++ includes_str ++ excludes_str);
+        }
+    }
+
+    inline fn concatTypes(comptime types: var) []const u8 {
+        comptime {
+            comptime var res: []const u8 = "";
+            inline for (types) |t| res = res ++ @typeName(t);
+            return res;
+        }
     }
 };

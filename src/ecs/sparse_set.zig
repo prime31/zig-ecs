@@ -83,6 +83,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             return self.dense.items.len == 0;
         }
 
+        // TODO: why return a pointer to the slice?
         pub fn data(self: Self) *const []SparseT {
             return &self.dense.items;
         }
