@@ -77,9 +77,6 @@ test "Signal/Sink" {
     sink.connect(tester);
     std.testing.expectEqual(@as(usize, 1), signal.size());
 
-    sink.connect(tester);
-    std.testing.expectEqual(@as(usize, 1), signal.size());
-
     // bound listener
     var thing = Thing{};
     sink.connectBound(&thing, "tester");
@@ -92,4 +89,17 @@ test "Signal/Sink" {
 
     sink.disconnectBound(&thing);
     std.testing.expectEqual(@as(usize, 0), signal.size());
+}
+
+test "Sink Before null" {
+    var signal = Signal(u32).init(std.testing.allocator);
+    defer signal.deinit();
+
+    var sink = signal.sink();
+    sink.connect(tester);
+    std.testing.expectEqual(@as(usize, 1), signal.size());
+
+    var thing = Thing{};
+    sink.before(null).connectBound(&thing, "tester");
+    std.testing.expectEqual(@as(usize, 2), signal.size());
 }
