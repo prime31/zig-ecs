@@ -37,7 +37,7 @@ pub const Registry = struct {
     allocator: *std.mem.Allocator,
 
     /// internal, persistant data structure to manage the entities in a group
-    const GroupData = struct {
+    pub const GroupData = struct {
         hash: u64,
         size: u8,
         /// optional. there will be an entity_set for non-owning groups and current for owning
@@ -485,9 +485,7 @@ pub const Registry = struct {
         comptime const hash = comptime hashGroupTypes(owned, includes, excludes);
 
         for (self.groups.items) |grp| {
-            // TODO: these checks rely on owned/include/exclude to all be in the same order. fix that.
-            // TODO: prolly dont need the mem.eql since hash is the same damn thing
-            if (grp.hash == hash and std.mem.eql(u32, grp.owned, owned_arr[0..]) and std.mem.eql(u32, grp.include, includes_arr[0..]) and std.mem.eql(u32, grp.exclude, excludes_arr[0..])) {
+            if (grp.hash == hash) {
                 maybe_group_data = grp;
                 break;
             }
@@ -500,7 +498,7 @@ pub const Registry = struct {
                 return BasicGroup(includes.len, excludes.len).init(&group_data.entity_set, self, includes_arr, excludes_arr);
             } else {
                 var first_owned = self.assure(owned[0]);
-                return OwningGroup(owned.len, includes.len, excludes.len).init(&first_owned.super, &group_data.current, self, owned_arr, includes_arr, excludes_arr);
+                return OwningGroup.init(self, group_data, &first_owned.super);
             }
         }
 
@@ -577,7 +575,7 @@ pub const Registry = struct {
                 new_group_data.entity_set.add(entity);
             }
         } else {
-            // ??we cannot iterate backwards because we want to leave behind valid entities in case of owned types
+            // ??? why not? we cannot iterate backwards because we want to leave behind valid entities in case of owned types
             var first_owned_storage = self.assure(owned[0]);
             for (first_owned_storage.data().*) |entity| {
                 new_group_data.maybeValidIf(entity);
@@ -591,17 +589,18 @@ pub const Registry = struct {
             return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);
         } else {
             var first_owned_storage = self.assure(owned[0]);
-            return OwningGroup(owned.len, includes.len, excludes.len).init(&first_owned_storage.super, &new_group_data.current, self, owned_arr, includes_arr, excludes_arr);
+            return OwningGroup.init(self, new_group_data, &first_owned_storage.super);
         }
     }
 
-    /// returns the Type that a view will be based on the includes and excludes
+    /// returns the Type that a view will be, based on the includes and excludes
     fn GroupType(comptime owned: var, comptime includes: var, comptime excludes: var) type {
         if (owned.len == 0) return BasicGroup(includes.len, excludes.len);
-        return OwningGroup(owned.len, includes.len, excludes.len);
+        return OwningGroup;
     }
 
-    /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types.
+    /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types between
+    /// the 3 groups.
     inline fn hashGroupTypes(comptime owned: var, comptime includes: var, comptime excludes: var) u64 {
         comptime {
             for (owned) |t1| {
@@ -623,10 +622,24 @@ pub const Registry = struct {
         }
     }
 
+    /// expects a tuple of types. Convertes them to type names, sorts them then concatenates and returns the string.
     inline fn concatTypes(comptime types: var) []const u8 {
         comptime {
+            const impl = struct {
+                fn asc(lhs: []const u8, rhs: []const u8) bool {
+                    return std.mem.lessThan(u8, lhs, rhs);
+                }
+            };
+
+            var names: [types.len][]const u8 = undefined;
+            for (names) |*name, i| {
+                name.* = @typeName(types[i]);
+            }
+
+            std.sort.sort([]const u8, &names, impl.asc);
+
             comptime var res: []const u8 = "";
-            inline for (types) |t| res = res ++ @typeName(t);
+            inline for (names) |name| res = res ++ name;
             return res;
         }
     }

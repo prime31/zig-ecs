@@ -73,37 +73,27 @@ pub fn BasicGroup(comptime n_includes: usize, comptime n_excludes: usize) type {
     };
 }
 
-pub fn OwningGroup(comptime n_owned: usize, comptime n_includes: usize, comptime n_excludes: usize) type {
-    return struct {
-        const Self = @This();
+pub const OwningGroup = struct {
+    registry: *Registry,
+    group_data: *Registry.GroupData,
+    super: *usize,
 
-        current: *usize,
-        super: *usize,
-        registry: *Registry,
-        owned_type_ids: [n_owned]u32,
-        include_type_ids: [n_includes]u32,
-        exclude_type_ids: [n_excludes]u32,
+    pub fn init(registry: *Registry, group_data: *Registry.GroupData, super: *usize) OwningGroup {
+        return .{
+            .registry = registry,
+            .group_data = group_data,
+            .super = super,
+        };
+    }
 
-        pub fn init(super: *usize, current: *usize, registry: *Registry, owned_type_ids: [n_owned]u32, include_type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
-            return Self{
-                .super = super,
-                .current = current,
-                .registry = registry,
-                .owned_type_ids = owned_type_ids,
-                .include_type_ids = include_type_ids,
-                .exclude_type_ids = exclude_type_ids,
-            };
-        }
+    pub fn len(self: OwningGroup) usize {
+        return self.group_data.current;
+    }
 
-        pub fn len(self: Self) usize {
-            return self.current.*;
-        }
-
-        pub fn sortable(self: *Registry, comptime T: type) bool {
-            return self.super.* == n_owned + n_includes + n_excludes;
-        }
-    };
-}
+    pub fn sortable(self: OwningGroup, comptime T: type) bool {
+        return self.group_data.super == self.group_data.size;
+    }
+};
 
 test "BasicGroup creation" {
     var reg = Registry.init(std.testing.allocator);
@@ -133,7 +123,7 @@ test "BasicGroup excludes" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var group = reg.group(.{}, .{ i32 }, .{ u32 });
+    var group = reg.group(.{}, .{i32}, .{u32});
     std.testing.expectEqual(group.len(), 0);
 
     var e0 = reg.create();
@@ -168,7 +158,7 @@ test "OwningGroup" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var group = reg.group(.{i32, u32}, .{}, .{});
+    var group = reg.group(.{ i32, u32 }, .{}, .{});
 
     var e0 = reg.create();
     reg.add(e0, @as(i32, 44));
@@ -180,7 +170,7 @@ test "OwningGroup add/remove" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var group = reg.group(.{i32, u32}, .{}, .{});
+    var group = reg.group(.{ i32, u32 }, .{}, .{});
 
     var e0 = reg.create();
     reg.add(e0, @as(i32, 44));
@@ -203,9 +193,9 @@ test "multiple OwningGroups" {
     // var group1 = reg.group(.{u64, u32}, .{}, .{});
     // var group2 = reg.group(.{u64, u32, u8}, .{}, .{});
 
-    var group5 = reg.group(.{Sprite, Transform}, .{Renderable, Rotation}, .{});
+    var group5 = reg.group(.{ Sprite, Transform }, .{ Renderable, Rotation }, .{});
     var group3 = reg.group(.{Sprite}, .{Renderable}, .{});
-    var group4 = reg.group(.{Sprite, Transform}, .{Renderable}, .{});
+    var group4 = reg.group(.{ Sprite, Transform }, .{Renderable}, .{});
 
     var last_size: u8 = 0;
     for (reg.groups.items) |grp| {

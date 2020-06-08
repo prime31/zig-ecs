@@ -72,5 +72,5 @@ test "nested OwningGroups entity order" {
 
     printStore(sprite_store, "Sprite");
     printStore(transform_store, "Transform");
-    warn("group2.current: {}\n", .{group2.current.*});
+    warn("group2.current: {}\n", .{group2.group_data.current});
 }
