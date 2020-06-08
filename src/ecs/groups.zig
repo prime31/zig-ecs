@@ -7,71 +7,65 @@ const SparseSet = @import("sparse_set.zig").SparseSet;
 const Entity = @import("registry.zig").Entity;
 
 /// BasicGroups do not own any components
-pub fn BasicGroup(comptime n_includes: usize, comptime n_excludes: usize) type {
-    return struct {
-        const Self = @This();
+pub const BasicGroup = struct {
+    const Self = @This();
 
-        entity_set: *SparseSet(Entity),
-        registry: *Registry,
-        type_ids: [n_includes]u32,
-        exclude_type_ids: [n_excludes]u32,
+    registry: *Registry,
+    group_data: *Registry.GroupData,
 
-        pub const Iterator = struct {
-            group: *Self,
-            index: usize = 0,
-            entities: *const []Entity,
+    pub const Iterator = struct {
+        group: *Self,
+        index: usize = 0,
+        entities: *const []Entity,
 
-            pub fn init(group: *Self) Iterator {
-                return .{
-                    .group = group,
-                    .entities = group.entity_set.data(),
-                };
-            }
-
-            pub fn next(it: *Iterator) ?Entity {
-                if (it.index >= it.entities.len) return null;
-
-                it.index += 1;
-                return it.entities.*[it.index - 1];
-            }
-
-            // Reset the iterator to the initial index
-            pub fn reset(it: *Iterator) void {
-                it.index = 0;
-            }
-        };
-
-        pub fn init(entity_set: *SparseSet(Entity), registry: *Registry, type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
-            return Self{
-                .entity_set = entity_set,
-                .registry = registry,
-                .type_ids = type_ids,
-                .exclude_type_ids = exclude_type_ids,
+        pub fn init(group: *Self) Iterator {
+            return .{
+                .group = group,
+                .entities = group.group_data.entity_set.data(),
             };
         }
 
-        pub fn len(self: Self) usize {
-            return self.entity_set.len();
+        pub fn next(it: *Iterator) ?Entity {
+            if (it.index >= it.entities.len) return null;
+
+            it.index += 1;
+            return it.entities.*[it.index - 1];
         }
 
-        /// Direct access to the array of entities
-        pub fn data(self: Self) *const []Entity {
-            return self.entity_set.data();
-        }
-
-        pub fn get(self: *Self, comptime T: type, entity: Entity) *T {
-            return self.registry.assure(T).get(entity);
-        }
-
-        pub fn getConst(self: *Self, comptime T: type, entity: Entity) T {
-            return self.registry.assure(T).getConst(entity);
-        }
-
-        pub fn iterator(self: *Self) Iterator {
-            return Iterator.init(self);
+        // Reset the iterator to the initial index
+        pub fn reset(it: *Iterator) void {
+            it.index = 0;
         }
     };
-}
+
+    pub fn init(registry: *Registry, group_data: *Registry.GroupData) Self {
+        return Self{
+            .registry = registry,
+            .group_data = group_data,
+        };
+    }
+
+    pub fn len(self: Self) usize {
+        return self.group_data.entity_set.len();
+    }
+
+    /// Direct access to the array of entities
+    pub fn data(self: Self) *const []Entity {
+        return self.group_data.entity_set.data();
+    }
+
+    pub fn get(self: *Self, comptime T: type, entity: Entity) *T {
+        return self.registry.assure(T).get(entity);
+    }
+
+    pub fn getConst(self: *Self, comptime T: type, entity: Entity) T {
+        return self.registry.assure(T).getConst(entity);
+    }
+
+    pub fn iterator(self: *Self) Iterator {
+        return Iterator.init(self);
+    }
+};
 
 pub const OwningGroup = struct {
     registry: *Registry,

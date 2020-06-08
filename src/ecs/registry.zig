@@ -453,21 +453,28 @@ pub const Registry = struct {
         return MultiView(includes.len, excludes.len);
     }
 
-    /// creates an optimized group for iterating components. Note that types are ORDER DEPENDENDANT for now, so always pass component
-    /// types in the same order.
-    pub fn group(self: *Registry, comptime owned: var, comptime includes: var, comptime excludes: var) GroupType(owned, includes, excludes) {
+    /// creates an optimized group for iterating components
+    pub fn group(self: *Registry, comptime owned: var, comptime includes: var, comptime excludes: var) (if (owned.len == 0) BasicGroup else OwningGroup) {
         std.debug.assert(@typeInfo(@TypeOf(owned)) == .Struct);
         std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
         std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(owned.len + includes.len > 0);
         std.debug.assert(owned.len + includes.len + excludes.len > 1);
 
-        var owned_arr: [owned.len]u32 = undefined;
-        inline for (owned) |t, i| {
-            _ = self.assure(t);
-            owned_arr[i] = utils.typeId(t);
+        // create a unique hash to identify the group so that we can look it up
+        comptime const hash = comptime hashGroupTypes(owned, includes, excludes);
+
+        for (self.groups.items) |grp| {
+            if (grp.hash == hash) {
+                if (owned.len == 0) {
+                    return BasicGroup.init(self, grp);
+                }
+                var first_owned = self.assure(owned[0]);
+                return OwningGroup.init(self, grp, &first_owned.super);
+            }
         }
 
+        // gather up all our Types as typeIds
         var includes_arr: [includes.len]u32 = undefined;
         inline for (includes) |t, i| {
             _ = self.assure(t);
@@ -480,33 +487,17 @@ pub const Registry = struct {
             excludes_arr[i] = utils.typeId(t);
         }
 
-        // create a unique hash to identify the group
-        var maybe_group_data: ?*GroupData = null;
-        comptime const hash = comptime hashGroupTypes(owned, includes, excludes);
-
-        for (self.groups.items) |grp| {
-            if (grp.hash == hash) {
-                maybe_group_data = grp;
-                break;
-            }
+        var owned_arr: [owned.len]u32 = undefined;
+        inline for (owned) |t, i| {
+            _ = self.assure(t);
+            owned_arr[i] = utils.typeId(t);
         }
 
-        // do we already have the GroupData?
-        if (maybe_group_data) |group_data| {
-            // non-owning groups
-            if (owned.len == 0) {
-                return BasicGroup(includes.len, excludes.len).init(&group_data.entity_set, self, includes_arr, excludes_arr);
-            } else {
-                var first_owned = self.assure(owned[0]);
-                return OwningGroup.init(self, group_data, &first_owned.super);
-            }
-        }
-
-        const size = owned.len + includes.len + excludes.len;
+        // we need to create a new GroupData
+        var new_group_data = GroupData.initPtr(self.allocator, self, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
 
         // before adding the group we need to do some checks to make sure there arent other owning groups with the same types
         if (std.builtin.mode == .Debug and owned.len > 0) {
-            std.debug.warn("\n", .{});
             for (self.groups.items) |grp| {
                 if (grp.owned.len == 0) continue;
 
@@ -523,13 +514,10 @@ pub const Registry = struct {
                     if (std.mem.indexOfScalar(u32, &excludes_arr, grp_exclude)) |_| sz += 1;
                 }
 
-                const check = overlapping == 0 or ((sz == size) or (sz == grp.size));
+                const check = overlapping == 0 or ((sz == new_group_data.size) or (sz == grp.size));
                 std.debug.assert(check);
             }
         }
-
-        // we need to create a new GroupData
-        var new_group_data = GroupData.initPtr(self.allocator, self, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
 
         var maybe_valid_if: ?*GroupData = null;
         var discard_if: ?*GroupData = null;
@@ -555,7 +543,7 @@ pub const Registry = struct {
             // update super on all owned Storages to be the max of size and their current super value
             inline for (owned) |t| {
                 var storage = self.assure(t);
-                storage.super = std.math.max(storage.super, size);
+                storage.super = std.math.max(storage.super, new_group_data.size);
             }
         }
 
@@ -586,17 +574,11 @@ pub const Registry = struct {
         }
 
         if (owned.len == 0) {
-            return BasicGroup(includes.len, excludes.len).init(&new_group_data.entity_set, self, includes_arr, excludes_arr);
+            return BasicGroup.init(self, new_group_data);
         } else {
             var first_owned_storage = self.assure(owned[0]);
             return OwningGroup.init(self, new_group_data, &first_owned_storage.super);
         }
-    }
-
-    /// returns the Type that a view will be, based on the includes and excludes
-    fn GroupType(comptime owned: var, comptime includes: var, comptime excludes: var) type {
-        if (owned.len == 0) return BasicGroup(includes.len, excludes.len);
-        return OwningGroup;
     }
 
     /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types between
