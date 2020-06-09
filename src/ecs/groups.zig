@@ -179,27 +179,8 @@ pub const OwningGroup = struct {
             else => std.debug.assert("invalid func"),
         };
 
-        const component_info = @typeInfo(Components).Struct;
-
-        // get the data pointers for the chunks
-        var component_ptrs: [component_info.fields.len][*]u8 = undefined;
-        inline for (component_info.fields) |field, i| {
-            const storage = self.registry.assure(field.field_type.Child);
-            component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
-        }
-
-        var storage = self.firstOwnedStorage();
-        var index: usize = 0;
-        while (index < self.group_data.current) : (index += 1) {
-            const ent = storage.set.dense.items[index];
-            const entity_index = storage.set.index(ent);
-
-            var comps: Components = undefined;
-            inline for (component_info.fields) |field, i| {
-                const typed_ptr = @ptrCast([*]field.field_type.Child, @alignCast(@alignOf(field.field_type.Child), component_ptrs[i]));
-                @field(comps, field.name) = &typed_ptr[entity_index];
-            }
-
+        var iter = self.iterator(Components);
+        while (iter.next()) |comps| {
             @call(.{ .modifier = .always_inline }, func, .{comps});
         }
     }
