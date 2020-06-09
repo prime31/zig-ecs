@@ -172,6 +172,38 @@ pub const OwningGroup = struct {
         return comps;
     }
 
+    pub fn each(self: OwningGroup, comptime func: var) void {
+        const Components = switch (@typeInfo(@TypeOf(func))) {
+            .BoundFn => |func_info| func_info.args[1].arg_type.?,
+            .Fn => |func_info| func_info.args[0].arg_type.?,
+            else => std.debug.assert("invalid func"),
+        };
+
+        const component_info = @typeInfo(Components).Struct;
+
+        // get the data pointers for the chunks
+        var component_ptrs: [component_info.fields.len][*]u8 = undefined;
+        inline for (component_info.fields) |field, i| {
+            const storage = self.registry.assure(field.field_type.Child);
+            component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
+        }
+
+        var storage = self.firstOwnedStorage();
+        var index: usize = 0;
+        while (index < self.group_data.current) : (index += 1) {
+            const ent = storage.set.dense.items[index];
+            const entity_index = storage.set.index(ent);
+
+            var comps: Components = undefined;
+            inline for (component_info.fields) |field, i| {
+                const typed_ptr = @ptrCast([*]field.field_type.Child, @alignCast(@alignOf(field.field_type.Child), component_ptrs[i]));
+                @field(comps, field.name) = &typed_ptr[entity_index];
+            }
+
+            @call(.{ .modifier = .always_inline }, func, .{comps});
+        }
+    }
+
     /// returns the component storage for the given type for direct access
     pub fn getStorage(self: *OwningGroup, comptime T: type) *Storage(T) {
         return self.registry.assure(T);
@@ -321,6 +353,38 @@ test "OwningGroup iterate" {
             std.testing.expectEqual(item.uint.*, 999);
         }
     }
+}
+
+fn each(components: struct {
+    int: *i32,
+    uint: *u32,
+}) void {
+    std.testing.expectEqual(components.int.*, 44);
+    std.testing.expectEqual(components.uint.*, 55);
+}
+
+test "OwningGroup each" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var e0 = reg.create();
+    reg.add(e0, @as(i32, 44));
+    reg.add(e0, @as(u32, 55));
+
+    const Thing = struct {
+        fn each(self: @This(), components: struct {
+            int: *i32,
+            uint: *u32,
+        }) void {
+            std.testing.expectEqual(components.int.*, 44);
+            std.testing.expectEqual(components.uint.*, 55);
+        }
+    };
+    var thing = Thing{};
+
+    var group = reg.group(.{ i32, u32 }, .{}, .{});
+    group.each(thing.each);
+    group.each(each);
 }
 
 test "multiple OwningGroups" {
