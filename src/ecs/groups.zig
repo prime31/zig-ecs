@@ -14,22 +14,18 @@ pub const BasicGroup = struct {
     group_data: *Registry.GroupData,
 
     pub const Iterator = struct {
-        group: *Self,
         index: usize = 0,
-        entities: *const []Entity,
+        entities: []const Entity,
 
-        pub fn init(group: *Self) Iterator {
-            return .{
-                .group = group,
-                .entities = group.group_data.entity_set.data(),
-            };
+        pub fn init(entities: []const Entity) Iterator {
+            return .{ .entities = entities };
         }
 
         pub fn next(it: *Iterator) ?Entity {
             if (it.index >= it.entities.len) return null;
 
             it.index += 1;
-            return it.entities.*[it.index - 1];
+            return it.entities[it.index - 1];
         }
 
         // Reset the iterator to the initial index
@@ -50,7 +46,7 @@ pub const BasicGroup = struct {
     }
 
     /// Direct access to the array of entities
-    pub fn data(self: Self) *const []Entity {
+    pub fn data(self: Self) []const Entity {
         return self.group_data.entity_set.data();
     }
 
@@ -63,7 +59,7 @@ pub const BasicGroup = struct {
     }
 
     pub fn iterator(self: *Self) Iterator {
-        return Iterator.init(self);
+        return Iterator.init(self.group_data.entity_set.data());
     }
 };
 
@@ -89,7 +85,7 @@ pub const OwningGroup = struct {
     }
 };
 
-test "BasicGroup creation" {
+test "BasicGroup creation/iteration" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
@@ -105,6 +101,12 @@ test "BasicGroup creation" {
     var iterated_entities: usize = 0;
     var iter = group.iterator();
     while (iter.next()) |entity| {
+        iterated_entities += 1;
+    }
+    std.testing.expectEqual(iterated_entities, 1);
+
+    iterated_entities = 0;
+    for (group.data()) |entity| {
         iterated_entities += 1;
     }
     std.testing.expectEqual(iterated_entities, 1);

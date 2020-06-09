@@ -28,7 +28,7 @@ pub fn BasicView(comptime T: type) type {
         }
 
         /// Direct access to the array of entities
-        pub fn data(self: Self) *const []Entity {
+        pub fn data(self: Self) []const Entity {
             return self.storage.data();
         }
 
@@ -60,7 +60,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
                 const ptr = view.registry.components.getValue(view.type_ids[0]).?;
                 return .{
                     .view = view,
-                    .entities = @intToPtr(*Storage(u8), ptr).data(),
+                    .entities = @intToPtr(*Storage(u8), ptr).dataPtr(),
                 };
             }
 
@@ -161,7 +161,7 @@ test "single basic view data" {
 
     std.testing.expectEqual(view.get(3).*, 30);
 
-    for (view.data().*) |entity, i| {
+    for (view.data()) |entity, i| {
         if (i == 0)
             std.testing.expectEqual(entity, 3);
         if (i == 1)

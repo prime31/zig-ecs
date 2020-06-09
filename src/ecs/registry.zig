@@ -111,7 +111,7 @@ pub const Registry = struct {
                             // store.swap hides a safe version that types it correctly
                             const store_ptr = self.registry.components.getValue(tid).?;
                             var store = @intToPtr(*Storage(u1), store_ptr);
-                            store.swap(store.data().*[self.current], entity);
+                            store.swap(store.data()[self.current], entity);
                         }
                         self.current += 1;
                     }
@@ -132,7 +132,7 @@ pub const Registry = struct {
                     for (self.owned) |tid| {
                         const store_ptr = self.registry.components.getValue(tid).?;
                         store = @intToPtr(*Storage(u1), store_ptr);
-                        store.swap(store.data().*[self.current], entity);
+                        store.swap(store.data()[self.current], entity);
                     }
                 }
             }
@@ -565,7 +565,7 @@ pub const Registry = struct {
         } else {
             // ??? why not? we cannot iterate backwards because we want to leave behind valid entities in case of owned types
             var first_owned_storage = self.assure(owned[0]);
-            for (first_owned_storage.data().*) |entity| {
+            for (first_owned_storage.data()) |entity| {
                 new_group_data.maybeValidIf(entity);
             }
             // for(auto *first = std::get<0>(cpools).data(), *last = first + std::get<0>(cpools).size(); first != last; ++first) {

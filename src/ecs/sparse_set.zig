@@ -83,8 +83,11 @@ pub fn SparseSet(comptime SparseT: type) type {
             return self.dense.items.len == 0;
         }
 
-        // TODO: why return a pointer to the slice?
-        pub fn data(self: Self) *const []SparseT {
+        pub fn data(self: Self) []const SparseT {
+            return self.dense.items;
+        }
+
+        pub fn dataPtr(self: Self) *const []SparseT {
             return &self.dense.items;
         }
 
@@ -234,12 +237,12 @@ test "data() synced" {
     set.add(3);
 
     var data = set.data();
-    std.testing.expectEqual(data.*[1], 1);
+    std.testing.expectEqual(data[1], 1);
     std.testing.expectEqual(set.len(), data.len);
 
     set.remove(0);
     set.remove(1);
-    std.testing.expectEqual(set.len(), data.len);
+    std.testing.expectEqual(set.len(), set.data().len);
 }
 
 test "respect" {

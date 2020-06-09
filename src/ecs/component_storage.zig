@@ -187,8 +187,13 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
             };
 
         /// Direct access to the array of entities
-        pub fn data(self: Self) *const []EntityT {
+        pub fn data(self: Self) []const EntityT {
             return self.set.data();
+        }
+
+        /// Direct access to the array of entities
+        pub fn dataPtr(self: Self) *const []EntityT {
+            return self.set.dataPtr();
         }
 
         /// Swaps entities and objects in the internal packed arrays
@@ -240,7 +245,7 @@ test "iterate" {
     store.add(5, 66.45);
     store.add(7, 66.45);
 
-    for (store.data().*) |entity, i| {
+    for (store.data()) |entity, i| {
         if (i == 0)
             std.testing.expectEqual(entity, 3);
         if (i == 1)
