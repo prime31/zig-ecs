@@ -79,7 +79,6 @@ pub const OwningGroup = struct {
             pub fn init(group: OwningGroup) @This() {
                 const component_info = @typeInfo(Components).Struct;
 
-                // get the data pointers for the chunks
                 var component_ptrs: [component_info.fields.len][*]u8 = undefined;
                 inline for (component_info.fields) |field, i| {
                     const storage = group.registry.assure(field.field_type.Child);
@@ -129,11 +128,13 @@ pub const OwningGroup = struct {
         };
     }
 
+    /// grabs an untyped (u1) reference to the first Storage(T) in the owned array
     fn firstOwnedStorage(self: OwningGroup) *Storage(u1) {
         const ptr = self.registry.components.getValue(self.group_data.owned[0]).?;
         return @intToPtr(*Storage(u1), ptr);
     }
 
+    /// total number of entities in the group
     pub fn len(self: OwningGroup) usize {
         return self.group_data.current;
     }
@@ -148,13 +149,20 @@ pub const OwningGroup = struct {
         return storage.contains(entity) and storage.set.index(entity) < self.len();
     }
 
+    fn validate(self: OwningGroup, comptime Components: var) void {
+        std.debug.assert(@typeInfo(Components) == .Struct);
+
+        inline for (@typeInfo(Components).Struct.fields) |field| {
+            std.debug.assert(@typeInfo(field.field_type) == .Pointer);
+            const found = std.mem.indexOfScalar(u32, self.group_data.owned, utils.typeId(std.meta.Child(field.field_type)));
+            std.debug.assert(found != null);
+        }
+    }
+
     pub fn getOwned(self: OwningGroup, entity: Entity, comptime Components: var) Components {
-        // TODO: validate that we have a struct
-        // TODO: validate that all fields are pointers
-        // TODO: validate that all fields are owned
+        self.validate(Components);
         const component_info = @typeInfo(Components).Struct;
 
-        // get the data pointers for the chunks
         var component_ptrs: [component_info.fields.len][*]u8 = undefined;
         inline for (component_info.fields) |field, i| {
             const storage = self.registry.assure(field.field_type.Child);
@@ -178,8 +186,9 @@ pub const OwningGroup = struct {
             .Fn => |func_info| func_info.args[0].arg_type.?,
             else => std.debug.assert("invalid func"),
         };
+        self.validate(Components);
 
-        // optionally we could just use an Interator here
+        // optionally we could just use an Iterator here and pay for some slight indirection for code sharing
         // var iter = self.iterator(Components);
         // while (iter.next()) |comps| {
         //     @call(.{ .modifier = .always_inline }, func, .{comps});
@@ -187,7 +196,7 @@ pub const OwningGroup = struct {
 
         const component_info = @typeInfo(Components).Struct;
 
-        // get the data pointers for the chunks
+        // get the data pointers for the requested component types
         var component_ptrs: [component_info.fields.len][*]u8 = undefined;
         inline for (component_info.fields) |field, i| {
             const storage = self.registry.assure(field.field_type.Child);
@@ -223,11 +232,14 @@ pub const OwningGroup = struct {
         return self.registry.assure(T).getConst(entity);
     }
 
-    pub fn sortable(self: OwningGroup, comptime T: type) bool {
+    pub fn sortable(self: OwningGroup) bool {
         return self.group_data.super == self.group_data.size;
     }
 
+    /// returns an iterator with optimized access to the Components. Note that Components should be a struct with
+    /// fields that are pointers to the component types that you want to fetch. Only types that are owned are valid!
     pub fn iterator(self: OwningGroup, comptime Components: var) Iterator(Components) {
+        self.validate(Components);
         return Iterator(Components).init(self);
     }
 };
