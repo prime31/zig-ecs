@@ -66,11 +66,11 @@ test "nested OwningGroups entity order" {
 
     var sprite_store = reg.assure(Sprite);
     var transform_store = reg.assure(Transform);
-    printStore(sprite_store, "Sprite");
+    // printStore(sprite_store, "Sprite");
 
     reg.add(1, Transform{.x = 1});
 
-    printStore(sprite_store, "Sprite");
-    printStore(transform_store, "Transform");
-    warn("group2.current: {}\n", .{group2.group_data.current});
+    // printStore(sprite_store, "Sprite");
+    // printStore(transform_store, "Transform");
+    // warn("group2.current: {}\n", .{group2.group_data.current});
 }

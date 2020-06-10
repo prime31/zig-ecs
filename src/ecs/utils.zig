@@ -23,6 +23,31 @@ pub const ErasedPtr = struct {
     }
 };
 
+pub fn ReverseSliceIterator(comptime T: type) type {
+    return struct {
+        slice: []T,
+        index: usize,
+
+        pub fn init(slice: []T) @This() {
+            return .{
+                .slice = slice,
+                .index = slice.len,
+            };
+        }
+
+        pub fn next(self: *@This()) ?T {
+            if (self.index == 0) return null;
+            self.index -= 1;
+
+            return self.slice[self.index];
+        }
+
+        pub fn reset(self: *@This()) void {
+            self.index = slice.len;
+        }
+    };
+}
+
 /// sorts items using lessThan and keeps sub_items with the same sort
 pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, lessThan: fn (lhs: T1, rhs: T1) bool) void {
     var i: usize = 1;
@@ -80,4 +105,20 @@ pub fn isComptime(comptime T: type) bool {
         .ComptimeInt, .ComptimeFloat => true,
         else => false,
     };
+}
+
+test "ReverseSliceIterator" {
+    var slice = std.testing.allocator.alloc(usize, 10) catch unreachable;
+    defer std.testing.allocator.free(slice);
+
+    for (slice) |*item, i| {
+        item.* = i;
+    }
+
+    var iter = ReverseSliceIterator(usize).init(slice);
+    var i: usize = 9;
+    while (iter.next()) |val| {
+        std.testing.expectEqual(i, val);
+        if (i > 0) i -= 1;
+    }
 }

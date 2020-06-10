@@ -1,5 +1,6 @@
 const std = @import("std");
 const warn = std.debug.warn;
+const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
 
 // TODO: fix entity_mask. it should come from EntityTraitsDefinition.
 pub fn SparseSet(comptime SparseT: type) type {
@@ -168,6 +169,10 @@ pub fn SparseSet(comptime SparseT: type) type {
             self.sparse.items.len = 0;
             self.dense.items.len = 0;
         }
+
+        pub fn reverseIterator(self: *Self) ReverseSliceIterator(SparseT) {
+            return ReverseSliceIterator(SparseT).init(self.dense.items);
+        }
     };
 }
 
@@ -245,7 +250,24 @@ test "data() synced" {
     std.testing.expectEqual(set.len(), set.data().len);
 }
 
-test "respect" {
+test "iterate" {
+    var set = SparseSet(u32).initPtr(std.testing.allocator);
+    defer set.deinit();
+
+    set.add(0);
+    set.add(1);
+    set.add(2);
+    set.add(3);
+
+    var i: u32 = @intCast(u32,  set.len()) - 1;
+    var iter = set.reverseIterator();
+    while (iter.next()) |entity| {
+        std.testing.expectEqual(i, entity);
+        if (i > 0) i -= 1;
+    }
+}
+
+test "respect 1" {
     var set1 = SparseSet(u32).initPtr(std.testing.allocator);
     defer set1.deinit();
 
@@ -268,7 +290,7 @@ test "respect" {
     std.testing.expectEqual(set1.dense.items[1], set2.dense.items[2]);
 }
 
-test "respect" {
+test "respect 2" {
     var set = SparseSet(u32).initPtr(std.testing.allocator);
     defer set.deinit();
 

@@ -5,7 +5,9 @@ const Registry = @import("registry.zig").Registry;
 const Storage = @import("registry.zig").Storage;
 const Entity = @import("registry.zig").Entity;
 
-/// single item view. Iterating raw() directly is the fastest way to get at the data.
+/// single item view. Iterating raw() directly is the fastest way to get at the data. An iterator is also available to iterate
+/// either the Entities or the Components. If T is sorted note that raw() will be in the reverse order so it should be looped
+/// backwards. The iterators will return data in the sorted order though.
 pub fn BasicView(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -37,8 +39,16 @@ pub fn BasicView(comptime T: type) type {
             return self.storage.get(entity);
         }
 
-        pub fn getConst(self: *Self, comptime T: type, entity: Entity) T {
+        pub fn getConst(self: *Self, entity: Entity) T {
             return self.storage.getConst(entity);
+        }
+
+        pub fn entityIterator(self: Self) utils.ReverseSliceIterator(Entity) {
+            return self.storage.set.reverseIterator();
+        }
+
+        pub fn componentIterator(self: Self) utils.ReverseSliceIterator(T) {
+            return utils.ReverseSliceIterator(T).init(self.storage.instances.items);
         }
     };
 }
@@ -53,21 +63,24 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
 
         pub const Iterator = struct {
             view: *Self,
-            index: usize = 0,
+            index: usize,
             entities: *const []Entity,
 
             pub fn init(view: *Self) Iterator {
                 const ptr = view.registry.components.getValue(view.type_ids[0]).?;
+                const entities = @intToPtr(*Storage(u8), ptr).dataPtr();
                 return .{
                     .view = view,
-                    .entities = @intToPtr(*Storage(u8), ptr).dataPtr(),
+                    .index = entities.len,
+                    .entities = entities,
                 };
             }
 
             pub fn next(it: *Iterator) ?Entity {
-                if (it.index >= it.entities.len) return null;
+                while (true) blk: {
+                    if (it.index == 0) return null;
+                    it.index -= 1;
 
-                blk: while (it.index < it.entities.len) : (it.index += 1) {
                     const entity = it.entities.*[it.index];
 
                     // entity must be in all other Storages
@@ -86,16 +99,13 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
                         }
                     }
 
-                    it.index += 1;
                     return entity;
                 }
-
-                return null;
             }
 
             // Reset the iterator to the initial index
             pub fn reset(it: *Iterator) void {
-                it.index = 0;
+                it.index = it.entities.len;
             }
         };
 
@@ -147,6 +157,28 @@ test "single basic view" {
 
     store.remove(7);
     std.testing.expectEqual(view.len(), 2);
+
+    var i: usize = 0;
+    var iter = view.componentIterator();
+    while (iter.next()) |comp| {
+        if (i == 0) std.testing.expectEqual(comp, 50);
+        if (i == 1) std.testing.expectEqual(comp, 30);
+        i += 1;
+    }
+
+    i = 0;
+    var entIter = view.entityIterator();
+    while (entIter.next()) |ent| {
+        if (i == 0) {
+            std.testing.expectEqual(ent, 5);
+            std.testing.expectEqual(view.getConst(ent), 50);
+        }
+        if (i == 1) {
+            std.testing.expectEqual(ent, 3);
+            std.testing.expectEqual(view.getConst(ent), 30);
+        }
+        i += 1;
+    }
 }
 
 test "single basic view data" {

@@ -6,34 +6,13 @@ const Storage = @import("registry.zig").Storage;
 const SparseSet = @import("sparse_set.zig").SparseSet;
 const Entity = @import("registry.zig").Entity;
 
-/// BasicGroups do not own any components
+/// BasicGroups do not own any components. Internally, they keep a SparseSet that is always kept up-to-date with the matching
+/// entities.
 pub const BasicGroup = struct {
     const Self = @This();
 
     registry: *Registry,
     group_data: *Registry.GroupData,
-
-    // TODO: do we even need an iterator for a group?
-    pub const Iterator = struct {
-        index: usize = 0,
-        entities: []const Entity, // TODO: should this be a pointer to the slice?
-
-        pub fn init(entities: []const Entity) Iterator {
-            return .{ .entities = entities };
-        }
-
-        pub fn next(it: *Iterator) ?Entity {
-            if (it.index >= it.entities.len) return null;
-
-            it.index += 1;
-            return it.entities[it.index - 1];
-        }
-
-        // Reset the iterator to the initial index
-        pub fn reset(it: *Iterator) void {
-            it.index = 0;
-        }
-    };
 
     pub fn init(registry: *Registry, group_data: *Registry.GroupData) Self {
         return Self{
@@ -59,8 +38,10 @@ pub const BasicGroup = struct {
         return self.registry.assure(T).getConst(entity);
     }
 
-    pub fn iterator(self: *Self) Iterator {
-        return Iterator.init(self.group_data.entity_set.data());
+    /// iterates the matched entities backwards, so the current entity can always be removed safely
+    /// and newly added entities wont affect it.
+    pub fn iterator(self: Self) utils.ReverseSliceIterator(Entity) {
+        return self.group_data.entity_set.reverseIterator();
     }
 };
 
@@ -69,10 +50,13 @@ pub const OwningGroup = struct {
     group_data: *Registry.GroupData,
     super: *usize,
 
+    /// iterator the provides the data from all the requested owned components in a single struct. Access to the current Entity
+    /// being iterated is available via the entity() method, useful for accessing non-owned component data. The get() method can
+    /// also be used to fetch non-owned component data for the currently iterated Entity.
     fn Iterator(comptime Components: var) type {
         return struct {
-            index: usize = 0,
             group: OwningGroup,
+            index: usize,
             storage: *Storage(u1),
             component_ptrs: [@typeInfo(Components).Struct.fields.len][*]u8,
 
@@ -87,17 +71,18 @@ pub const OwningGroup = struct {
 
                 return .{
                     .group = group,
+                    .index = group.group_data.current,
                     .storage = group.firstOwnedStorage(),
                     .component_ptrs = component_ptrs,
                 };
             }
 
             pub fn next(it: *@This()) ?Components {
-                if (it.index >= it.group.group_data.current) return null;
+                if (it.index == 0) return null;
+                it.index -= 1;
 
                 const ent = it.storage.set.dense.items[it.index];
                 const entity_index = it.storage.set.index(ent);
-                it.index += 1;
 
                 // fill and return the struct
                 var comps: Components = undefined;
@@ -109,13 +94,17 @@ pub const OwningGroup = struct {
             }
 
             pub fn entity(it: @This()) Entity {
-                std.debug.assert(it.index > 0 and it.index <= it.group.group_data.current);
-                return it.storage.set.dense.items[it.index - 1];
+                std.debug.assert(it.index >= 0 and it.index < it.group.group_data.current);
+                return it.storage.set.dense.items[it.index];
+            }
+
+            pub fn get(it: @This(), comptime T: type) *T {
+                return it.group.registry.get(T, it.entity());
             }
 
             // Reset the iterator to the initial index
             pub fn reset(it: *@This()) void {
-                it.index = 0;
+                it.index = it.group.group_data.current;
             }
         };
     }
@@ -204,8 +193,11 @@ pub const OwningGroup = struct {
         }
 
         var storage = self.firstOwnedStorage();
-        var index: usize = 0;
-        while (index < self.group_data.current) : (index += 1) {
+        var index: usize = self.group_data.current;
+        while (true) {
+            if (index == 0) return;
+            index -= 1;
+
             const ent = storage.set.dense.items[index];
             const entity_index = storage.set.index(ent);
 
@@ -236,11 +228,15 @@ pub const OwningGroup = struct {
         return self.group_data.super == self.group_data.size;
     }
 
-    /// returns an iterator with optimized access to the Components. Note that Components should be a struct with
+    /// returns an iterator with optimized access to the owend Components. Note that Components should be a struct with
     /// fields that are pointers to the component types that you want to fetch. Only types that are owned are valid!
     pub fn iterator(self: OwningGroup, comptime Components: var) Iterator(Components) {
         self.validate(Components);
         return Iterator(Components).init(self);
+    }
+
+    pub fn entityIterator(self: OwningGroup) utils.ReverseSliceIterator(Entity) {
+        return utils.ReverseSliceIterator(Entity).init(self.firstOwnedStorage().set.dense.items[0..self.group_data.current]);
     }
 };
 
@@ -344,7 +340,7 @@ test "OwningGroup add/remove" {
     reg.add(e0, @as(u32, 55));
     std.testing.expectEqual(group.len(), 1);
 
-    reg.remove(i32, e0);
+    reg.remove(u32, e0);
     std.testing.expectEqual(group.len(), 0);
 }
 
@@ -355,20 +351,24 @@ test "OwningGroup iterate" {
     var e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
+    reg.add(e0, @as(u8, 11));
 
     var e1 = reg.create();
     reg.add(e1, @as(i32, 666));
     reg.add(e1, @as(u32, 999));
+    reg.add(e1, @as(f32, 55.5));
 
     var group = reg.group(.{ i32, u32 }, .{}, .{});
     var iter = group.iterator(struct { int: *i32, uint: *u32 });
     while (iter.next()) |item| {
-        if (iter.entity() == 0) {
+        if (iter.entity() == e0) {
             std.testing.expectEqual(item.int.*, 44);
             std.testing.expectEqual(item.uint.*, 55);
+            std.testing.expectEqual(iter.get(u8).*, 11);
         } else {
             std.testing.expectEqual(item.int.*, 666);
             std.testing.expectEqual(item.uint.*, 999);
+            std.testing.expectEqual(iter.get(f32).*, 55.5);
         }
     }
 }
@@ -421,11 +421,11 @@ test "multiple OwningGroups" {
     var group3 = reg.group(.{Sprite}, .{Renderable}, .{});
     var group4 = reg.group(.{ Sprite, Transform }, .{Renderable}, .{});
 
+    // ensure groups are ordered correctly internally
     var last_size: u8 = 0;
     for (reg.groups.items) |grp| {
         std.testing.expect(last_size <= grp.size);
         last_size = grp.size;
-        std.debug.warn("grp: {}\n", .{grp.size});
     }
 
     std.testing.expect(!reg.sortable(Sprite));
