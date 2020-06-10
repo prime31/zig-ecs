@@ -139,12 +139,14 @@ pub const OwningGroup = struct {
     }
 
     fn validate(self: OwningGroup, comptime Components: var) void {
-        std.debug.assert(@typeInfo(Components) == .Struct);
+        if (std.builtin.mode == .Debug and self.group_data.owned.len > 0) {
+            std.debug.assert(@typeInfo(Components) == .Struct);
 
-        inline for (@typeInfo(Components).Struct.fields) |field| {
-            std.debug.assert(@typeInfo(field.field_type) == .Pointer);
-            const found = std.mem.indexOfScalar(u32, self.group_data.owned, utils.typeId(std.meta.Child(field.field_type)));
-            std.debug.assert(found != null);
+            inline for (@typeInfo(Components).Struct.fields) |field| {
+                std.debug.assert(@typeInfo(field.field_type) == .Pointer);
+                const found = std.mem.indexOfScalar(u32, self.group_data.owned, utils.typeId(std.meta.Child(field.field_type)));
+                std.debug.assert(found != null);
+            }
         }
     }
 
