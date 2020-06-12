@@ -7,35 +7,35 @@ const Signal = @import("../signals/signal.zig").Signal;
 const Sink = @import("../signals/sink.zig").Sink;
 
 /// Stores an ArrayList of components along with a SparseSet of entities
-pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
-    std.debug.assert(!utils.isComptime(CompT));
+pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
+    std.debug.assert(!utils.isComptime(Component));
 
     // empty (zero-sized) structs will not have an array created
-    comptime const is_empty_struct = @sizeOf(CompT) == 0;
+    comptime const is_empty_struct = @sizeOf(Component) == 0;
 
-    // HACK: due to this being stored as untyped ptrs, when deinit is called we are casted to a CompT of some random
+    // HACK: due to this being stored as untyped ptrs, when deinit is called we are casted to a Component of some random
     // non-zero sized type. That will make is_empty_struct false in deinit always so we can't use it. Instead, we stick
     // a small dummy struct in the instances ArrayList so it can safely be deallocated.
     // Perhaps we should just allocate instances with a dummy allocator or the tmp allocator?
-    comptime var CompOrAlmostEmptyT = if (is_empty_struct) struct { dummy: u1 } else CompT;
+    comptime var ComponentOrDummy = if (is_empty_struct) struct { dummy: u1 } else Component;
 
     return struct {
         const Self = @This();
 
-        set: *SparseSet(EntityT),
-        instances: std.ArrayList(CompOrAlmostEmptyT),
+        set: *SparseSet(Entity),
+        instances: std.ArrayList(ComponentOrDummy),
         allocator: ?*std.mem.Allocator,
         /// doesnt really belong here...used to denote group ownership
         super: usize = 0,
         safe_deinit: fn (*Self) void,
-        safe_swap: fn (*Self, EntityT, EntityT) void,
-        construction: Signal(EntityT),
-        update: Signal(EntityT),
-        destruction: Signal(EntityT),
+        safe_swap: fn (*Self, Entity, Entity) void,
+        construction: Signal(Entity),
+        update: Signal(Entity),
+        destruction: Signal(Entity),
 
         pub fn init(allocator: *std.mem.Allocator) Self {
             var store = Self{
-                .set = SparseSet(EntityT).initPtr(allocator),
+                .set = SparseSet(Entity).initPtr(allocator),
                 .instances = undefined,
                 .safe_deinit = struct {
                     fn deinit(self: *Self) void {
@@ -45,21 +45,21 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
                     }
                 }.deinit,
                 .safe_swap = struct {
-                    fn swap(self: *Self, lhs: EntityT, rhs: EntityT) void {
+                    fn swap(self: *Self, lhs: Entity, rhs: Entity) void {
                         if (!is_empty_struct) {
-                            std.mem.swap(CompT, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
+                            std.mem.swap(Component, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
                         }
                         self.set.swap(lhs, rhs);
                     }
                 }.swap,
                 .allocator = null,
-                .construction = Signal(EntityT).init(allocator),
-                .update = Signal(EntityT).init(allocator),
-                .destruction = Signal(EntityT).init(allocator),
+                .construction = Signal(Entity).init(allocator),
+                .update = Signal(Entity).init(allocator),
+                .destruction = Signal(Entity).init(allocator),
             };
 
             if (!is_empty_struct) {
-                store.instances = std.ArrayList(CompOrAlmostEmptyT).init(allocator);
+                store.instances = std.ArrayList(ComponentOrDummy).init(allocator);
             }
 
             return store;
@@ -67,15 +67,15 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
 
         pub fn initPtr(allocator: *std.mem.Allocator) *Self {
             var store = allocator.create(Self) catch unreachable;
-            store.set = SparseSet(EntityT).initPtr(allocator);
+            store.set = SparseSet(Entity).initPtr(allocator);
             if (!is_empty_struct) {
-                store.instances = std.ArrayList(CompOrAlmostEmptyT).init(allocator);
+                store.instances = std.ArrayList(ComponentOrDummy).init(allocator);
             }
             store.allocator = allocator;
             store.super = 0;
-            store.construction = Signal(EntityT).init(allocator);
-            store.update = Signal(EntityT).init(allocator);
-            store.destruction = Signal(EntityT).init(allocator);
+            store.construction = Signal(Entity).init(allocator);
+            store.update = Signal(Entity).init(allocator);
+            store.destruction = Signal(Entity).init(allocator);
 
             // since we are stored as a pointer, we need to catpure this
             store.safe_deinit = struct {
@@ -87,9 +87,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
             }.deinit;
 
             store.safe_swap = struct {
-                fn swap(self: *Self, lhs: EntityT, rhs: EntityT) void {
+                fn swap(self: *Self, lhs: Entity, rhs: Entity) void {
                     if (!is_empty_struct) {
-                        std.mem.swap(CompT, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
+                        std.mem.swap(Component, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
                     }
                     self.set.swap(lhs, rhs);
                 }
@@ -113,15 +113,15 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
             }
         }
 
-        pub fn onConstruct(self: *Self) Sink(EntityT) {
+        pub fn onConstruct(self: *Self) Sink(Entity) {
             return self.construction.sink();
         }
 
-        pub fn onUpdate(self: *Self) Sink(EntityT) {
+        pub fn onUpdate(self: *Self) Sink(Entity) {
             return self.update.sink();
         }
 
-        pub fn onDestruct(self: *Self) Sink(EntityT) {
+        pub fn onDestruct(self: *Self) Sink(Entity) {
             return self.destruction.sink();
         }
 
@@ -134,7 +134,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
         }
 
         /// Assigns an entity to a storage and assigns its object
-        pub fn add(self: *Self, entity: EntityT, value: CompT) void {
+        pub fn add(self: *Self, entity: Entity, value: Component) void {
             if (!is_empty_struct) {
                 _ = self.instances.append(value) catch unreachable;
             }
@@ -143,7 +143,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
         }
 
         /// Removes an entity from a storage
-        pub fn remove(self: *Self, entity: EntityT) void {
+        pub fn remove(self: *Self, entity: Entity) void {
             self.destruction.publish(entity);
             if (!is_empty_struct) {
                 _ = self.instances.swapRemove(self.set.index(entity));
@@ -152,7 +152,7 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
         }
 
         /// Checks if a view contains an entity
-        pub fn contains(self: Self, entity: EntityT) bool {
+        pub fn contains(self: Self, entity: Entity) bool {
             return self.set.contains(entity);
         }
 
@@ -163,49 +163,49 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
         pub usingnamespace if (is_empty_struct)
             struct {
                 /// Sort Entities according to the given comparison function
-                pub fn sort(self: Self, comptime sortFn: fn (void, EntityT, EntityT) bool) void {
+                pub fn sort(self: Self, comptime sortFn: fn (void, Entity, Entity) bool) void {
                     self.set.sort(sortFn);
                 }
             }
         else
             struct {
                 /// Direct access to the array of objects
-                pub fn raw(self: Self) []CompT {
+                pub fn raw(self: Self) []Component {
                     return self.instances.items;
                 }
 
                 /// Replaces the given component for an entity
-                pub fn replace(self: *Self, entity: EntityT, value: CompT) void {
+                pub fn replace(self: *Self, entity: Entity, value: Component) void {
                     self.get(entity).* = value;
                     self.update.publish(entity);
                 }
 
                 /// Returns the object associated with an entity
-                pub fn get(self: *Self, entity: EntityT) *CompT {
+                pub fn get(self: *Self, entity: Entity) *Component {
                     std.debug.assert(self.contains(entity));
                     return &self.instances.items[self.set.index(entity)];
                 }
 
-                pub fn getConst(self: *Self, entity: EntityT) CompT {
+                pub fn getConst(self: *Self, entity: Entity) Component {
                     return self.instances.items[self.set.index(entity)];
                 }
 
                 /// Returns a pointer to the object associated with an entity, if any.
-                pub fn tryGet(self: *Self, entity: EntityT) ?*CompT {
+                pub fn tryGet(self: *Self, entity: Entity) ?*Component {
                     return if (self.set.contains(entity)) &self.instances.items[self.set.index(entity)] else null;
                 }
 
-                pub fn tryGetConst(self: *Self, entity: EntityT) ?CompT {
+                pub fn tryGetConst(self: *Self, entity: Entity) ?Component {
                     return if (self.set.contains(entity)) self.instances.items[self.set.index(entity)] else null;
                 }
 
                 /// Sort Entities or Components according to the given comparison function
                 pub fn sort(self: *Self, comptime T: type, comptime lessThan: fn (void, T, T) bool) void {
-                    std.debug.assert(T == EntityT or T == CompT);
-                    if (T == EntityT) {
-                        self.set.sortSub(lessThan, CompT, self.instances.items);
-                    } else if (T == CompT) {
-                        self.set.sortSubSub({}, CompT, lessThan, self.instances.items);
+                    std.debug.assert(T == Entity or T == Component);
+                    if (T == Entity) {
+                        self.set.sortSub(lessThan, Component, self.instances.items);
+                    } else if (T == Component) {
+                        self.set.sortSubSub({}, Component, lessThan, self.instances.items);
                         // fn sorter(self: Self, a: T, b: T, sortFn) bool {
                         //      return sortFn(self.instances[a], self.instances[b]);
                         // }
@@ -215,17 +215,17 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
             };
 
         /// Direct access to the array of entities
-        pub fn data(self: Self) []const EntityT {
+        pub fn data(self: Self) []const Entity {
             return self.set.data();
         }
 
         /// Direct access to the array of entities
-        pub fn dataPtr(self: Self) *const []EntityT {
+        pub fn dataPtr(self: Self) *const []Entity {
             return self.set.dataPtr();
         }
 
         /// Swaps entities and objects in the internal packed arrays
-        pub fn swap(self: *Self, lhs: EntityT, rhs: EntityT) void {
+        pub fn swap(self: *Self, lhs: Entity, rhs: Entity) void {
             self.safe_swap(self, lhs, rhs);
         }
 
