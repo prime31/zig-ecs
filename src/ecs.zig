@@ -1,6 +1,7 @@
 // ecs
 pub const EntityTraitsType = @import("ecs/entity.zig").EntityTraitsType;
 
+// TODO: remove me. this is just for testing
 pub const ComponentStorage = @import("ecs/component_storage.zig").ComponentStorage;
 
 pub const Entity = @import("ecs/registry.zig").Entity;
