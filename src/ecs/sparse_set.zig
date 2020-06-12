@@ -95,8 +95,9 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         pub fn contains(self: Self, sparse: SparseT) bool {
             const curr = self.page(sparse);
-            if (curr >= self.sparse.items.len)
+            if (curr >= self.sparse.items.len) {
                 return false;
+            }
 
             // testing against maxInt permits to avoid accessing the packed array
             return curr < self.sparse.items.len and self.sparse.items[curr] != std.math.maxInt(SparseT);
@@ -146,7 +147,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             std.sort.insertionSort(SparseT, self.dense.items, {}, sortFn);
 
             for (self.dense.items) |sparse| {
-                // self.assure(self.page(sparse))[self.offset(sparse)] = @intCast(SparseT, sparse);
+                // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
                 self.sparse.items[self.page(sparse)] = @intCast(SparseT, sparse);
             }
         }
@@ -156,8 +157,18 @@ pub fn SparseSet(comptime SparseT: type) type {
             utils.sortSub(SparseT, T, self.dense.items, sub_items, sortFn);
 
             for (self.dense.items) |sparse| {
-                // self.assure(self.page(sparse))[self.offset(sparse)] = @intCast(SparseT, sparse);
+                // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
                 self.sparse.items[self.page(sparse)] = @intCast(SparseT, sparse);
+            }
+        }
+
+        pub fn sortSubSub(self: *Self, context: var, comptime sortFn: fn (@TypeOf(context), SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
+            utils.sortSubSub(SparseT, T, self.dense.items, sub_items, context, sortFn);
+
+            for (self.dense.items) |sparse, i| {
+                std.debug.warn("e: {}, dense: {}, instance: {}\n", .{sparse, self.dense.items[self.page(@intCast(u32, i))], sub_items[i]});
+                // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
+                self.sparse.items[self.dense.items[self.page(@intCast(u32, i))]] = @intCast(SparseT, sparse);
             }
         }
 

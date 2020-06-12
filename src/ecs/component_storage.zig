@@ -200,13 +200,26 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
                 }
 
                 /// Sort Entities or Components according to the given comparison function
-                pub fn sort(self: Self, comptime T: type, comptime sortFn: fn (void, T, T) bool) void {
+                pub fn sort(self: *Self, comptime T: type, comptime sortFn: fn (void, T, T) bool) void {
                     std.debug.assert(T == EntityT or T == CompT);
                     if (T == EntityT) {
                         self.set.sortSub(sortFn, CompT, self.instances.items);
                     } else if (T == CompT) {
                         // essentially need to be able to call a sort method with a bound fn. That fn would then use sortFn along
                         // with self.instances.
+                        const Context = struct{
+                            self: *Self,
+                            sortFn: fn (void, T, T) bool,
+
+                            fn sort(this: @This(), a: EntityT, b: EntityT) bool {
+                                const real_a = this.self.getConst(a);
+                                const real_b = this.self.getConst(b);
+                                return this.sortFn({}, real_a, real_b);
+                            }
+                        };
+                        const context = Context{.self = self, .sortFn = sortFn};
+
+                        self.set.sortSubSub(context, Context.sort, CompT, self.instances.items);
                         // fn sorter(self: Self, a: T, b: T, sortFn) bool {
                         //      return sortFn(self.instances[a], self.instances[b]);
                         // }
@@ -357,25 +370,3 @@ test "sort empty component" {
 
 const asc_f32 = std.sort.asc(f32);
 const desc_f32 = std.sort.desc(f32);
-
-test "sort component" {
-    std.debug.warn("\n", .{});
-
-    var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
-    defer store.deinit();
-
-    store.add(1, @as(f32, 1.1));
-    store.add(2, @as(f32, 2.2));
-    store.add(0, @as(f32, 0.0));
-
-    store.sort(f32, asc_f32);
-    for (store.raw()) |e, i| {
-        // std.debug.warn("{}: {}\n", .{i, e});
-        // std.testing.expectEqual(@intCast(u32, i), e);
-    }
-
-    store.sort(f32, desc_f32);
-    for (store.raw()) |e, i| {
-        // std.testing.expectEqual(counter, e);
-    }
-}
