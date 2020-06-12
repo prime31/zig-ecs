@@ -84,8 +84,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
 
             store.safe_swap = struct {
                 fn swap(self: *Self, lhs: EntityT, rhs: EntityT) void {
-                    if (!is_empty_struct)
+                    if (!is_empty_struct) {
                         std.mem.swap(CompT, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
+                    }
                     self.set.swap(lhs, rhs);
                 }
             }.swap;
@@ -103,8 +104,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
             self.update.deinit();
             self.destruction.deinit();
 
-            if (self.allocator) |allocator|
+            if (self.allocator) |allocator| {
                 allocator.destroy(self);
+            }
         }
 
         pub fn onConstruct(self: *Self) Sink(EntityT) {
@@ -122,14 +124,16 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
         /// Increases the capacity of a component storage
         pub fn reserve(self: *Self, cap: usize) void {
             self.set.reserve(cap);
-            if (!is_empty_struct)
-                self.instances.items.reserve(cap);
+            if (!is_empty_struct) {
+                elf.instances.items.reserve(cap);
+            }
         }
 
         /// Assigns an entity to a storage and assigns its object
         pub fn add(self: *Self, entity: EntityT, value: CompT) void {
-            if (!is_empty_struct)
+            if (!is_empty_struct) {
                 _ = self.instances.append(value) catch unreachable;
+            }
             self.set.add(entity);
             self.construction.publish(entity);
         }
@@ -137,8 +141,9 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
         /// Removes an entity from a storage
         pub fn remove(self: *Self, entity: EntityT) void {
             self.destruction.publish(entity);
-            if (!is_empty_struct)
+            if (!is_empty_struct) {
                 _ = self.instances.swapRemove(self.set.index(entity));
+            }
             self.set.remove(entity);
         }
 
