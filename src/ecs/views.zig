@@ -134,7 +134,13 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
                 sub_items[i] = store.len();
             }
 
-            utils.sortSub(usize, u32, sub_items[0..], self.type_ids[0..], std.sort.asc(usize));
+            const asc_usize = struct {
+                fn sort(ctx: void, a: usize, b: usize) bool {
+                    return a < b;
+                }
+            };
+
+            utils.sortSub(usize, u32, sub_items[0..], self.type_ids[0..], asc_usize.sort);
         }
 
         pub fn iterator(self: *Self) Iterator {
