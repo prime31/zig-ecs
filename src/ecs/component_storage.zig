@@ -205,19 +205,6 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
                     if (T == EntityT) {
                         self.set.sortSub(lessThan, CompT, self.instances.items);
                     } else if (T == CompT) {
-                        const Context = struct{
-                            self: *Self,
-                            lessThan: fn (void, T, T) bool,
-
-                            fn sort(this: @This(), a: EntityT, b: EntityT) bool {
-                                const real_a = this.self.getConst(a);
-                                const real_b = this.self.getConst(b);
-                                std.debug.warn("-- a: {}, b: {} -- ae: {}, be: {}  a < b {}\n", .{real_a, real_b, a, b, this.lessThan({}, real_a, real_b)});
-                                return this.lessThan({}, real_a, real_b);
-                            }
-                        };
-                        const context = Context{.self = self, .lessThan = lessThan};
-
                         self.set.sortSubSub({}, CompT, lessThan, self.instances.items);
                         // fn sorter(self: Self, a: T, b: T, sortFn) bool {
                         //      return sortFn(self.instances[a], self.instances[b]);
