@@ -200,26 +200,12 @@ pub fn ComponentStorage(comptime CompT: type, comptime EntityT: type) type {
                 }
 
                 /// Sort Entities or Components according to the given comparison function
-                pub fn sort(self: *Self, comptime T: type, comptime sortFn: fn (void, T, T) bool) void {
+                pub fn sort(self: *Self, comptime T: type, comptime lessThan: fn (void, T, T) bool) void {
                     std.debug.assert(T == EntityT or T == CompT);
                     if (T == EntityT) {
-                        self.set.sortSub(sortFn, CompT, self.instances.items);
+                        self.set.sortSub(lessThan, CompT, self.instances.items);
                     } else if (T == CompT) {
-                        // essentially need to be able to call a sort method with a bound fn. That fn would then use sortFn along
-                        // with self.instances.
-                        const Context = struct{
-                            self: *Self,
-                            sortFn: fn (void, T, T) bool,
-
-                            fn sort(this: @This(), a: EntityT, b: EntityT) bool {
-                                const real_a = this.self.getConst(a);
-                                const real_b = this.self.getConst(b);
-                                return this.sortFn({}, real_a, real_b);
-                            }
-                        };
-                        const context = Context{.self = self, .sortFn = sortFn};
-
-                        self.set.sortSubSub(context, Context.sort, CompT, self.instances.items);
+                        self.set.sortSubSub({}, CompT, lessThan, self.instances.items);
                         // fn sorter(self: Self, a: T, b: T, sortFn) bool {
                         //      return sortFn(self.instances[a], self.instances[b]);
                         // }
@@ -342,9 +328,6 @@ test "signals" {
     store.remove(4);
 }
 
-const asc_u32 = std.sort.asc(u32);
-const desc_u32 = std.sort.desc(u32);
-
 test "sort empty component" {
     const Empty = struct {};
 
@@ -355,11 +338,13 @@ test "sort empty component" {
     store.add(2, Empty{});
     store.add(0, Empty{});
 
+    comptime const asc_u32 = std.sort.asc(u32);
     store.sort(asc_u32);
     for (store.data()) |e, i| {
         std.testing.expectEqual(@intCast(u32, i), e);
     }
 
+    comptime const desc_u32 = std.sort.desc(u32);
     store.sort(desc_u32);
     var counter: u32 = 2;
     for (store.data()) |e, i| {
@@ -368,5 +353,22 @@ test "sort empty component" {
     }
 }
 
-const asc_f32 = std.sort.asc(f32);
-const desc_f32 = std.sort.desc(f32);
+test "sort component" {
+    std.debug.warn("\n", .{});
+
+    var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
+    defer store.deinit();
+
+    store.add(22, @as(f32, 2.2));
+    store.add(11, @as(f32, 1.1));
+    store.add(33, @as(f32, 3.3));
+
+    comptime const desc_u32 = std.sort.desc(f32);
+    store.sort(f32, desc_u32);
+
+    var compare: f32 = 5;
+    for (store.raw()) |val, i| {
+        std.testing.expect(compare > val);
+        compare = val;
+    }
+}

@@ -146,9 +146,9 @@ pub fn SparseSet(comptime SparseT: type) type {
         pub fn sort(self: *Self, comptime sortFn: fn (void, SparseT, SparseT) bool) void {
             std.sort.insertionSort(SparseT, self.dense.items, {}, sortFn);
 
-            for (self.dense.items) |sparse| {
+            for (self.dense.items) |sparse, i| {
                 // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
-                self.sparse.items[self.page(sparse)] = @intCast(SparseT, sparse);
+                self.sparse.items[self.dense.items[self.page(@intCast(SparseT, i))]] = @intCast(SparseT, i);
             }
         }
 
@@ -156,19 +156,19 @@ pub fn SparseSet(comptime SparseT: type) type {
         pub fn sortSub(self: *Self, comptime sortFn: fn (void, SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
             utils.sortSub(SparseT, T, self.dense.items, sub_items, sortFn);
 
-            for (self.dense.items) |sparse| {
+            for (self.dense.items) |sparse, i| {
                 // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
-                self.sparse.items[self.page(sparse)] = @intCast(SparseT, sparse);
+                self.sparse.items[self.dense.items[self.page(@intCast(SparseT, i))]] = @intCast(SparseT, i);
             }
         }
 
-        pub fn sortSubSub(self: *Self, context: var, comptime sortFn: fn (@TypeOf(context), SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
-            utils.sortSubSub(SparseT, T, self.dense.items, sub_items, context, sortFn);
+        /// flips the script and uses the sparse set as the subordinate and does the sorting on the items slice
+        pub fn sortSubSub(self: *Self, context: var, comptime T: type, comptime lessThan: fn (@TypeOf(context), T, T) bool, items: []T) void {
+            utils.sortSubSub(T, SparseT, items, self.dense.items, context, lessThan);
 
             for (self.dense.items) |sparse, i| {
-                std.debug.warn("e: {}, dense: {}, instance: {}\n", .{sparse, self.dense.items[self.page(@intCast(u32, i))], sub_items[i]});
                 // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
-                self.sparse.items[self.dense.items[self.page(@intCast(u32, i))]] = @intCast(SparseT, sparse);
+                self.sparse.items[self.dense.items[self.page(@intCast(SparseT, i))]] = @intCast(SparseT, i);
             }
         }
 

@@ -22,29 +22,21 @@ fn printStore(store: var, name: []const u8) void {
 
 
 test "sort component" {
-    std.debug.warn("\n", .{});
-
     var store = ecs.ComponentStorage(f32, u32).initPtr(std.testing.allocator);
     defer store.deinit();
 
-    store.add(33, @as(f32, 3.3));
     store.add(22, @as(f32, 2.2));
     store.add(11, @as(f32, 1.1));
+    store.add(33, @as(f32, 3.3));
 
-    printStore(store, "Fuckerrrr");
-
-    // sort by entity
-    // comptime const asc_u32 = std.sort.asc(u32);
-    // store.sort(u32, asc_u32);
-
-
-    comptime const desc_u32 = std.sort.asc(f32);
+    comptime const desc_u32 = std.sort.desc(f32);
     store.sort(f32, desc_u32);
-    for (store.raw()) |e, i| {
-        // std.testing.expectEqual(counter, e);
-    }
 
-    printStore(store, "Fuckerrrrr");
+    var compare: f32 = 5;
+    for (store.raw()) |val, i| {
+        std.testing.expect(compare > val);
+        compare = val;
+    }
 }
 
 test "nested OwningGroups add/remove components" {
