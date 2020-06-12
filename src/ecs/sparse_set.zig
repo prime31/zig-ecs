@@ -1,5 +1,6 @@
 const std = @import("std");
 const warn = std.debug.warn;
+const utils = @import("utils.zig");
 const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
 
 // TODO: fix entity_mask. it should come from EntityTraitsDefinition.
@@ -38,7 +39,7 @@ pub fn SparseSet(comptime SparseT: type) type {
                 allocator.destroy(self);
         }
 
-        fn page(self: Self, sparse: SparseT) usize {
+        pub fn page(self: Self, sparse: SparseT) usize {
             // TODO: support paging
             // return (sparse & EntityTraits.entity_mask) / sparse_per_page;
             return sparse & self.entity_mask;
@@ -141,10 +142,19 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         /// Sort elements according to the given comparison function
-        pub fn sort(self: *Self, sortFn: fn (SparseT, SparseT) bool) void {
-            std.sort.insertionSort(SparseT, self.dense.items, sortFn);
+        pub fn sort(self: *Self, comptime sortFn: fn (void, SparseT, SparseT) bool) void {
+            std.sort.insertionSort(SparseT, self.dense.items, {}, sortFn);
 
-            var i = @as(usize, 0);
+            for (self.dense.items) |sparse| {
+                // self.assure(self.page(sparse))[self.offset(sparse)] = @intCast(SparseT, sparse);
+                self.sparse.items[self.page(sparse)] = @intCast(SparseT, sparse);
+            }
+        }
+
+        /// Sort elements according to the given comparison function and keeps sub_items with the same sort
+        pub fn sortSub(self: *Self, comptime sortFn: fn (void, SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
+            utils.sortSub(SparseT, T, self.dense.items, sub_items, sortFn);
+
             for (self.dense.items) |sparse| {
                 // self.assure(self.page(sparse))[self.offset(sparse)] = @intCast(SparseT, sparse);
                 self.sparse.items[self.page(sparse)] = @intCast(SparseT, sparse);
@@ -259,7 +269,7 @@ test "iterate" {
     set.add(2);
     set.add(3);
 
-    var i: u32 = @intCast(u32,  set.len()) - 1;
+    var i: u32 = @intCast(u32, set.len()) - 1;
     var iter = set.reverseIterator();
     while (iter.next()) |entity| {
         std.testing.expectEqual(i, entity);
@@ -290,6 +300,8 @@ test "respect 1" {
     std.testing.expectEqual(set1.dense.items[1], set2.dense.items[2]);
 }
 
+const desc_u32 = std.sort.desc(u32);
+
 test "respect 2" {
     var set = SparseSet(u32).initPtr(std.testing.allocator);
     defer set.deinit();
@@ -300,7 +312,7 @@ test "respect 2" {
     set.add(1);
     set.add(3);
 
-    set.sort(std.sort.desc(u32));
+    set.sort(desc_u32);
 
     for (set.dense.items) |item, i| {
         if (i < set.dense.items.len - 1) {

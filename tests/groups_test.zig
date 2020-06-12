@@ -14,10 +14,39 @@ const Rotation = struct { x: f32 = 0 };
 fn printStore(store: var, name: []const u8) void {
     warn("--- {} ---\n", .{name});
     for (store.set.dense.items) |e, i| {
-        warn("{:3.0}", .{e});
-        warn(" ({d:3.0})", .{store.instances.items[i]});
+        warn("[{}] {}", .{e, store.set.sparse.items[store.set.page(store.set.dense.items[i])]});
+        warn(" ({d:.2})   ", .{store.instances.items[i]});
     }
     warn("\n", .{});
+}
+
+const asc_u32 = std.sort.asc(u32);
+const desc_u32 = std.sort.desc(f32);
+
+test "sort component" {
+    std.debug.warn("\n", .{});
+
+    var store = ecs.ComponentStorage(f32, u32).initPtr(std.testing.allocator);
+    defer store.deinit();
+
+    store.add(1, @as(f32, 1.1));
+    store.add(2, @as(f32, 2.2));
+    store.add(0, @as(f32, 0.0));
+
+    printStore(store, "Fucker");
+
+    store.sort(u32, asc_u32);
+    for (store.raw()) |e, i| {
+        // std.debug.warn("{}: {}\n", .{i, e});
+        // std.testing.expectEqual(@intCast(u32, i), e);
+    }
+
+    printStore(store, "Fucker");
+
+    store.sort(f32, desc_u32);
+    for (store.raw()) |e, i| {
+        // std.testing.expectEqual(counter, e);
+    }
 }
 
 test "nested OwningGroups add/remove components" {

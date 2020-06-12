@@ -78,7 +78,7 @@ pub const Registry = struct {
             allocator.destroy(self);
         }
 
-        fn maybeValidIf(self: *GroupData, entity: Entity) void {
+        pub fn maybeValidIf(self: *GroupData, entity: Entity) void {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
                     const ptr = self.registry.components.getValue(tid).?;
@@ -120,7 +120,7 @@ pub const Registry = struct {
             }
         }
 
-        fn discardIf(self: *GroupData, entity: Entity) void {
+        pub fn discardIf(self: *GroupData, entity: Entity) void {
             if (self.owned.len == 0) {
                 if (self.entity_set.contains(entity))
                     self.entity_set.remove(entity);
@@ -608,7 +608,7 @@ pub const Registry = struct {
     inline fn concatTypes(comptime types: var) []const u8 {
         comptime {
             const impl = struct {
-                fn asc(lhs: []const u8, rhs: []const u8) bool {
+                fn asc(context: void, lhs: []const u8, rhs: []const u8) bool {
                     return std.mem.lessThan(u8, lhs, rhs);
                 }
             };
@@ -618,7 +618,7 @@ pub const Registry = struct {
                 name.* = @typeName(types[i]);
             }
 
-            std.sort.sort([]const u8, &names, impl.asc);
+            std.sort.sort([]const u8, &names, {}, impl.asc);
 
             comptime var res: []const u8 = "";
             inline for (names) |name| res = res ++ name;
