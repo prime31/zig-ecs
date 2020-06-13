@@ -28,11 +28,11 @@ pub const BasicGroup = struct {
         return self.group_data.entity_set.data();
     }
 
-    pub fn get(self: *BasicGroup, comptime T: type, entity: Entity) *T {
+    pub fn get(self: BasicGroup, comptime T: type, entity: Entity) *T {
         return self.registry.assure(T).get(entity);
     }
 
-    pub fn getConst(self: *BasicGroup, comptime T: type, entity: Entity) T {
+    pub fn getConst(self: BasicGroup, comptime T: type, entity: Entity) T {
         return self.registry.assure(T).getConst(entity);
     }
 
@@ -42,13 +42,13 @@ pub const BasicGroup = struct {
         return self.group_data.entity_set.reverseIterator();
     }
 
-    pub fn sort(self: *BasicGroup, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+    pub fn sort(self: BasicGroup, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
         if (T == Entity) {
             self.group_data.entity_set.sort(context, lessThan);
         } else {
             // TODO: in debug mode, validate that T is present in the group
-            const SortContext = struct{
-                group: *BasicGroup,
+            const SortContext = struct {
+                group: BasicGroup,
                 wrapped_context: @TypeOf(context),
                 lessThan: fn (@TypeOf(context), T, T) bool,
 
@@ -58,7 +58,7 @@ pub const BasicGroup = struct {
                     return this.lessThan(this.wrapped_context, real_a, real_b);
                 }
             };
-            var wrapper = SortContext{.group = self, .wrapped_context = context, .lessThan = lessThan};
+            var wrapper = SortContext{ .group = self, .wrapped_context = context, .lessThan = lessThan };
             self.group_data.entity_set.sort(wrapper, SortContext.sort);
         }
     }
@@ -72,6 +72,7 @@ pub const OwningGroup = struct {
     /// iterator the provides the data from all the requested owned components in a single struct. Access to the current Entity
     /// being iterated is available via the entity() method, useful for accessing non-owned component data. The get() method can
     /// also be used to fetch non-owned component data for the currently iterated Entity.
+    /// TODO: support const types in the Components struct in addition to the current ptrs
     fn Iterator(comptime Components: var) type {
         return struct {
             group: OwningGroup,
@@ -233,15 +234,15 @@ pub const OwningGroup = struct {
     }
 
     /// returns the component storage for the given type for direct access
-    pub fn getStorage(self: *OwningGroup, comptime T: type) *Storage(T) {
+    pub fn getStorage(self: OwningGroup, comptime T: type) *Storage(T) {
         return self.registry.assure(T);
     }
 
-    pub fn get(self: *OwningGroup, comptime T: type, entity: Entity) *T {
+    pub fn get(self: OwningGroup, comptime T: type, entity: Entity) *T {
         return self.registry.assure(T).get(entity);
     }
 
-    pub fn getConst(self: *OwningGroup, comptime T: type, entity: Entity) T {
+    pub fn getConst(self: OwningGroup, comptime T: type, entity: Entity) T {
         return self.registry.assure(T).getConst(entity);
     }
 
@@ -250,7 +251,8 @@ pub const OwningGroup = struct {
     }
 
     /// returns an iterator with optimized access to the owend Components. Note that Components should be a struct with
-    /// fields that are pointers to the component types that you want to fetch. Only types that are owned are valid!
+    /// fields that are pointers to the component types that you want to fetch. Only types that are owned are valid! Non-owned
+    /// types should be fetched via Iterator.get.
     pub fn iterator(self: OwningGroup, comptime Components: var) Iterator(Components) {
         self.validate(Components);
         return Iterator(Components).init(self);
@@ -258,6 +260,64 @@ pub const OwningGroup = struct {
 
     pub fn entityIterator(self: OwningGroup) utils.ReverseSliceIterator(Entity) {
         return utils.ReverseSliceIterator(Entity).init(self.firstOwnedStorage().set.dense.items[0..self.group_data.current]);
+    }
+
+    pub fn sort(self: OwningGroup, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+        var first_storage = self.firstOwnedStorage();
+
+        if (T == Entity) {
+            // only sort up to self.group_data.current
+            first_storage.sort(Entity, context, lessThan);
+        } else {
+            // TODO: in debug mode, validate that T is present in the group
+            const SortContext = struct {
+                group: OwningGroup,
+                wrapped_context: @TypeOf(context),
+                lessThan: fn (@TypeOf(context), T, T) bool,
+
+                fn sort(this: @This(), a: Entity, b: Entity) bool {
+                    const real_a = this.group.getConst(T, a);
+                    const real_b = this.group.getConst(T, b);
+                    return this.lessThan(this.wrapped_context, real_a, real_b);
+                }
+            };
+            const wrapper = SortContext{ .group = self, .wrapped_context = context, .lessThan = lessThan };
+            first_storage.sort(Entity, wrapper, SortContext.sort);
+        }
+
+        // sync up the rest of the owned components. First get our Storages in
+        // var tmp_storages: [20]*Storage(u1) = undefined;
+        // for (self.group_data.owned[1..]) |type_id, i| {
+        //     var other_ptr = self.registry.components.getValue(type_id).?;
+        //     tmp_storages[i] = @intToPtr(*Storage(u1), other_ptr);
+        // }
+        // var storages = tmp_storages[0 .. self.group_data.owned.len - 1];
+
+        var next: usize = self.group_data.current;
+        while (true) : (next -= 1) {
+            if (next == 0) break;
+            const pos = next - 1;
+            const entity = first_storage.data()[pos];
+
+            // skip the first one since its what we are using to sort with
+            for (self.group_data.owned[1..]) |type_id| {
+                var other_ptr = self.registry.components.getValue(type_id).?;
+                var storage = @intToPtr(*Storage(u1), other_ptr);
+                storage.swap(storage.data()[pos], entity);
+            }
+        }
+
+        // for (self.group_data.owned[1..]) |type_id| {
+        //     var other_ptr = self.registry.components.getValue(type_id).?;
+        //     var other = @intToPtr(*Storage(u1), other_ptr);
+
+        //     var i: usize = self.group_data.current - 1;
+        //     while (true) : (i -= 1) {
+        //         if (i == 0) break;
+        //         const pos = i - 1;
+        //         const entity =
+        //     }
+        // }
     }
 };
 

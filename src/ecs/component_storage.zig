@@ -28,7 +28,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         /// doesnt really belong here...used to denote group ownership
         super: usize = 0,
         safe_deinit: fn (*Self) void,
-        safe_swap: fn (*Self, Entity, Entity) void,
+        safe_swap: fn (*Self, Entity, Entity, bool) void,
         construction: Signal(Entity),
         update: Signal(Entity),
         destruction: Signal(Entity),
@@ -45,11 +45,11 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                     }
                 }.deinit,
                 .safe_swap = struct {
-                    fn swap(self: *Self, lhs: Entity, rhs: Entity) void {
+                    fn swap(self: *Self, lhs: Entity, rhs: Entity, instances_only: bool) void {
                         if (!is_empty_struct) {
                             std.mem.swap(Component, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
                         }
-                        self.set.swap(lhs, rhs);
+                        if (!instances_only) self.set.swap(lhs, rhs);
                     }
                 }.swap,
                 .allocator = null,
@@ -87,11 +87,11 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             }.deinit;
 
             store.safe_swap = struct {
-                fn swap(self: *Self, lhs: Entity, rhs: Entity) void {
+                fn swap(self: *Self, lhs: Entity, rhs: Entity, instances_only: bool) void {
                     if (!is_empty_struct) {
                         std.mem.swap(Component, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
                     }
-                    self.set.swap(lhs, rhs);
+                    if (!instances_only) self.set.swap(lhs, rhs);
                 }
             }.swap;
 
@@ -201,11 +201,25 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                     return if (self.set.contains(entity)) self.instances.items[self.set.index(entity)] else null;
                 }
 
-                /// Sort Entities or Components according to the given comparison function
-                pub fn sort(self: Self, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+                /// Sort Entities or Components according to the given comparison function. Valid types for T are Entity or Component.
+                pub fn sort(self: *Self, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
                     std.debug.assert(T == Entity or T == Component);
                     if (T == Entity) {
-                        self.set.sortSub(context, lessThan, Component, self.instances.items);
+                        // wtf? When an OwningGroup calls us we are gonna be fake-typed and if we are fake-typed its not safe to pass our slice to
+                        // the SparseSet and let it handle sorting. Instead, we'll use swap _without a set swap_ and do it ourselves.
+                        if (Component == u1) {
+                            const SortContext = struct {
+                                storage: *Self,
+
+                                pub fn swap(this: @This(), a: Entity, b: Entity) void {
+                                    this.storage.safe_swap(this.storage, a, b, true);
+                                }
+                            };
+                            const swap_context = SortContext{.storage = self};
+                            self.set.sortSwap(context, lessThan, swap_context);
+                        } else {
+                            self.set.sortSub(context, lessThan, Component, self.instances.items);
+                        }
                     } else if (T == Component) {
                         self.set.sortSubSub(context, Component, lessThan, self.instances.items);
                     }
@@ -224,7 +238,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
 
         /// Swaps entities and objects in the internal packed arrays
         pub fn swap(self: *Self, lhs: Entity, rhs: Entity) void {
-            self.safe_swap(self, lhs, rhs);
+            self.safe_swap(self, lhs, rhs, false);
         }
 
         pub fn clear(self: *Self) void {
@@ -361,7 +375,7 @@ test "sort by entity" {
     store.add(11, @as(f32, 1.1));
     store.add(33, @as(f32, 3.3));
 
-    const SortContext = struct{
+    const SortContext = struct {
         store: *ComponentStorage(f32, u32),
 
         fn sort(this: @This(), a: u32, b: u32) bool {
@@ -370,7 +384,7 @@ test "sort by entity" {
             return real_a > real_b;
         }
     };
-    const context = SortContext{.store = store};
+    const context = SortContext{ .store = store };
     store.sort(u32, context, SortContext.sort);
 
     var compare: f32 = 5;

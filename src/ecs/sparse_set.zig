@@ -170,6 +170,24 @@ pub fn SparseSet(comptime SparseT: type) type {
             }
         }
 
+        /// Sort elements according to the given comparison function and keeps sub_items with the same sort
+        pub fn sortSwap(self: *Self, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: var) void {
+            std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
+
+            for (self.dense.items) |sparse, pos| {
+                var curr = @intCast(SparseT, pos);
+                var next = self.index(self.dense.items[curr]);
+
+                while (curr != next) {
+                    swap_context.swap(self.dense.items[curr], self.dense.items[next]);
+                    self.sparse.items[self.dense.items[self.page(@intCast(SparseT, curr))]] = @intCast(SparseT, curr);
+
+                    curr = next;
+                    next = self.index(self.dense.items[curr]);
+                }
+            }
+        }
+
         /// flips the script and uses the sparse set as the subordinate and does the sorting on the items slice
         pub fn sortSubSub(self: *Self, context: var, comptime T: type, comptime lessThan: fn (@TypeOf(context), T, T) bool, items: []T) void {
             utils.sortSubSub(T, SparseT, items, self.dense.items, context, lessThan);

@@ -25,7 +25,7 @@ test "sort BasicGroup by Entity" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var group = reg.group(.{}, .{Sprite, Renderable}, .{});
+    var group = reg.group(.{}, .{ Sprite, Renderable }, .{});
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
@@ -34,7 +34,7 @@ test "sort BasicGroup by Entity" {
         reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
     }
 
-    const SortContext = struct{
+    const SortContext = struct {
         group: BasicGroup,
 
         fn sort(this: *@This(), a: ecs.Entity, b: ecs.Entity) bool {
@@ -44,7 +44,7 @@ test "sort BasicGroup by Entity" {
         }
     };
 
-    var context = SortContext{.group = group};
+    var context = SortContext{ .group = group };
     group.sort(ecs.Entity, &context, SortContext.sort);
 
     var val: f32 = 0;
@@ -59,7 +59,7 @@ test "sort BasicGroup by Component" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var group = reg.group(.{}, .{Sprite, Renderable}, .{});
+    var group = reg.group(.{}, .{ Sprite, Renderable }, .{});
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
@@ -68,7 +68,7 @@ test "sort BasicGroup by Component" {
         reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
     }
 
-    const SortContext = struct{
+    const SortContext = struct {
         fn sort(this: void, a: Sprite, b: Sprite) bool {
             return a.x > b.x;
         }
@@ -83,9 +83,34 @@ test "sort BasicGroup by Component" {
     }
 }
 
-test "sort OwningGroup by Entity" {
+test "sort OwningGroup by Component" {
+    std.debug.warn("\n", .{});
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
+
+    var group = reg.group(.{ Sprite, Renderable }, .{}, .{});
+
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        var e = reg.create();
+        reg.add(e, Sprite{ .x = @intToFloat(f32, i) });
+        reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
+    }
+
+    const SortContext = struct {
+        fn sort(this: void, a: Sprite, b: Sprite) bool {
+            return a.x > b.x;
+        }
+    };
+    group.sort(Sprite, {}, SortContext.sort);
+
+    var val: f32 = 0;
+    var iter = group.iterator(struct {s: *Sprite, r: *Renderable});
+    while (iter.next()) |entity| {
+        std.debug.warn("e{}: {d}\n", .{iter.entity(), entity});
+        std.testing.expectEqual(val, entity.s.*.x);
+        val += 1;
+    }
 }
 
 test "nested OwningGroups add/remove components" {

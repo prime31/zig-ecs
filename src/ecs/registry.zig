@@ -101,8 +101,9 @@ pub const Registry = struct {
             };
 
             if (self.owned.len == 0) {
-                if (isValid and !self.entity_set.contains(entity))
+                if (isValid and !self.entity_set.contains(entity)) {
                     self.entity_set.add(entity);
+                }
             } else {
                 if (isValid) {
                     const ptr = self.registry.components.getValue(self.owned[0]).?;
@@ -122,8 +123,9 @@ pub const Registry = struct {
 
         pub fn discardIf(self: *GroupData, entity: Entity) void {
             if (self.owned.len == 0) {
-                if (self.entity_set.contains(entity))
+                if (self.entity_set.contains(entity)) {
                     self.entity_set.remove(entity);
+                }
             } else {
                 const ptr = self.registry.components.getValue(self.owned[0]).?;
                 var store = @intToPtr(*Storage(u1), ptr);
