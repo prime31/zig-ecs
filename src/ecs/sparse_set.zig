@@ -174,17 +174,6 @@ pub fn SparseSet(comptime SparseT: type) type {
             }
         }
 
-        /// flips the script and uses the sparse set as the subordinate and does the sorting on the items slice
-        pub fn sortSubSub(self: *Self, length: usize, context: var, comptime T: type, comptime lessThan: fn (@TypeOf(context), T, T) bool, items: []T) void {
-            utils.sortSubSub(T, SparseT, items[0..length], self.dense.items, context, lessThan);
-
-            for (self.dense.items[0..length]) |sparse, i| {
-                // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
-                const pos = @intCast(SparseT, i);
-                self.sparse.items[self.page(self.dense.items[pos])].?[self.offset(pos)] = pos;
-            }
-        }
-
         /// Sort entities according to their order in another sparse set. Other is the master in this case.
         pub fn respect(self: *Self, other: *Self) void {
             var pos = @as(SparseT, 0);
