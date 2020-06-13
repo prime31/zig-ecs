@@ -143,11 +143,6 @@ pub fn SparseSet(comptime SparseT: type) type {
 
             std.mem.swap(SparseT, &self.dense.items[from.*], &self.dense.items[to.*]);
             std.mem.swap(SparseT, from, to);
-
-            // auto &from = sparse[page(lhs)][offset(lhs)];
-            // auto &to = sparse[page(rhs)][offset(rhs)];
-            // std::swap(packed[size_type(from)], packed[size_type(to)]);
-            // std::swap(from, to);
         }
 
         /// Sort elements according to the given comparison function
@@ -155,32 +150,14 @@ pub fn SparseSet(comptime SparseT: type) type {
             std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
 
             for (self.dense.items) |sparse, i| {
-                // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
                 const item = @intCast(SparseT, i);
                 self.sparse.items[self.page(self.dense.items[self.page(item)])].?[self.offset(self.dense.items[self.page(item)])] = @intCast(SparseT, i);
             }
         }
 
-        /// Sort elements according to the given comparison function and keeps sub_items with the same sort
-        pub fn sortSub(self: *Self, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
-            std.sort.insertionSort(SparseT, self.dense.items[0..length], context, lessThan);
-
-            for (self.dense.items[0..length]) |sparse, pos| {
-                var curr = @intCast(SparseT, pos);
-                var next = self.index(self.dense.items[curr]);
-
-                while (curr != next) {
-                    std.mem.swap(T, &sub_items[self.index(self.dense.items[curr])], &sub_items[self.index(self.dense.items[next])]);
-                    self.sparse.items[self.page(self.dense.items[curr])].?[self.offset(self.dense.items[curr])] = curr;
-
-                    curr = next;
-                    next = self.index(self.dense.items[curr]);
-                }
-            }
-        }
-
-        /// Sort elements according to the given comparison function and keeps sub_items with the same sort
-        pub fn sortSwap(self: *Self, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: var) void {
+        /// Sort elements according to the given comparison function. Use this when a data array needs to stay in sync with the SparseSet
+        /// by passing in a "swap_context" that contains a "swap" method with a sig of fn(ctx,SparseT,SparseT)void
+        pub fn arrange(self: *Self, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: var) void {
             std.sort.insertionSort(SparseT, self.dense.items[0..length], context, lessThan);
 
             for (self.dense.items[0..length]) |sparse, pos| {
@@ -189,7 +166,6 @@ pub fn SparseSet(comptime SparseT: type) type {
 
                 while (curr != next) {
                     swap_context.swap(self.dense.items[curr], self.dense.items[next]);
-                    // self.sparse.items[self.dense.items[self.page(@intCast(SparseT, curr))]] = @intCast(SparseT, curr);
                     self.sparse.items[self.page(self.dense.items[curr])].?[self.offset(self.dense.items[curr])] = curr;
 
                     curr = next;

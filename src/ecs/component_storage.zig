@@ -204,24 +204,39 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 /// Sort Entities or Components according to the given comparison function. Valid types for T are Entity or Component.
                 pub fn sort(self: *Self, comptime T: type, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
                     std.debug.assert(T == Entity or T == Component);
-                    if (T == Entity) {
-                        // wtf? When an OwningGroup calls us we are gonna be fake-typed and if we are fake-typed its not safe to pass our slice to
-                        // the SparseSet and let it handle sorting. Instead, we'll use swap _without a set swap_ and do it ourselves.
-                        if (Component == u1) {
-                            const SortContext = struct {
-                                storage: *Self,
 
-                                pub fn swap(this: @This(), a: Entity, b: Entity) void {
-                                    this.storage.safe_swap(this.storage, a, b, true);
-                                }
-                            };
-                            const swap_context = SortContext{.storage = self};
-                            self.set.sortSwap(length, context, lessThan, swap_context);
-                        } else {
-                            self.set.sortSub(length, context, lessThan, Component, self.instances.items);
-                        }
-                    } else if (T == Component) {
-                        self.set.sortSubSub(length, context, Component, lessThan, self.instances.items);
+                    // we have to perform a swap after the sort for all moved entities so we make a helper struct for that. In the
+                    // case of a Component sort we also wrap that into the struct so we can get the Component data to pass to the
+                    // lessThan method passed in.
+                    if (T == Entity) {
+                        const SortContext = struct {
+                            storage: *Self,
+
+                            pub fn swap(this: @This(), a: Entity, b: Entity) void {
+                                this.storage.safe_swap(this.storage, a, b, true);
+                            }
+                        };
+                        const swap_context = SortContext{.storage = self};
+                        self.set.arrange(length, context, lessThan, swap_context);
+                    } else {
+                        const SortContext = struct {
+                            storage: *Self,
+                            wrapped_context: @TypeOf(context),
+                            lessThan: fn (@TypeOf(context), T, T) bool,
+
+                            fn sort(this: @This(), a: Entity, b: Entity) bool {
+                                const real_a = this.storage.getConst(a);
+                                const real_b = this.storage.getConst(b);
+                                return this.lessThan(this.wrapped_context, real_a, real_b);
+                            }
+
+                            pub fn swap(this: @This(), a: Entity, b: Entity) void {
+                                this.storage.safe_swap(this.storage, a, b, true);
+                            }
+                        };
+
+                        const swap_context = SortContext{.storage = self, .wrapped_context = context, .lessThan = lessThan};
+                        self.set.arrange(length, swap_context, SortContext.sort, swap_context);
                     }
                 }
             };
