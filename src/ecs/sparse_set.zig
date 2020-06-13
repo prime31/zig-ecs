@@ -224,6 +224,14 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         pub fn clear(self: *Self) void {
+            self.sparse.expandToCapacity();
+            for (self.sparse.items) |array, i| {
+                if (array) |arr| {
+                    self.sparse.allocator.free(arr);
+                    self.sparse.items[i] = null;
+                }
+            }
+
             self.sparse.items.len = 0;
             self.dense.items.len = 0;
         }
