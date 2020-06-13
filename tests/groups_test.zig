@@ -2,6 +2,7 @@ const std = @import("std");
 const warn = std.debug.warn;
 const ecs = @import("ecs");
 const Registry = @import("ecs").Registry;
+const BasicGroup = @import("ecs").BasicGroup;
 
 const Velocity = struct { x: f32 = 0, y: f32 = 0 };
 const Position = struct { x: f32 = 0, y: f32 = 0 };
@@ -14,29 +15,77 @@ const Rotation = struct { x: f32 = 0 };
 fn printStore(store: var, name: []const u8) void {
     warn("--- {} ---\n", .{name});
     for (store.set.dense.items) |e, i| {
-        warn("e[{}] s[{}]{}", .{e, store.set.page(store.set.dense.items[i]), store.set.sparse.items[store.set.page(store.set.dense.items[i])]});
+        warn("e[{}] s[{}]{}", .{ e, store.set.page(store.set.dense.items[i]), store.set.sparse.items[store.set.page(store.set.dense.items[i])] });
         warn(" ({d:.2})   ", .{store.instances.items[i]});
     }
     warn("\n", .{});
 }
 
+test "sort BasicGroup by Entity" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
 
-test "sort component" {
-    var store = ecs.ComponentStorage(f32, u32).initPtr(std.testing.allocator);
-    defer store.deinit();
+    var group = reg.group(.{}, .{Sprite, Renderable}, .{});
 
-    store.add(22, @as(f32, 2.2));
-    store.add(11, @as(f32, 1.1));
-    store.add(33, @as(f32, 3.3));
-
-    comptime const desc_u32 = std.sort.desc(f32);
-    store.sort(f32, desc_u32);
-
-    var compare: f32 = 5;
-    for (store.raw()) |val, i| {
-        std.testing.expect(compare > val);
-        compare = val;
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        var e = reg.create();
+        reg.add(e, Sprite{ .x = @intToFloat(f32, i) });
+        reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
     }
+
+    const SortContext = struct{
+        group: BasicGroup,
+
+        fn sort(this: *@This(), a: ecs.Entity, b: ecs.Entity) bool {
+            const real_a = this.group.getConst(Sprite, a);
+            const real_b = this.group.getConst(Sprite, b);
+            return real_a.x > real_b.x;
+        }
+    };
+
+    var context = SortContext{.group = group};
+    group.sort(ecs.Entity, &context, SortContext.sort);
+
+    var val: f32 = 0;
+    var iter = group.iterator();
+    while (iter.next()) |entity| {
+        std.testing.expectEqual(val, group.getConst(Sprite, entity).x);
+        val += 1;
+    }
+}
+
+test "sort BasicGroup by Component" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var group = reg.group(.{}, .{Sprite, Renderable}, .{});
+
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        var e = reg.create();
+        reg.add(e, Sprite{ .x = @intToFloat(f32, i) });
+        reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
+    }
+
+    const SortContext = struct{
+        fn sort(this: void, a: Sprite, b: Sprite) bool {
+            return a.x > b.x;
+        }
+    };
+    group.sort(Sprite, {}, SortContext.sort);
+
+    var val: f32 = 0;
+    var iter = group.iterator();
+    while (iter.next()) |entity| {
+        std.testing.expectEqual(val, group.getConst(Sprite, entity).x);
+        val += 1;
+    }
+}
+
+test "sort OwningGroup by Entity" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
 }
 
 test "nested OwningGroups add/remove components" {
@@ -87,7 +136,7 @@ test "nested OwningGroups entity order" {
     var transform_store = reg.assure(Transform);
     // printStore(sprite_store, "Sprite");
 
-    reg.add(1, Transform{.x = 1});
+    reg.add(1, Transform{ .x = 1 });
 
     // printStore(sprite_store, "Sprite");
     // printStore(transform_store, "Transform");

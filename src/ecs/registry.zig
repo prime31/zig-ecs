@@ -412,10 +412,10 @@ pub const Registry = struct {
         return self.singletons;
     }
 
-    pub fn sort(self: *Registry, comptime T: type) void {
+    pub fn sort(self: *Registry, comptime T: type, comptime lessThan: fn (void, T, T) bool) void {
         const comp = self.assure(T);
         std.debug.assert(comp.super == 0);
-        unreachable;
+        comp.sort(T, lessThan);
     }
 
     /// Checks whether the given component belongs to any group. If so, it is not sortable directly.
@@ -563,7 +563,8 @@ pub const Registry = struct {
                 new_group_data.entity_set.add(entity);
             }
         } else {
-            // ??? why not? we cannot iterate backwards because we want to leave behind valid entities in case of owned types
+            // we cannot iterate backwards because we want to leave behind valid entities in case of owned types
+            // ??? why not?
             var first_owned_storage = self.assure(owned[0]);
             for (first_owned_storage.data()) |entity| {
                 new_group_data.maybeValidIf(entity);

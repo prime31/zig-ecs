@@ -143,8 +143,8 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         /// Sort elements according to the given comparison function
-        pub fn sort(self: *Self, comptime sortFn: fn (void, SparseT, SparseT) bool) void {
-            std.sort.insertionSort(SparseT, self.dense.items, {}, sortFn);
+        pub fn sort(self: *Self, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool) void {
+            std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
 
             for (self.dense.items) |sparse, i| {
                 // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
@@ -153,12 +153,20 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         /// Sort elements according to the given comparison function and keeps sub_items with the same sort
-        pub fn sortSub(self: *Self, comptime sortFn: fn (void, SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
-            utils.sortSub(SparseT, T, self.dense.items, sub_items, sortFn);
+        pub fn sortSub(self: *Self, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
+            std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
 
-            for (self.dense.items) |sparse, i| {
-                // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
-                self.sparse.items[self.dense.items[self.page(@intCast(SparseT, i))]] = @intCast(SparseT, i);
+            for (self.dense.items) |sparse, pos| {
+                var curr = @intCast(SparseT, pos);
+                var next = self.index(self.dense.items[curr]);
+
+                while (curr != next) {
+                    std.mem.swap(T, &sub_items[self.index(self.dense.items[curr])], &sub_items[self.index(self.dense.items[next])]);
+                    self.sparse.items[self.dense.items[self.page(@intCast(SparseT, curr))]] = @intCast(SparseT, curr);
+
+                    curr = next;
+                    next = self.index(self.dense.items[curr]);
+                }
             }
         }
 
@@ -323,7 +331,7 @@ test "respect 2" {
     set.add(1);
     set.add(3);
 
-    set.sort(desc_u32);
+    set.sort({}, desc_u32);
 
     for (set.dense.items) |item, i| {
         if (i < set.dense.items.len - 1) {

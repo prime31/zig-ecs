@@ -9,39 +9,58 @@ const Entity = @import("registry.zig").Entity;
 /// BasicGroups do not own any components. Internally, they keep a SparseSet that is always kept up-to-date with the matching
 /// entities.
 pub const BasicGroup = struct {
-    const Self = @This();
-
     registry: *Registry,
     group_data: *Registry.GroupData,
 
-    pub fn init(registry: *Registry, group_data: *Registry.GroupData) Self {
-        return Self{
+    pub fn init(registry: *Registry, group_data: *Registry.GroupData) BasicGroup {
+        return .{
             .registry = registry,
             .group_data = group_data,
         };
     }
 
-    pub fn len(self: Self) usize {
+    pub fn len(self: BasicGroup) usize {
         return self.group_data.entity_set.len();
     }
 
     /// Direct access to the array of entities
-    pub fn data(self: Self) []const Entity {
+    pub fn data(self: BasicGroup) []const Entity {
         return self.group_data.entity_set.data();
     }
 
-    pub fn get(self: *Self, comptime T: type, entity: Entity) *T {
+    pub fn get(self: *BasicGroup, comptime T: type, entity: Entity) *T {
         return self.registry.assure(T).get(entity);
     }
 
-    pub fn getConst(self: *Self, comptime T: type, entity: Entity) T {
+    pub fn getConst(self: *BasicGroup, comptime T: type, entity: Entity) T {
         return self.registry.assure(T).getConst(entity);
     }
 
     /// iterates the matched entities backwards, so the current entity can always be removed safely
     /// and newly added entities wont affect it.
-    pub fn iterator(self: Self) utils.ReverseSliceIterator(Entity) {
+    pub fn iterator(self: BasicGroup) utils.ReverseSliceIterator(Entity) {
         return self.group_data.entity_set.reverseIterator();
+    }
+
+    pub fn sort(self: *BasicGroup, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+        if (T == Entity) {
+            self.group_data.entity_set.sort(context, lessThan);
+        } else {
+            // TODO: in debug mode, validate that T is present in the group
+            const SortContext = struct{
+                group: *BasicGroup,
+                wrapped_context: @TypeOf(context),
+                lessThan: fn (@TypeOf(context), T, T) bool,
+
+                fn sort(this: @This(), a: Entity, b: Entity) bool {
+                    const real_a = this.group.getConst(T, a);
+                    const real_b = this.group.getConst(T, b);
+                    return this.lessThan(this.wrapped_context, real_a, real_b);
+                }
+            };
+            var wrapper = SortContext{.group = self, .wrapped_context = context, .lessThan = lessThan};
+            self.group_data.entity_set.sort(wrapper, SortContext.sort);
+        }
     }
 };
 

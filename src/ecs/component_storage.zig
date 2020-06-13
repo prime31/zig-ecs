@@ -162,9 +162,11 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
 
         pub usingnamespace if (is_empty_struct)
             struct {
-                /// Sort Entities according to the given comparison function
-                pub fn sort(self: Self, comptime sortFn: fn (void, Entity, Entity) bool) void {
-                    self.set.sort(sortFn);
+                /// Sort Entities according to the given comparison function. Only T == Entity is allowed. The constraint param only exists for
+                /// parity with non-empty Components
+                pub fn sort(self: Self, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+                    std.debug.assert(T == Entity);
+                    self.set.sort(context, lessThan);
                 }
             }
         else
@@ -200,16 +202,12 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 }
 
                 /// Sort Entities or Components according to the given comparison function
-                pub fn sort(self: *Self, comptime T: type, comptime lessThan: fn (void, T, T) bool) void {
+                pub fn sort(self: Self, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
                     std.debug.assert(T == Entity or T == Component);
                     if (T == Entity) {
-                        self.set.sortSub(lessThan, Component, self.instances.items);
+                        self.set.sortSub(context, lessThan, Component, self.instances.items);
                     } else if (T == Component) {
-                        self.set.sortSubSub({}, Component, lessThan, self.instances.items);
-                        // fn sorter(self: Self, a: T, b: T, sortFn) bool {
-                        //      return sortFn(self.instances[a], self.instances[b]);
-                        // }
-                        //return compare(std::as_const(instances[underlying_type::index(lhs)]), std::as_const(instances[underlying_type::index(rhs)]));
+                        self.set.sortSubSub(context, Component, lessThan, self.instances.items);
                     }
                 }
             };
@@ -339,13 +337,13 @@ test "sort empty component" {
     store.add(0, Empty{});
 
     comptime const asc_u32 = std.sort.asc(u32);
-    store.sort(asc_u32);
+    store.sort(u32, {}, asc_u32);
     for (store.data()) |e, i| {
         std.testing.expectEqual(@intCast(u32, i), e);
     }
 
     comptime const desc_u32 = std.sort.desc(u32);
-    store.sort(desc_u32);
+    store.sort(u32, {}, desc_u32);
     var counter: u32 = 2;
     for (store.data()) |e, i| {
         std.testing.expectEqual(counter, e);
@@ -353,7 +351,7 @@ test "sort empty component" {
     }
 }
 
-test "sort component" {
+test "sort by entity" {
     std.debug.warn("\n", .{});
 
     var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
@@ -363,8 +361,37 @@ test "sort component" {
     store.add(11, @as(f32, 1.1));
     store.add(33, @as(f32, 3.3));
 
-    comptime const desc_u32 = std.sort.desc(f32);
-    store.sort(f32, desc_u32);
+    const SortContext = struct{
+        store: *ComponentStorage(f32, u32),
+
+        fn sort(this: @This(), a: u32, b: u32) bool {
+            const real_a = this.store.getConst(a);
+            const real_b = this.store.getConst(b);
+            return real_a > real_b;
+        }
+    };
+    const context = SortContext{.store = store};
+    store.sort(u32, context, SortContext.sort);
+
+    var compare: f32 = 5;
+    for (store.raw()) |val, i| {
+        std.testing.expect(compare > val);
+        compare = val;
+    }
+}
+
+test "sort by component" {
+    std.debug.warn("\n", .{});
+
+    var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
+    defer store.deinit();
+
+    store.add(22, @as(f32, 2.2));
+    store.add(11, @as(f32, 1.1));
+    store.add(33, @as(f32, 3.3));
+
+    comptime const desc_f32 = std.sort.desc(f32);
+    store.sort(f32, {}, desc_f32);
 
     var compare: f32 = 5;
     for (store.raw()) |val, i| {
