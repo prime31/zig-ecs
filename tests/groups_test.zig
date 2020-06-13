@@ -3,6 +3,7 @@ const warn = std.debug.warn;
 const ecs = @import("ecs");
 const Registry = @import("ecs").Registry;
 const BasicGroup = @import("ecs").BasicGroup;
+const OwningGroup = @import("ecs").OwningGroup;
 
 const Velocity = struct { x: f32 = 0, y: f32 = 0 };
 const Position = struct { x: f32 = 0, y: f32 = 0 };
@@ -83,6 +84,40 @@ test "sort BasicGroup by Component" {
     }
 }
 
+test "sort OwningGroup by Entity" {
+    std.debug.warn("\n", .{});
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var group = reg.group(.{ Sprite, Renderable }, .{}, .{});
+
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        var e = reg.create();
+        reg.add(e, Sprite{ .x = @intToFloat(f32, i) });
+        reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
+    }
+
+    const SortContext = struct {
+        group: OwningGroup,
+
+        fn sort(this: @This(), a: ecs.Entity, b: ecs.Entity) bool {
+            const sprite_a = this.group.getConst(Sprite, a);
+            const sprite_b = this.group.getConst(Sprite, b);
+            return sprite_a.x > sprite_b.x;
+        }
+    };
+    const context = SortContext{.group = group};
+    group.sort(ecs.Entity, context, SortContext.sort);
+
+    var val: f32 = 0;
+    var iter = group.iterator(struct {s: *Sprite, r: *Renderable});
+    while (iter.next()) |entity| {
+        std.testing.expectEqual(val, entity.s.*.x);
+        val += 1;
+    }
+}
+
 test "sort OwningGroup by Component" {
     std.debug.warn("\n", .{});
     var reg = Registry.init(std.testing.allocator);
@@ -107,7 +142,6 @@ test "sort OwningGroup by Component" {
     var val: f32 = 0;
     var iter = group.iterator(struct {s: *Sprite, r: *Renderable});
     while (iter.next()) |entity| {
-        std.debug.warn("e{}: {d}\n", .{iter.entity(), entity});
         std.testing.expectEqual(val, entity.s.*.x);
         val += 1;
     }

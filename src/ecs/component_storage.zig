@@ -202,7 +202,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 }
 
                 /// Sort Entities or Components according to the given comparison function. Valid types for T are Entity or Component.
-                pub fn sort(self: *Self, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+                pub fn sort(self: *Self, comptime T: type, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
                     std.debug.assert(T == Entity or T == Component);
                     if (T == Entity) {
                         // wtf? When an OwningGroup calls us we are gonna be fake-typed and if we are fake-typed its not safe to pass our slice to
@@ -216,12 +216,12 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                                 }
                             };
                             const swap_context = SortContext{.storage = self};
-                            self.set.sortSwap(context, lessThan, swap_context);
+                            self.set.sortSwap(length, context, lessThan, swap_context);
                         } else {
-                            self.set.sortSub(context, lessThan, Component, self.instances.items);
+                            self.set.sortSub(length, context, lessThan, Component, self.instances.items);
                         }
                     } else if (T == Component) {
-                        self.set.sortSubSub(context, Component, lessThan, self.instances.items);
+                        self.set.sortSubSub(length, context, Component, lessThan, self.instances.items);
                     }
                 }
             };
@@ -256,7 +256,9 @@ test "add/try-get/remove/clear" {
 
     store.add(3, 66.45);
     std.testing.expectEqual(store.tryGetConst(3).?, 66.45);
-    if (store.tryGet(3)) |found| std.testing.expectEqual(@as(f32, 66.45), found.*);
+    if (store.tryGet(3)) |found| {
+        std.testing.expectEqual(@as(f32, 66.45), found.*);
+    }
 
     store.remove(3);
 
@@ -385,7 +387,7 @@ test "sort by entity" {
         }
     };
     const context = SortContext{ .store = store };
-    store.sort(u32, context, SortContext.sort);
+    store.sort(u32, store.len(), context, SortContext.sort);
 
     var compare: f32 = 5;
     for (store.raw()) |val, i| {
@@ -405,7 +407,7 @@ test "sort by component" {
     store.add(33, @as(f32, 3.3));
 
     comptime const desc_f32 = std.sort.desc(f32);
-    store.sort(f32, {}, desc_f32);
+    store.sort(f32, store.len(), {}, desc_f32);
 
     var compare: f32 = 5;
     for (store.raw()) |val, i| {

@@ -267,7 +267,7 @@ pub const OwningGroup = struct {
 
         if (T == Entity) {
             // only sort up to self.group_data.current
-            first_storage.sort(Entity, context, lessThan);
+            first_storage.sort(Entity, self.group_data.current, context, lessThan);
         } else {
             // TODO: in debug mode, validate that T is present in the group
             const SortContext = struct {
@@ -282,17 +282,10 @@ pub const OwningGroup = struct {
                 }
             };
             const wrapper = SortContext{ .group = self, .wrapped_context = context, .lessThan = lessThan };
-            first_storage.sort(Entity, wrapper, SortContext.sort);
+            first_storage.sort(Entity, self.group_data.current, wrapper, SortContext.sort);
         }
 
-        // sync up the rest of the owned components. First get our Storages in
-        // var tmp_storages: [20]*Storage(u1) = undefined;
-        // for (self.group_data.owned[1..]) |type_id, i| {
-        //     var other_ptr = self.registry.components.getValue(type_id).?;
-        //     tmp_storages[i] = @intToPtr(*Storage(u1), other_ptr);
-        // }
-        // var storages = tmp_storages[0 .. self.group_data.owned.len - 1];
-
+        // sync up the rest of the owned components
         var next: usize = self.group_data.current;
         while (true) : (next -= 1) {
             if (next == 0) break;
