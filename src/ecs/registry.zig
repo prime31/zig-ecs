@@ -250,7 +250,7 @@ pub const Registry = struct {
     }
 
     pub fn valid(self: *Registry, entity: Entity) bool {
-        return self.handles.isAlive(entity);
+        return self.handles.alive(entity);
     }
 
     /// Returns the entity identifier without the version
@@ -273,6 +273,11 @@ pub const Registry = struct {
         assert(self.valid(entity));
         self.removeAll(entity);
         self.handles.remove(entity) catch unreachable;
+    }
+
+    /// returns an interator that iterates all live entities
+    pub fn entities(self: Registry) EntityHandles.Iterator {
+        return self.handles.iterator();
     }
 
     pub fn add(self: *Registry, entity: Entity, value: var) void {

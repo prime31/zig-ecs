@@ -21,6 +21,28 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
 
         const invalid_id = std.math.maxInt(IndexType);
 
+        pub const Iterator = struct {
+            hm: Self,
+            index: usize = 0,
+
+            pub fn init(hm: Self) @This() {
+                return .{ .hm = hm };
+            }
+
+            pub fn next(self: *@This()) ?HandleType {
+                if (self.index == self.hm.append_cursor) return null;
+
+                for (self.hm.handles[self.index..self.hm.append_cursor]) |h| {
+                    self.index += 1;
+                    if (self.hm.alive(h)) {
+                        return h;
+                    }
+                }
+
+                return null;
+            }
+        };
+
         pub fn init(allocator: *std.mem.Allocator) Self {
             return initWithCapacity(allocator, 32);
         }
@@ -88,9 +110,13 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
             self.last_destroyed = id;
         }
 
-        pub fn isAlive(self: Self, handle: HandleType) bool {
+        pub fn alive(self: Self, handle: HandleType) bool {
             const id = self.extractId(handle);
             return id < self.append_cursor and self.handles[id] == handle;
+        }
+
+        pub fn iterator(self: Self) Iterator {
+            return Iterator.init(self);
         }
     };
 }
@@ -103,33 +129,33 @@ test "handles" {
     const e1 = hm.create();
     const e2 = hm.create();
 
-    std.debug.assert(hm.isAlive(e0));
-    std.debug.assert(hm.isAlive(e1));
-    std.debug.assert(hm.isAlive(e2));
+    std.debug.assert(hm.alive(e0));
+    std.debug.assert(hm.alive(e1));
+    std.debug.assert(hm.alive(e2));
 
     hm.remove(e1) catch unreachable;
-    std.debug.assert(!hm.isAlive(e1));
+    std.debug.assert(!hm.alive(e1));
 
     std.testing.expectError(error.RemovedInvalidHandle, hm.remove(e1));
 
     var e_tmp = hm.create();
-    std.debug.assert(hm.isAlive(e_tmp));
+    std.debug.assert(hm.alive(e_tmp));
 
     hm.remove(e_tmp) catch unreachable;
-    std.debug.assert(!hm.isAlive(e_tmp));
+    std.debug.assert(!hm.alive(e_tmp));
 
     hm.remove(e0) catch unreachable;
-    std.debug.assert(!hm.isAlive(e0));
+    std.debug.assert(!hm.alive(e0));
 
     hm.remove(e2) catch unreachable;
-    std.debug.assert(!hm.isAlive(e2));
+    std.debug.assert(!hm.alive(e2));
 
     e_tmp = hm.create();
-    std.debug.assert(hm.isAlive(e_tmp));
+    std.debug.assert(hm.alive(e_tmp));
 
     e_tmp = hm.create();
-    std.debug.assert(hm.isAlive(e_tmp));
+    std.debug.assert(hm.alive(e_tmp));
 
     e_tmp = hm.create();
-    std.debug.assert(hm.isAlive(e_tmp));
+    std.debug.assert(hm.alive(e_tmp));
 }

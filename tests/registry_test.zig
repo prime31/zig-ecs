@@ -24,6 +24,9 @@ test "Registry" {
     std.testing.expect(reg.has(Position, e1));
     std.testing.expect(reg.has(BigOne, e1));
 
+    var iter = reg.entities();
+    while (iter.next()) |e| std.testing.expectEqual(e1, e);
+
     reg.remove(Empty, e1);
     std.testing.expect(!reg.has(Empty, e1));
 }
