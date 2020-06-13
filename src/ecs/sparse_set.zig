@@ -7,15 +7,17 @@ const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
 pub fn SparseSet(comptime SparseT: type) type {
     return struct {
         const Self = @This();
+        const page_size: usize = 32768;
+        const entity_per_page = page_size / @sizeOf(SparseT);
 
-        sparse: std.ArrayList(SparseT),
+        sparse: std.ArrayList(?[]SparseT),
         dense: std.ArrayList(SparseT),
         entity_mask: SparseT,
         allocator: ?*std.mem.Allocator,
 
         pub fn initPtr(allocator: *std.mem.Allocator) *Self {
             var set = allocator.create(Self) catch unreachable;
-            set.sparse = std.ArrayList(SparseT).init(allocator);
+            set.sparse = std.ArrayList(?[]SparseT).init(allocator);
             set.dense = std.ArrayList(SparseT).init(allocator);
             set.entity_mask = std.math.maxInt(SparseT);
             set.allocator = allocator;
@@ -24,7 +26,7 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         pub fn init(allocator: *std.mem.Allocator) Self {
             return Self{
-                .sparse = std.ArrayList(SparseT).init(allocator),
+                .sparse = std.ArrayList(?[]SparseT).init(allocator),
                 .dense = std.ArrayList(SparseT).init(allocator),
                 .entity_mask = std.math.maxInt(SparseT),
                 .allocator = null,
@@ -32,38 +34,44 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         pub fn deinit(self: *Self) void {
+            self.sparse.expandToCapacity();
+            for (self.sparse.items) |array, i| {
+                if (array) |arr| {
+                    self.sparse.allocator.free(arr);
+                }
+            }
+
             self.dense.deinit();
             self.sparse.deinit();
 
-            if (self.allocator) |allocator|
+            if (self.allocator) |allocator| {
                 allocator.destroy(self);
+            }
         }
 
         pub fn page(self: Self, sparse: SparseT) usize {
-            // TODO: support paging
-            // return (sparse & EntityTraits.entity_mask) / sparse_per_page;
-            return sparse & self.entity_mask;
+            return (sparse & self.entity_mask) / entity_per_page;
         }
 
         fn offset(self: Self, sparse: SparseT) usize {
-            // TODO: support paging
-            // return entt & (sparse_per_page - 1)
-            return sparse & self.entity_mask;
+            return sparse & (entity_per_page - 1);
         }
 
         fn assure(self: *Self, pos: usize) []SparseT {
-            // TODO: support paging
-            if (self.sparse.capacity <= pos or self.sparse.capacity == 0) {
-                const amount = pos + 1 - self.sparse.capacity;
-
-                // expand and fill with maxInt as an identifier
-                const old_len = self.sparse.items.len;
-                self.sparse.resize(self.sparse.items.len + amount) catch unreachable;
+            if (pos >= self.sparse.items.len) {
+                self.sparse.resize(pos + 1) catch unreachable;
                 self.sparse.expandToCapacity();
-                std.mem.set(SparseT, self.sparse.items[old_len..self.sparse.items.len], std.math.maxInt(SparseT));
             }
 
-            return self.sparse.items;
+            if (self.sparse.items[pos]) |arr| {
+                return arr;
+            }
+
+            var new_page = self.sparse.allocator.alloc(SparseT, entity_per_page) catch unreachable;
+            std.mem.set(SparseT, new_page, std.math.maxInt(SparseT));
+            self.sparse.items[pos] = new_page;
+
+            return self.sparse.items[pos].?;
         }
 
         /// Increases the capacity of a sparse sets index array
@@ -95,18 +103,13 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         pub fn contains(self: Self, sparse: SparseT) bool {
             const curr = self.page(sparse);
-            if (curr >= self.sparse.items.len) {
-                return false;
-            }
-
-            // testing against maxInt permits to avoid accessing the packed array
-            return curr < self.sparse.items.len and self.sparse.items[curr] != std.math.maxInt(SparseT);
+            return curr < self.sparse.items.len and self.sparse.items[curr] != null and self.sparse.items[curr].?[self.offset(sparse)] != std.math.maxInt(SparseT);
         }
 
         /// Returns the position of an entity in a sparse set
         pub fn index(self: Self, sparse: SparseT) SparseT {
             std.debug.assert(self.contains(sparse));
-            return self.sparse.items[self.offset(sparse)];
+            return self.sparse.items[self.page(sparse)].?[self.offset(sparse)];
         }
 
         /// Assigns an entity to a sparse set
@@ -126,20 +129,25 @@ pub fn SparseSet(comptime SparseT: type) type {
             const pos = self.offset(sparse);
             const last_dense = self.dense.items[self.dense.items.len - 1];
 
-            self.dense.items[self.sparse.items[curr]] = last_dense;
-            self.sparse.items[self.page(last_dense)] = self.sparse.items[curr];
-            self.sparse.items[curr] = std.math.maxInt(SparseT);
+            self.dense.items[self.sparse.items[curr].?[pos]] = last_dense;
+            self.sparse.items[self.page(last_dense)].?[self.offset(last_dense)] = self.sparse.items[curr].?[pos];
+            self.sparse.items[curr].?[pos] = std.math.maxInt(SparseT);
 
             _ = self.dense.pop();
         }
 
         /// Swaps two entities in the internal packed and sparse arrays
-        pub fn swap(self: *Self, sparse_l: SparseT, sparse_r: SparseT) void {
-            var from = &self.sparse.items[sparse_l];
-            var to = &self.sparse.items[sparse_r];
+        pub fn swap(self: *Self, lhs: SparseT, rhs: SparseT) void {
+            var from = &self.sparse.items[self.page(lhs)].?[self.offset(lhs)];
+            var to = &self.sparse.items[self.page(rhs)].?[self.offset(rhs)];
 
             std.mem.swap(SparseT, &self.dense.items[from.*], &self.dense.items[to.*]);
             std.mem.swap(SparseT, from, to);
+
+            // auto &from = sparse[page(lhs)][offset(lhs)];
+            // auto &to = sparse[page(rhs)][offset(rhs)];
+            // std::swap(packed[size_type(from)], packed[size_type(to)]);
+            // std::swap(from, to);
         }
 
         /// Sort elements according to the given comparison function
@@ -148,21 +156,22 @@ pub fn SparseSet(comptime SparseT: type) type {
 
             for (self.dense.items) |sparse, i| {
                 // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
-                self.sparse.items[self.dense.items[self.page(@intCast(SparseT, i))]] = @intCast(SparseT, i);
+                const item = @intCast(SparseT, i);
+                self.sparse.items[self.page(self.dense.items[self.page(item)])].?[self.offset(self.dense.items[self.page(item)])] = @intCast(SparseT, i);
             }
         }
 
         /// Sort elements according to the given comparison function and keeps sub_items with the same sort
-        pub fn sortSub(self: *Self, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
-            std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
+        pub fn sortSub(self: *Self, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, comptime T: type, sub_items: []T) void {
+            std.sort.insertionSort(SparseT, self.dense.items[0..length], context, lessThan);
 
-            for (self.dense.items) |sparse, pos| {
+            for (self.dense.items[0..length]) |sparse, pos| {
                 var curr = @intCast(SparseT, pos);
                 var next = self.index(self.dense.items[curr]);
 
                 while (curr != next) {
                     std.mem.swap(T, &sub_items[self.index(self.dense.items[curr])], &sub_items[self.index(self.dense.items[next])]);
-                    self.sparse.items[self.dense.items[self.page(@intCast(SparseT, curr))]] = @intCast(SparseT, curr);
+                    self.sparse.items[self.page(self.dense.items[curr])].?[self.offset(self.dense.items[curr])] = curr;
 
                     curr = next;
                     next = self.index(self.dense.items[curr]);
@@ -171,16 +180,17 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         /// Sort elements according to the given comparison function and keeps sub_items with the same sort
-        pub fn sortSwap(self: *Self, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: var) void {
-            std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
+        pub fn sortSwap(self: *Self, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: var) void {
+            std.sort.insertionSort(SparseT, self.dense.items[0..length], context, lessThan);
 
-            for (self.dense.items) |sparse, pos| {
+            for (self.dense.items[0..length]) |sparse, pos| {
                 var curr = @intCast(SparseT, pos);
                 var next = self.index(self.dense.items[curr]);
 
                 while (curr != next) {
                     swap_context.swap(self.dense.items[curr], self.dense.items[next]);
-                    self.sparse.items[self.dense.items[self.page(@intCast(SparseT, curr))]] = @intCast(SparseT, curr);
+                    // self.sparse.items[self.dense.items[self.page(@intCast(SparseT, curr))]] = @intCast(SparseT, curr);
+                    self.sparse.items[self.page(self.dense.items[curr])].?[self.offset(self.dense.items[curr])] = curr;
 
                     curr = next;
                     next = self.index(self.dense.items[curr]);
@@ -189,12 +199,13 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         /// flips the script and uses the sparse set as the subordinate and does the sorting on the items slice
-        pub fn sortSubSub(self: *Self, context: var, comptime T: type, comptime lessThan: fn (@TypeOf(context), T, T) bool, items: []T) void {
-            utils.sortSubSub(T, SparseT, items, self.dense.items, context, lessThan);
+        pub fn sortSubSub(self: *Self, length: usize, context: var, comptime T: type, comptime lessThan: fn (@TypeOf(context), T, T) bool, items: []T) void {
+            utils.sortSubSub(T, SparseT, items[0..length], self.dense.items, context, lessThan);
 
-            for (self.dense.items) |sparse, i| {
+            for (self.dense.items[0..length]) |sparse, i| {
                 // sparse[page(packed[pos])][offset(packed[pos])] = entity_type(pos);
-                self.sparse.items[self.dense.items[self.page(@intCast(SparseT, i))]] = @intCast(SparseT, i);
+                const pos = @intCast(SparseT, i);
+                self.sparse.items[self.page(self.dense.items[pos])].?[self.offset(pos)] = pos;
             }
         }
 
