@@ -368,8 +368,6 @@ test "sort empty component" {
 }
 
 test "sort by entity" {
-    std.debug.warn("\n", .{});
-
     var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
     defer store.deinit();
 
@@ -397,8 +395,6 @@ test "sort by entity" {
 }
 
 test "sort by component" {
-    std.debug.warn("\n", .{});
-
     var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
     defer store.deinit();
 

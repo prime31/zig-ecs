@@ -85,7 +85,6 @@ test "sort BasicGroup by Component" {
 }
 
 test "sort OwningGroup by Entity" {
-    std.debug.warn("\n", .{});
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
@@ -119,7 +118,6 @@ test "sort OwningGroup by Entity" {
 }
 
 test "sort OwningGroup by Component" {
-    std.debug.warn("\n", .{});
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
