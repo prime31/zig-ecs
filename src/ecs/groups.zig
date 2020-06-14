@@ -299,18 +299,6 @@ pub const OwningGroup = struct {
                 storage.swap(storage.data()[pos], entity);
             }
         }
-
-        // for (self.group_data.owned[1..]) |type_id| {
-        //     var other_ptr = self.registry.components.getValue(type_id).?;
-        //     var other = @intToPtr(*Storage(u1), other_ptr);
-
-        //     var i: usize = self.group_data.current - 1;
-        //     while (true) : (i -= 1) {
-        //         if (i == 0) break;
-        //         const pos = i - 1;
-        //         const entity =
-        //     }
-        // }
     }
 };
 
