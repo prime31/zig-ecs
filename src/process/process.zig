@@ -1,16 +1,22 @@
+/// Processes are run by the Scheduler. They use a similar pattern to Allocators in that they are created and
+/// added as fields in a parent struct, your actual process that will be run.
 pub const Process = struct {
     const State = enum(u8) {
         uninitialized, running, paused, succeeded, failed, aborted, finished
     };
 
     updateFn: fn (self: *Process) void,
-    initFn: ?fn (self: *Process) void = null,
+    startFn: ?fn (self: *Process) void = null,
     abortedFn: ?fn (self: *Process) void = null,
     failedFn: ?fn (self: *Process) void = null,
     succeededFn: ?fn (self: *Process) void = null,
 
     state: State = .uninitialized,
     stopped: bool = false,
+
+    pub fn getParent(self: *Process, comptime T: type) *T {
+        return @fieldParentPtr(T, "process", self);
+    }
 
     /// Terminates a process with success if it's still alive
     pub fn succeed(self: *Process) void {
@@ -57,11 +63,11 @@ pub const Process = struct {
         return self.stopped;
     }
 
-    /// Updates a process and its internal state if required
+    /// Updates a process and its internal state
     pub fn tick(self: *Process) void {
         switch (self.state) {
             .uninitialized => {
-                if (self.initFn) |func| func(self);
+                if (self.startFn) |func| func(self);
                 self.state = .running;
             },
             .running => {
