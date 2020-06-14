@@ -46,7 +46,8 @@ pub const Scheduler = struct {
         }
     };
 
-    // TODO: remove this when ProcessHandler can have next be a ProcessHandler
+    /// TODO: remove this when ProcessHandler can have `next` be a ProcessHandler. For now this acts as a data store
+    /// holding the data ProcessHandler requires.
     const NextProcessHandler = struct {
         deinitChild: fn (process: *Process, allocator: *std.mem.Allocator) void,
         process: *Process,
