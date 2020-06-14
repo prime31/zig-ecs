@@ -1,3 +1,5 @@
+const std = @import("std");
+
 /// Processes are run by the Scheduler. They use a similar pattern to Allocators in that they are created and
 /// added as fields in a parent struct, your actual process that will be run.
 pub const Process = struct {
@@ -10,9 +12,11 @@ pub const Process = struct {
     abortedFn: ?fn (self: *Process) void = null,
     failedFn: ?fn (self: *Process) void = null,
     succeededFn: ?fn (self: *Process) void = null,
+    deinit: fn (self: *Process, allocator: *std.mem.Allocator) void = undefined,
 
     state: State = .uninitialized,
     stopped: bool = false,
+    next: ?*Process = null,
 
     pub fn getParent(self: *Process, comptime T: type) *T {
         return @fieldParentPtr(T, "process", self);
