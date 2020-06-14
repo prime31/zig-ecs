@@ -231,7 +231,7 @@ pub const Registry = struct {
 
     /// Returns the number of existing components of the given type
     pub fn len(self: *Registry, comptime T: type) usize {
-        self.assure(T).len();
+        return self.assure(T).len();
     }
 
     /// Increases the capacity of the registry or of the pools for the given component

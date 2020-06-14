@@ -145,6 +145,48 @@ test "sort OwningGroup by Component" {
     }
 }
 
+test "sort OwningGroup by Component ensure unsorted non-matches" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    var group = reg.group(.{ Sprite, Renderable }, .{}, .{});
+
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        var e = reg.create();
+        reg.add(e, Sprite{ .x = @intToFloat(f32, i) });
+        reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
+
+        var e2 = reg.create();
+        reg.add(e2, Sprite{ .x = @intToFloat(f32, i + 1 * 50) });
+    }
+
+    std.testing.expectEqual(group.len(), 5);
+    std.testing.expectEqual(reg.len(Sprite), 10);
+
+    const SortContext = struct {
+        fn sort(this: void, a: Sprite, b: Sprite) bool {
+            // sprites with x > 50 shouldnt match in the group
+            std.testing.expect(a.x < 50 and b.x < 50);
+            return a.x > b.x;
+        }
+    };
+    group.sort(Sprite, {}, SortContext.sort);
+
+    // all the
+    var view = reg.view(.{Sprite}, .{});
+    var count: usize = 0;
+    var iter = view.iterator();
+    while (iter.next()) |sprite| {
+        count += 1;
+
+        // all sprite.x > 50 should be at the end and we iterate backwards
+        if (count < 6) {
+            std.testing.expect(sprite.x >= 50);
+        }
+    }
+}
+
 test "nested OwningGroups add/remove components" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();

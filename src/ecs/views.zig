@@ -43,12 +43,12 @@ pub fn BasicView(comptime T: type) type {
             return self.storage.getConst(entity);
         }
 
-        pub fn entityIterator(self: Self) utils.ReverseSliceIterator(Entity) {
-            return self.storage.set.reverseIterator();
+        pub fn iterator(self: Self) utils.ReverseSliceIterator(T) {
+            return utils.ReverseSliceIterator(T).init(self.storage.instances.items);
         }
 
-        pub fn componentIterator(self: Self) utils.ReverseSliceIterator(T) {
-            return utils.ReverseSliceIterator(T).init(self.storage.instances.items);
+        pub fn entityIterator(self: Self) utils.ReverseSliceIterator(Entity) {
+            return self.storage.set.reverseIterator();
         }
     };
 }
@@ -165,7 +165,7 @@ test "single basic view" {
     std.testing.expectEqual(view.len(), 2);
 
     var i: usize = 0;
-    var iter = view.componentIterator();
+    var iter = view.iterator();
     while (iter.next()) |comp| {
         if (i == 0) std.testing.expectEqual(comp, 50);
         if (i == 1) std.testing.expectEqual(comp, 30);
