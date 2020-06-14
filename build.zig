@@ -5,8 +5,8 @@ pub fn build(b: *Builder) void {
     const buildMode = b.standardReleaseOptions();
 
     const examples = [_][2][]const u8{
+        [_][]const u8{ "view_vs_group", "examples/view_vs_group.zig" },
         [_][]const u8{ "simple", "examples/simple.zig" },
-        // [_][]const u8{ "mesh", "examples/mesh.zig" },
     };
 
     for (examples) |example, i| {

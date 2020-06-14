@@ -229,7 +229,7 @@ pub const OwningGroup = struct {
                 @field(comps, field.name) = &typed_ptr[entity_index];
             }
 
-            @call(.{ .modifier = .always_inline }, func, .{comps});
+            func(comps);
         }
     }
 

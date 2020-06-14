@@ -21,6 +21,39 @@
             "group": {
                 "kind": "build",
                 "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Build and Run Project (release-fast)",
+            "type": "shell",
+            "command": "zig build run -Drelease-fast",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Build and Run Project (release-small)",
+            "type": "shell",
+            "command": "zig build run -Drelease-small",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
             }
         },
         {
