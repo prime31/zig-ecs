@@ -176,6 +176,7 @@ pub const Registry = struct {
                 }
 
                 if (overlapping > 0) return i;
+                if (i == 0) return null;
             }
 
             return null;
@@ -615,6 +616,8 @@ pub const Registry = struct {
     /// expects a tuple of types. Convertes them to type names, sorts them then concatenates and returns the string.
     inline fn concatTypes(comptime types: var) []const u8 {
         comptime {
+            if (types.len == 0) return "_";
+
             const impl = struct {
                 fn asc(context: void, lhs: []const u8, rhs: []const u8) bool {
                     return std.mem.lessThan(u8, lhs, rhs);
