@@ -14,9 +14,9 @@ pub const Scheduler = struct {
     processes: std.ArrayList(*Process),
     allocator: *std.mem.Allocator,
 
-    /// helper to create and prepare a process and wrap it in a ProcessHandler
-    fn createProcessHandler(comptime T: type, data: var) *Process {
-        var proc = std.testing.allocator.create(T) catch unreachable;
+    /// helper to create and prepare a process
+    fn createProcessHandler(comptime T: type, data: var, allocator: *std.mem.Allocator) *Process {
+        var proc = allocator.create(T) catch unreachable;
         proc.initialize(data);
 
         // get a closure so that we can safely deinit this later
@@ -35,13 +35,14 @@ pub const Scheduler = struct {
     /// returned when appending a process so that sub-processes can be added to the process
     const Continuation = struct {
         process: *Process,
+        allocator: *std.mem.Allocator,
 
-        pub fn init(process: *Process) Continuation {
-            return .{ .process = process };
+        pub fn init(process: *Process, allocator: *std.mem.Allocator) Continuation {
+            return .{ .process = process, .allocator = allocator };
         }
 
         pub fn next(self: *@This(), comptime T: type, data: var) *@This() {
-            self.process.next = createProcessHandler(T, data);
+            self.process.next = createProcessHandler(T, data, self.allocator);
             self.process = self.process.next.?;
             return self;
         }
@@ -64,11 +65,11 @@ pub const Scheduler = struct {
         std.debug.assert(@hasDecl(T, "initialize"));
         std.debug.assert(@hasField(T, "process"));
 
-        var process = createProcessHandler(T, data);
+        var process = createProcessHandler(T, data, self.allocator);
         process.tick();
 
         self.processes.append(process) catch unreachable;
-        return Continuation.init(process);
+        return Continuation.init(process, self.allocator);
     }
 
     fn updateProcess(process: **Process, allocator: *std.mem.Allocator) bool {
