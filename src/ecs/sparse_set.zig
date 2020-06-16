@@ -59,8 +59,10 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         fn assure(self: *Self, pos: usize) []SparseT {
             if (pos >= self.sparse.items.len) {
+                const start_pos = self.sparse.items.len;
                 self.sparse.resize(pos + 1) catch unreachable;
                 self.sparse.expandToCapacity();
+                std.mem.set(?[]SparseT, self.sparse.items[start_pos..], null);
             }
 
             if (self.sparse.items[pos]) |arr| {
