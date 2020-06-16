@@ -21,11 +21,11 @@ pub const Scheduler = struct {
 
         // get a closure so that we can safely deinit this later
         proc.process.deinit = struct {
-            fn deinit(process: *Process, allocator: *std.mem.Allocator) void {
+            fn deinit(process: *Process, alloc: *std.mem.Allocator) void {
                 if (process.next) |next_process| {
-                    next_process.deinit(next_process, allocator);
+                    next_process.deinit(next_process, alloc);
                 }
-                allocator.destroy(@fieldParentPtr(T, "process", process));
+                alloc.destroy(@fieldParentPtr(T, "process", process));
             }
         }.deinit;
 

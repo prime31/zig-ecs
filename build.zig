@@ -16,6 +16,7 @@ pub fn build(b: *Builder) void {
         var exe = b.addExecutable(name, source);
         exe.setBuildMode(b.standardReleaseOptions());
         exe.addPackagePath("ecs", "src/ecs.zig");
+        exe.linkSystemLibrary("c");
 
         const run_cmd = exe.run();
         const exe_step = b.step(name, b.fmt("run {}.zig", .{name}));
