@@ -53,7 +53,7 @@ fn iterateView(reg: *ecs.Registry) void {
 fn nonOwningGroup(reg: *ecs.Registry) void {
     std.debug.warn("--- non-owning ---\n", .{});
     var timer = std.time.Timer.start() catch unreachable;
-    var group = reg.group(.{}, .{Velocity, Position}, .{});
+    var group = reg.group(.{}, .{ Velocity, Position }, .{});
     var end = timer.lap();
     std.debug.warn("group (create): {d}\n", .{@intToFloat(f64, end) / 1000000000});
 
@@ -90,8 +90,29 @@ fn owningGroup(reg: *ecs.Registry) void {
 
     timer.reset();
     group.each(each);
-    end = timer.read();
+    end = timer.lap();
     std.debug.warn("group (each): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
+
+    timer.reset();
+
+    var storage = reg.assure(Velocity);
+    var vel = storage.instances.items;
+    var pos = reg.assure(Position).instances.items;
+
+    var index: usize = group.group_data.current;
+    while (true) {
+        if (index == 0) break;
+        index -= 1;
+
+        const ent = storage.set.dense.items[index];
+        const entity_index = storage.set.index(ent);
+
+        pos[entity_index].x += pos[entity_index].x;
+        pos[entity_index].y += pos[entity_index].y;
+    }
+
+    end = timer.lap();
+    std.debug.warn("group (direct): {d}\n", .{@intToFloat(f64, end) / 1000000000});
 }
 
 fn each(e: struct { vel: *Velocity, pos: *Position }) void {
