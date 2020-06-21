@@ -28,6 +28,7 @@ fn createEntities(reg: *ecs.Registry) void {
         reg.add(e1, Position{ .x = 1, .y = 1 });
         reg.add(e1, Velocity{ .x = 1, .y = 1 });
     }
+
     var end = timer.lap();
     std.debug.warn("create entities: \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
 }
@@ -104,11 +105,8 @@ fn owningGroup(reg: *ecs.Registry) void {
         if (index == 0) break;
         index -= 1;
 
-        const ent = storage.set.dense.items[index];
-        const entity_index = storage.set.index(ent);
-
-        pos[entity_index].x += pos[entity_index].x;
-        pos[entity_index].y += pos[entity_index].y;
+        pos[index].x += pos[index].x;
+        pos[index].y += pos[index].y;
     }
 
     end = timer.lap();

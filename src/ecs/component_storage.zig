@@ -27,8 +27,9 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         allocator: ?*std.mem.Allocator,
         /// doesnt really belong here...used to denote group ownership
         super: usize = 0,
-        safe_deinit: fn (*Self) void,
-        safe_swap: fn (*Self, Entity, Entity, bool) void,
+        safeDeinit: fn (*Self) void,
+        safeSwap: fn (*Self, Entity, Entity, bool) void,
+        safeRemoveIfContains: fn (*Self, Entity) void,
         construction: Signal(Entity),
         update: Signal(Entity),
         destruction: Signal(Entity),
@@ -37,14 +38,14 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             var store = Self{
                 .set = SparseSet(Entity).initPtr(allocator),
                 .instances = undefined,
-                .safe_deinit = struct {
+                .safeDeinit = struct {
                     fn deinit(self: *Self) void {
                         if (!is_empty_struct) {
                             self.instances.deinit();
                         }
                     }
                 }.deinit,
-                .safe_swap = struct {
+                .safeSwap = struct {
                     fn swap(self: *Self, lhs: Entity, rhs: Entity, instances_only: bool) void {
                         if (!is_empty_struct) {
                             std.mem.swap(Component, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
@@ -52,6 +53,13 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                         if (!instances_only) self.set.swap(lhs, rhs);
                     }
                 }.swap,
+                .safeRemoveIfContains = struct {
+                    fn removeIfContains(self: *Self, entity: Entity) void {
+                        if (self.contains(entity)) {
+                            self.remove(entity);
+                        }
+                    }
+                }.removeIfContains,
                 .allocator = null,
                 .construction = Signal(Entity).init(allocator),
                 .update = Signal(Entity).init(allocator),
@@ -78,7 +86,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             store.destruction = Signal(Entity).init(allocator);
 
             // since we are stored as a pointer, we need to catpure this
-            store.safe_deinit = struct {
+            store.safeDeinit = struct {
                 fn deinit(self: *Self) void {
                     if (!is_empty_struct) {
                         self.instances.deinit();
@@ -86,7 +94,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 }
             }.deinit;
 
-            store.safe_swap = struct {
+            store.safeSwap = struct {
                 fn swap(self: *Self, lhs: Entity, rhs: Entity, instances_only: bool) void {
                     if (!is_empty_struct) {
                         std.mem.swap(Component, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
@@ -95,6 +103,14 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 }
             }.swap;
 
+            store.safeRemoveIfContains = struct {
+                fn removeIfContains(self: *Self, entity: Entity) void {
+                    if (self.contains(entity)) {
+                        self.remove(entity);
+                    }
+                }
+            }.removeIfContains;
+
             return store;
         }
 
@@ -102,7 +118,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             // great care must be taken here. Due to how Registry keeps this struct as pointers anything touching a type
             // will be wrong since it has to cast to a random struct when deiniting. Because of all that, is_empty_struct
             // will allways be false here so we have to deinit the instances no matter what.
-            self.safe_deinit(self);
+            self.safeDeinit(self);
             self.set.deinit();
             self.construction.deinit();
             self.update.deinit();
@@ -154,6 +170,14 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         /// Checks if a view contains an entity
         pub fn contains(self: Self, entity: Entity) bool {
             return self.set.contains(entity);
+        }
+
+        pub fn removeIfContains(self: *Self, entity: Entity) void {
+            if (Component == u1) {
+                self.safeRemoveIfContains(self, entity);
+            } else if (self.contains(entity)) {
+                self.remove(entity);
+            }
         }
 
         pub fn len(self: Self) usize {
@@ -213,10 +237,10 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                             storage: *Self,
 
                             pub fn swap(this: @This(), a: Entity, b: Entity) void {
-                                this.storage.safe_swap(this.storage, a, b, true);
+                                this.storage.safeSwap(this.storage, a, b, true);
                             }
                         };
-                        const swap_context = SortContext{.storage = self};
+                        const swap_context = SortContext{ .storage = self };
                         self.set.arrange(length, context, lessThan, swap_context);
                     } else {
                         const SortContext = struct {
@@ -231,11 +255,11 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                             }
 
                             pub fn swap(this: @This(), a: Entity, b: Entity) void {
-                                this.storage.safe_swap(this.storage, a, b, true);
+                                this.storage.safeSwap(this.storage, a, b, true);
                             }
                         };
 
-                        const swap_context = SortContext{.storage = self, .wrapped_context = context, .lessThan = lessThan};
+                        const swap_context = SortContext{ .storage = self, .wrapped_context = context, .lessThan = lessThan };
                         self.set.arrange(length, swap_context, SortContext.sort, swap_context);
                     }
                 }
@@ -253,7 +277,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
 
         /// Swaps entities and objects in the internal packed arrays
         pub fn swap(self: *Self, lhs: Entity, rhs: Entity) void {
-            self.safe_swap(self, lhs, rhs, false);
+            self.safeSwap(self, lhs, rhs, false);
         }
 
         pub fn clear(self: *Self) void {

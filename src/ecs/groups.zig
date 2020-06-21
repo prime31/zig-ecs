@@ -101,14 +101,11 @@ pub const OwningGroup = struct {
                 if (it.index == 0) return null;
                 it.index -= 1;
 
-                const ent = it.storage.set.dense.items[it.index];
-                const entity_index = it.storage.set.index(ent);
-
                 // fill and return the struct
                 var comps: Components = undefined;
                 inline for (@typeInfo(Components).Struct.fields) |field, i| {
                     const typed_ptr = @ptrCast([*]field.field_type.Child, @alignCast(@alignOf(field.field_type.Child), it.component_ptrs[i]));
-                    @field(comps, field.name) = &typed_ptr[entity_index];
+                    @field(comps, field.name) = &typed_ptr[it.index];
                 }
                 return comps;
             }
@@ -200,36 +197,9 @@ pub const OwningGroup = struct {
         self.validate(Components);
 
         // optionally we could just use an Iterator here and pay for some slight indirection for code sharing
-        // var iter = self.iterator(Components);
-        // while (iter.next()) |comps| {
-        //     @call(.{ .modifier = .always_inline }, func, .{comps});
-        // }
-
-        const component_info = @typeInfo(Components).Struct;
-
-        // get the data pointers for the requested component types
-        var component_ptrs: [component_info.fields.len][*]u8 = undefined;
-        inline for (component_info.fields) |field, i| {
-            const storage = self.registry.assure(field.field_type.Child);
-            component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
-        }
-
-        var storage = self.firstOwnedStorage();
-        var index: usize = self.group_data.current;
-        while (true) {
-            if (index == 0) return;
-            index -= 1;
-
-            const ent = storage.set.dense.items[index];
-            const entity_index = storage.set.index(ent);
-
-            var comps: Components = undefined;
-            inline for (component_info.fields) |field, i| {
-                const typed_ptr = @ptrCast([*]field.field_type.Child, @alignCast(@alignOf(field.field_type.Child), component_ptrs[i]));
-                @field(comps, field.name) = &typed_ptr[entity_index];
-            }
-
-            func(comps);
+        var iter = self.iterator(Components);
+        while (iter.next()) |comps| {
+            @call(.{ .modifier = .always_inline }, func, .{comps});
         }
     }
 
