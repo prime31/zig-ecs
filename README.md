@@ -5,18 +5,18 @@ This is a zigification of the fantasic [Entt](https://github.com/skypjack/entt).
 Below are examples of a View and a Group, the two main ways to work with entities in the ecs along with the scaffolding code.
 
 Declare some structs to work with:
-```
+```zig
 pub const Velocity = struct { x: f32, y: f32 };
 pub const Position = struct { x: f32, y: f32 };
 ```
 
 Setup the Registry, which holds the entity data and is where we run our queries:
-```
+```zig
 var reg = ecs.Registry.init(std.testing.allocator);
 ```
 
 Create a couple entities and add some components to them
-```
+```zig
 var entity = reg.create();
 reg.add(entity, Position{ .x = 0, .y = 0 });
 reg.add(entity, Velocity{ .x = 5, .y = 7 });
@@ -24,7 +24,7 @@ reg.add(entity, Velocity{ .x = 5, .y = 7 });
 ```
 
 Create and iterate a View that matches all entities with a `Velocity` and `Position` component:
-```
+```zig
 var view = reg.view(.{ Velocity, Position }, .{});
 
 var iter = view.iterator();
@@ -35,7 +35,7 @@ while (iter.next()) |entity| {
 ```
 
 The same example using a non-owning Group:
-```
+```zig
 var group = reg.group(.{}, .{ Velocity, Position }, .{});
 group.each(each);
 
