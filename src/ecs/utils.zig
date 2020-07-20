@@ -3,7 +3,7 @@ const std = @import("std");
 pub const ErasedPtr = struct {
     ptr: usize,
 
-    pub fn init(ptr: var) ErasedPtr {
+    pub fn init(ptr: anytype) ErasedPtr {
         if (@sizeOf(@TypeOf(ptr)) == 0) {
             return .{ .ptr = undefined };
         }
@@ -64,7 +64,7 @@ pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T
     }
 }
 
-pub fn sortSubSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, context: var, comptime lessThan: fn (@TypeOf(context), lhs: T1, rhs: T1) bool) void {
+pub fn sortSubSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, context: anytype, comptime lessThan: fn (@TypeOf(context), lhs: T1, rhs: T1) bool) void {
     var i: usize = 1;
     while (i < items.len) : (i += 1) {
         const x = items[i];

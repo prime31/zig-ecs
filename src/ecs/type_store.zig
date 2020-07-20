@@ -13,7 +13,7 @@ pub const TypeStore = struct {
         };
     }
 
-    pub fn deinit(self: TypeStore) void {
+    pub fn deinit(self: *TypeStore) void {
         var iter = self.map.iterator();
         while (iter.next()) |kv| {
             self.allocator.free(kv.value);
@@ -22,7 +22,7 @@ pub const TypeStore = struct {
     }
 
     /// adds instance, returning a pointer to the item as it lives in the store
-    pub fn add(self: *TypeStore, instance: var) void {
+    pub fn add(self: *TypeStore, instance: anytype) void {
         var bytes = self.allocator.alloc(u8, @sizeOf(@TypeOf(instance))) catch unreachable;
         std.mem.copy(u8, bytes, std.mem.asBytes(&instance));
         _ = self.map.put(utils.typeId(@TypeOf(instance)), bytes) catch unreachable;

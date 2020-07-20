@@ -27,7 +27,7 @@ pub fn Sink(comptime Event: type) type {
             return self;
         }
 
-        pub fn beforeBound(self: Self, ctx: var) Self {
+        pub fn beforeBound(self: Self, ctx: anytype) Self {
             if (@typeInfo(@TypeOf(ctx)) == .Pointer) {
                 if (self.indexOfBound(ctx)) |index| {
                     return Self{ .insert_index = index };
@@ -41,7 +41,7 @@ pub fn Sink(comptime Event: type) type {
             _ = owning_signal.calls.insert(self.insert_index, Delegate(Event).initFree(callback)) catch unreachable;
         }
 
-        pub fn connectBound(self: Self, ctx: var, comptime fn_name: []const u8) void {
+        pub fn connectBound(self: Self, ctx: anytype, comptime fn_name: []const u8) void {
             std.debug.assert(self.indexOfBound(ctx) == null);
             _ = owning_signal.calls.insert(self.insert_index, Delegate(Event).initBound(ctx, fn_name)) catch unreachable;
         }
@@ -52,7 +52,7 @@ pub fn Sink(comptime Event: type) type {
             }
         }
 
-        pub fn disconnectBound(self: Self, ctx: var) void {
+        pub fn disconnectBound(self: Self, ctx: anytype) void {
             if (self.indexOfBound(ctx)) |index| {
                 _ = owning_signal.calls.swapRemove(index);
             }
@@ -67,7 +67,7 @@ pub fn Sink(comptime Event: type) type {
             return null;
         }
 
-        fn indexOfBound(self: Self, ctx: var) ?usize {
+        fn indexOfBound(self: Self, ctx: anytype) ?usize {
             for (owning_signal.calls.items) |call, i| {
                 if (call.containsBound(ctx)) {
                     return i;

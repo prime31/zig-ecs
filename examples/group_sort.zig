@@ -32,7 +32,7 @@ fn createEntities(reg: *ecs.Registry) void {
     }
 
     var end = timer.lap();
-    std.debug.warn("create entities: {d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.warn("create {d} entities: {d}\n", .{total_entities, @intToFloat(f64, end) / 1000000000});
 }
 
 fn owningGroup(reg: *ecs.Registry) void {

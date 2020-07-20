@@ -15,7 +15,7 @@ pub const Scheduler = struct {
     allocator: *std.mem.Allocator,
 
     /// helper to create and prepare a process
-    fn createProcessHandler(comptime T: type, data: var, allocator: *std.mem.Allocator) *Process {
+    fn createProcessHandler(comptime T: type, data: anytype, allocator: *std.mem.Allocator) *Process {
         var proc = allocator.create(T) catch unreachable;
         proc.initialize(data);
 
@@ -41,7 +41,7 @@ pub const Scheduler = struct {
             return .{ .process = process, .allocator = allocator };
         }
 
-        pub fn next(self: *@This(), comptime T: type, data: var) *@This() {
+        pub fn next(self: *@This(), comptime T: type, data: anytype) *@This() {
             self.process.next = createProcessHandler(T, data, self.allocator);
             self.process = self.process.next.?;
             return self;
@@ -61,7 +61,7 @@ pub const Scheduler = struct {
     }
 
     /// Schedules a process for the next tick
-    pub fn attach(self: *Scheduler, comptime T: type, data: var) Continuation {
+    pub fn attach(self: *Scheduler, comptime T: type, data: anytype) Continuation {
         std.debug.assert(@hasDecl(T, "initialize"));
         std.debug.assert(@hasField(T, "process"));
 
@@ -137,7 +137,7 @@ test "" {
         process: Process,
         fart: usize,
 
-        pub fn initialize(self: *@This(), data: var) void {
+        pub fn initialize(self: *@This(), data: anytype) void {
             self.process = .{
                 .startFn = start,
                 .updateFn = update,
@@ -190,7 +190,7 @@ test "scheduler.clear" {
     const Tester = struct {
         process: Process,
 
-        pub fn initialize(self: *@This(), data: var) void {
+        pub fn initialize(self: *@This(), data: anytype) void {
             self.process = .{ .updateFn = update };
         }
 
@@ -212,7 +212,7 @@ test "scheduler.attach.next" {
         process: Process,
         counter: *usize,
 
-        pub fn initialize(self: *@This(), data: var) void {
+        pub fn initialize(self: *@This(), data: anytype) void {
             self.process = .{ .updateFn = update };
             self.counter = data;
         }

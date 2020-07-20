@@ -12,7 +12,7 @@ pub fn Delegate(comptime Event: type) type {
         },
 
         /// sets a bound function as the Delegate callback
-        pub fn initBound(ctx: var, comptime fn_name: []const u8) Self {
+        pub fn initBound(ctx: anytype, comptime fn_name: []const u8) Self {
             std.debug.assert(@typeInfo(@TypeOf(ctx)) == .Pointer);
             std.debug.assert(@ptrToInt(ctx) != 0);
 
@@ -50,7 +50,7 @@ pub fn Delegate(comptime Event: type) type {
             };
         }
 
-        pub fn containsBound(self: Self, ctx: var) bool {
+        pub fn containsBound(self: Self, ctx: anytype) bool {
             std.debug.assert(@ptrToInt(ctx) != 0);
             std.debug.assert(@typeInfo(@TypeOf(ctx)) == .Pointer);
 

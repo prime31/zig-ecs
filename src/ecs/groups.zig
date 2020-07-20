@@ -42,7 +42,7 @@ pub const BasicGroup = struct {
         return self.group_data.entity_set.reverseIterator();
     }
 
-    pub fn sort(self: BasicGroup, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+    pub fn sort(self: BasicGroup, comptime T: type, context: anytype, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
         if (T == Entity) {
             self.group_data.entity_set.sort(context, lessThan);
         } else {
@@ -73,7 +73,7 @@ pub const OwningGroup = struct {
     /// being iterated is available via the entity() method, useful for accessing non-owned component data. The get() method can
     /// also be used to fetch non-owned component data for the currently iterated Entity.
     /// TODO: support const types in the Components struct in addition to the current ptrs
-    fn Iterator(comptime Components: var) type {
+    fn Iterator(comptime Components: anytype) type {
         return struct {
             group: OwningGroup,
             index: usize,
@@ -136,7 +136,7 @@ pub const OwningGroup = struct {
 
     /// grabs an untyped (u1) reference to the first Storage(T) in the owned array
     fn firstOwnedStorage(self: OwningGroup) *Storage(u1) {
-        const ptr = self.registry.components.getValue(self.group_data.owned[0]).?;
+        const ptr = self.registry.components.get(self.group_data.owned[0]).?;
         return @intToPtr(*Storage(u1), ptr);
     }
 
@@ -155,7 +155,7 @@ pub const OwningGroup = struct {
         return storage.contains(entity) and storage.set.index(entity) < self.len();
     }
 
-    fn validate(self: OwningGroup, comptime Components: var) void {
+    fn validate(self: OwningGroup, comptime Components: anytype) void {
         if (std.builtin.mode == .Debug and self.group_data.owned.len > 0) {
             std.debug.assert(@typeInfo(Components) == .Struct);
 
@@ -167,7 +167,7 @@ pub const OwningGroup = struct {
         }
     }
 
-    pub fn getOwned(self: OwningGroup, entity: Entity, comptime Components: var) Components {
+    pub fn getOwned(self: OwningGroup, entity: Entity, comptime Components: anytype) Components {
         self.validate(Components);
         const component_info = @typeInfo(Components).Struct;
 
@@ -188,7 +188,7 @@ pub const OwningGroup = struct {
         return comps;
     }
 
-    pub fn each(self: OwningGroup, comptime func: var) void {
+    pub fn each(self: OwningGroup, comptime func: anytype) void {
         const Components = switch (@typeInfo(@TypeOf(func))) {
             .BoundFn => |func_info| func_info.args[1].arg_type.?,
             .Fn => |func_info| func_info.args[0].arg_type.?,
@@ -223,7 +223,7 @@ pub const OwningGroup = struct {
     /// returns an iterator with optimized access to the owend Components. Note that Components should be a struct with
     /// fields that are pointers to the component types that you want to fetch. Only types that are owned are valid! Non-owned
     /// types should be fetched via Iterator.get.
-    pub fn iterator(self: OwningGroup, comptime Components: var) Iterator(Components) {
+    pub fn iterator(self: OwningGroup, comptime Components: anytype) Iterator(Components) {
         self.validate(Components);
         return Iterator(Components).init(self);
     }
@@ -232,7 +232,7 @@ pub const OwningGroup = struct {
         return utils.ReverseSliceIterator(Entity).init(self.firstOwnedStorage().set.dense.items[0..self.group_data.current]);
     }
 
-    pub fn sort(self: OwningGroup, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+    pub fn sort(self: OwningGroup, comptime T: type, context: anytype, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
         var first_storage = self.firstOwnedStorage();
 
         if (T == Entity) {
@@ -264,7 +264,7 @@ pub const OwningGroup = struct {
 
             // skip the first one since its what we are using to sort with
             for (self.group_data.owned[1..]) |type_id| {
-                var other_ptr = self.registry.components.getValue(type_id).?;
+                var other_ptr = self.registry.components.get(type_id).?;
                 var storage = @intToPtr(*Storage(u1), other_ptr);
                 storage.swap(storage.data()[pos], entity);
             }

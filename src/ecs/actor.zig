@@ -18,7 +18,7 @@ pub const Actor = struct {
         self.registry.destroy(self.entity);
     }
 
-    pub fn add(self: *Actor, value: var) void {
+    pub fn add(self: *Actor, value: anytype) void {
         self.registry.add(self.entity, value);
     }
 

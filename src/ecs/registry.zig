@@ -81,19 +81,19 @@ pub const Registry = struct {
         pub fn maybeValidIf(self: *GroupData, entity: Entity) void {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
-                    const ptr = self.registry.components.getValue(tid).?;
+                    const ptr = self.registry.components.get(tid).?;
                     if (!@intToPtr(*Storage(u1), ptr).contains(entity))
                         break :blk false;
                 }
 
                 for (self.include) |tid| {
-                    const ptr = self.registry.components.getValue(tid).?;
+                    const ptr = self.registry.components.get(tid).?;
                     if (!@intToPtr(*Storage(u1), ptr).contains(entity))
                         break :blk false;
                 }
 
                 for (self.exclude) |tid| {
-                    const ptr = self.registry.components.getValue(tid).?;
+                    const ptr = self.registry.components.get(tid).?;
                     if (@intToPtr(*Storage(u1), ptr).contains(entity))
                         break :blk false;
                 }
@@ -106,11 +106,11 @@ pub const Registry = struct {
                 }
             } else {
                 if (isValid) {
-                    const ptr = self.registry.components.getValue(self.owned[0]).?;
+                    const ptr = self.registry.components.get(self.owned[0]).?;
                     if (!(@intToPtr(*Storage(u1), ptr).set.index(entity) < self.current)) {
                         for (self.owned) |tid| {
                             // store.swap hides a safe version that types it correctly
-                            const store_ptr = self.registry.components.getValue(tid).?;
+                            const store_ptr = self.registry.components.get(tid).?;
                             var store = @intToPtr(*Storage(u1), store_ptr);
                             store.swap(store.data()[self.current], entity);
                         }
@@ -127,12 +127,12 @@ pub const Registry = struct {
                     self.entity_set.remove(entity);
                 }
             } else {
-                const ptr = self.registry.components.getValue(self.owned[0]).?;
+                const ptr = self.registry.components.get(self.owned[0]).?;
                 var store = @intToPtr(*Storage(u1), ptr);
                 if (store.contains(entity) and store.set.index(entity) < self.current) {
                     self.current -= 1;
                     for (self.owned) |tid| {
-                        const store_ptr = self.registry.components.getValue(tid).?;
+                        const store_ptr = self.registry.components.get(tid).?;
                         store = @intToPtr(*Storage(u1), store_ptr);
                         store.swap(store.data()[self.current], entity);
                     }
@@ -215,7 +215,7 @@ pub const Registry = struct {
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
         var type_id = utils.typeId(T);
-        if (self.components.get(type_id)) |kv| {
+        if (self.components.getEntry(type_id)) |kv| {
             return @intToPtr(*Storage(T), kv.value);
         }
 
@@ -281,7 +281,7 @@ pub const Registry = struct {
         return self.handles.iterator();
     }
 
-    pub fn add(self: *Registry, entity: Entity, value: var) void {
+    pub fn add(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
         self.assure(@TypeOf(value)).add(entity, value);
     }
@@ -292,14 +292,14 @@ pub const Registry = struct {
     }
 
     /// adds all the component types passed in as zero-initialized values
-    pub fn addTypes(self: *Registry, entity: Entity, comptime types: var) void {
+    pub fn addTypes(self: *Registry, entity: Entity, comptime types: anytype) void {
         inline for (types) |t| {
             self.assure(t).add(entity, std.mem.zeroes(t));
         }
     }
 
     /// Replaces the given component for an entity
-    pub fn replace(self: *Registry, entity: Entity, value: var) void {
+    pub fn replace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
         self.assure(@TypeOf(value)).replace(entity, value);
     }
@@ -309,7 +309,7 @@ pub const Registry = struct {
         self.replace(entity, value);
     }
 
-    pub fn addOrReplace(self: *Registry, entity: Entity, value: var) void {
+    pub fn addOrReplace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
 
         const store = self.assure(@TypeOf(value));
@@ -393,7 +393,7 @@ pub const Registry = struct {
     }
 
     /// Binds an object to the context of the registry
-    pub fn setContext(self: *Registry, context: var) void {
+    pub fn setContext(self: *Registry, context: anytype) void {
         std.debug.assert(@typeInfo(@TypeOf(context)) == .Pointer);
 
         var type_id = utils.typeId(@typeInfo(@TypeOf(context)).Pointer.child);
@@ -432,7 +432,7 @@ pub const Registry = struct {
         return self.assure(T).super == 0;
     }
 
-    pub fn view(self: *Registry, comptime includes: var, comptime excludes: var) ViewType(includes, excludes) {
+    pub fn view(self: *Registry, comptime includes: anytype, comptime excludes: anytype) ViewType(includes, excludes) {
         std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
         std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(includes.len > 0);
@@ -457,13 +457,13 @@ pub const Registry = struct {
     }
 
     /// returns the Type that a view will be based on the includes and excludes
-    fn ViewType(comptime includes: var, comptime excludes: var) type {
+    fn ViewType(comptime includes: anytype, comptime excludes: anytype) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
         return MultiView(includes.len, excludes.len);
     }
 
     /// creates an optimized group for iterating components
-    pub fn group(self: *Registry, comptime owned: var, comptime includes: var, comptime excludes: var) (if (owned.len == 0) BasicGroup else OwningGroup) {
+    pub fn group(self: *Registry, comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) (if (owned.len == 0) BasicGroup else OwningGroup) {
         std.debug.assert(@typeInfo(@TypeOf(owned)) == .Struct);
         std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
         std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
@@ -593,7 +593,7 @@ pub const Registry = struct {
 
     /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types between
     /// the 3 groups.
-    inline fn hashGroupTypes(comptime owned: var, comptime includes: var, comptime excludes: var) u64 {
+    inline fn hashGroupTypes(comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) u64 {
         comptime {
             for (owned) |t1| {
                 for (includes) |t2| {
@@ -615,7 +615,7 @@ pub const Registry = struct {
     }
 
     /// expects a tuple of types. Convertes them to type names, sorts them then concatenates and returns the string.
-    inline fn concatTypes(comptime types: var) []const u8 {
+    inline fn concatTypes(comptime types: anytype) []const u8 {
         comptime {
             if (types.len == 0) return "_";
 

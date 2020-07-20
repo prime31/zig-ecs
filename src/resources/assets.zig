@@ -33,11 +33,11 @@ pub const Assets = struct {
         return cache;
     }
 
-    pub fn load(self: *Assets, id: u16, comptime loader: var) ReturnType(loader, false) {
+    pub fn load(self: *Assets, id: u16, comptime loader: anytype) ReturnType(loader, false) {
         return self.get(ReturnType(loader, true)).load(id, loader);
     }
 
-    fn ReturnType(comptime loader: var, strip_ptr: bool) type {
+    fn ReturnType(comptime loader: anytype, strip_ptr: bool) type {
         var ret = @typeInfo(@TypeOf(@field(loader, "load"))).BoundFn.return_type.?;
         if (strip_ptr) {
             return ret.Child;

@@ -188,7 +188,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             struct {
                 /// Sort Entities according to the given comparison function. Only T == Entity is allowed. The constraint param only exists for
                 /// parity with non-empty Components
-                pub fn sort(self: Self, comptime T: type, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+                pub fn sort(self: Self, comptime T: type, context: anytype, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
                     std.debug.assert(T == Entity);
                     self.set.sort(context, lessThan);
                 }
@@ -226,7 +226,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 }
 
                 /// Sort Entities or Components according to the given comparison function. Valid types for T are Entity or Component.
-                pub fn sort(self: *Self, comptime T: type, length: usize, context: var, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+                pub fn sort(self: *Self, comptime T: type, length: usize, context: anytype, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
                     std.debug.assert(T == Entity or T == Component);
 
                     // we have to perform a swap after the sort for all moved entities so we make a helper struct for that. In the
