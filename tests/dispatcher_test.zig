@@ -21,7 +21,6 @@ const Thing = struct {
     }
 };
 
-
 test "Dispatcher" {
     var thing = Thing{};
 

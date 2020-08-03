@@ -32,7 +32,7 @@ fn createEntities(reg: *ecs.Registry) void {
     }
 
     var end = timer.lap();
-    std.debug.warn("create {d} entities: {d}\n", .{total_entities, @intToFloat(f64, end) / 1000000000});
+    std.debug.warn("create {d} entities: {d}\n", .{ total_entities, @intToFloat(f64, end) / 1000000000 });
 }
 
 fn owningGroup(reg: *ecs.Registry) void {
@@ -58,7 +58,6 @@ fn owningGroup(reg: *ecs.Registry) void {
     group.sort(Position, {}, SortContext.sort);
     end = timer.lap();
     std.debug.warn("group (sort 2): {d}\n", .{@intToFloat(f64, end) / 1000000000});
-
 
     // var group_iter2 = group.iterator(struct { vel: *Velocity, pos: *Position });
     // while (group_iter2.next()) |e| {

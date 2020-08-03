@@ -17,7 +17,7 @@ test "Registry" {
 
     var e1 = reg.create();
 
-    reg.addTypes(e1, .{Empty, Position});
+    reg.addTypes(e1, .{ Empty, Position });
     reg.add(e1, BigOne{ .pos = Position{ .x = 5, .y = 5 }, .vel = Velocity{ .x = 5, .y = 5 }, .accel = Velocity{ .x = 5, .y = 5 } });
 
     std.testing.expect(reg.has(Empty, e1));

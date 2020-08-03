@@ -13,7 +13,7 @@ const Transform = struct { x: f32 = 0 };
 const Renderable = struct { x: f32 = 0 };
 const Rotation = struct { x: f32 = 0 };
 
-fn printStore(store: var, name: []const u8) void {
+fn printStore(store: anytype, name: []const u8) void {
     warn("--- {} ---\n", .{name});
     for (store.set.dense.items) |e, i| {
         warn("e[{}] s[{}]{}", .{ e, store.set.page(store.set.dense.items[i]), store.set.sparse.items[store.set.page(store.set.dense.items[i])] });
@@ -106,11 +106,11 @@ test "sort OwningGroup by Entity" {
             return sprite_a.x > sprite_b.x;
         }
     };
-    const context = SortContext{.group = group};
+    const context = SortContext{ .group = group };
     group.sort(ecs.Entity, context, SortContext.sort);
 
     var val: f32 = 0;
-    var iter = group.iterator(struct {s: *Sprite, r: *Renderable});
+    var iter = group.iterator(struct { s: *Sprite, r: *Renderable });
     while (iter.next()) |entity| {
         std.testing.expectEqual(val, entity.s.*.x);
         val += 1;
@@ -138,7 +138,7 @@ test "sort OwningGroup by Component" {
     group.sort(Sprite, {}, SortContext.sort);
 
     var val: f32 = 0;
-    var iter = group.iterator(struct {s: *Sprite, r: *Renderable});
+    var iter = group.iterator(struct { s: *Sprite, r: *Renderable });
     while (iter.next()) |entity| {
         std.testing.expectEqual(val, entity.s.*.x);
         val += 1;
