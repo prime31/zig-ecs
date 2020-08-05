@@ -13,7 +13,7 @@ pub const Assets = struct {
         };
     }
 
-    pub fn deinit(self: Assets) void {
+    pub fn deinit(self: *Assets) void {
         var it = self.caches.iterator();
         while (it.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
@@ -24,7 +24,7 @@ pub const Assets = struct {
     }
 
     pub fn get(self: *Assets, comptime AssetT: type) *Cache(AssetT) {
-        if (self.caches.getValue(utils.typeId(AssetT))) |tid| {
+        if (self.caches.get(utils.typeId(AssetT))) |tid| {
             return @intToPtr(*Cache(AssetT), tid);
         }
 
