@@ -43,7 +43,7 @@ pub fn Cache(comptime T: type) type {
         }
 
         pub fn load(self: *@This(), id: u32, comptime loader: anytype) @typeInfo(@TypeOf(@field(loader, "load"))).BoundFn.return_type.? {
-            if (self.resources.getValue(id)) |resource| {
+            if (self.resources.get(id)) |resource| {
                 return resource;
             }
 
@@ -72,11 +72,11 @@ pub fn Cache(comptime T: type) type {
                     @call(.{ .modifier = .always_inline }, @field(kv.value, "deinit"), .{});
                 }
             }
-            self.resources.clear();
+            self.resources.clearAndFree();
         }
 
         pub fn size(self: @This()) usize {
-            return self.resources.size;
+            return self.resources.items().len;
         }
     };
 }

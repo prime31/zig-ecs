@@ -29,7 +29,7 @@ pub const TypeStore = struct {
     }
 
     pub fn get(self: *TypeStore, comptime T: type) *T {
-        if (self.map.getValue(utils.typeId(T))) |bytes| {
+        if (self.map.get(utils.typeId(T))) |bytes| {
             return @ptrCast(*T, @alignCast(@alignOf(T), bytes));
         }
         unreachable;
@@ -48,7 +48,7 @@ pub const TypeStore = struct {
     }
 
     pub fn remove(self: *TypeStore, comptime T: type) void {
-        if (self.map.getValue(utils.typeId(T))) |bytes| {
+        if (self.map.get(utils.typeId(T))) |bytes| {
             self.allocator.free(bytes);
             _ = self.map.remove(utils.typeId(T));
         }

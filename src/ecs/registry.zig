@@ -411,7 +411,7 @@ pub const Registry = struct {
         std.debug.assert(@typeInfo(T) != .Pointer);
 
         return if (self.contexts.get(utils.typeId(T))) |ptr|
-            return if (ptr.value > 0) @intToPtr(*T, ptr.value) else null
+            return if (ptr > 0) @intToPtr(*T, ptr) else null
         else
             null;
     }
