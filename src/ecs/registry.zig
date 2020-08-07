@@ -195,8 +195,7 @@ pub const Registry = struct {
     }
 
     pub fn deinit(self: *Registry) void {
-        var it = self.components.iterator();
-        while (it.next()) |ptr| {
+        for (self.components.items()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
             var storage = @intToPtr(*Storage(u1), ptr.value);
             storage.deinit();
@@ -343,8 +342,7 @@ pub const Registry = struct {
     pub fn removeAll(self: *Registry, entity: Entity) void {
         assert(self.valid(entity));
 
-        var it = self.components.iterator();
-        while (it.next()) |ptr| {
+        for (self.components.items()) |ptr| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
             var store = @intToPtr(*Storage(u1), ptr.value);
             store.removeIfContains(entity);

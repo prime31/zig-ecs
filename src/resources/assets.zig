@@ -14,8 +14,7 @@ pub const Assets = struct {
     }
 
     pub fn deinit(self: *Assets) void {
-        var it = self.caches.iterator();
-        while (it.next()) |ptr| {
+        for (self.caches.items()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
             @intToPtr(*Cache(u1), ptr.value).deinit();
         }
