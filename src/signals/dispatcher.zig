@@ -15,8 +15,7 @@ pub const Dispatcher = struct {
     }
 
     pub fn deinit(self: *Dispatcher) void {
-        var it = self.signals.iterator();
-        while (it.next()) |ptr| {
+        for (self.signals.items()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
             var signal = @intToPtr(*Signal(void), ptr.value);
             signal.deinit();
