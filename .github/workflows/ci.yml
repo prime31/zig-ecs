@@ -12,7 +12,5 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v1
         with:
           version: master
-      - run: zig fmt src
-      - run: zig fmt tests
-      - run: zig fmt examples
+      - run: zig fmt .
       - run: zig build test
