@@ -1,6 +1,5 @@
-- name: Setup Zig
-  uses: goto-bus-stop/setup-zig@v1.2.3
-
+name: Workflow
+on: [push]
 
 jobs:
   test:
@@ -11,6 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: goto-bus-stop/setup-zig@v1
+        with:
+          version: master
       - run: zig build test
   lint:
     runs-on: ubuntu-latest
