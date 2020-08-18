@@ -34,9 +34,9 @@ while (iter.next()) |entity| {
 }
 ```
 
-The same example using a non-owning Group:
+The same example using an owning Group:
 ```zig
-var group = reg.group(.{}, .{ Velocity, Position }, .{});
+var group = reg.group(.{ Velocity, Position }, .{}, .{});
 group.each(each);
 
 fn each(e: struct { vel: *Velocity, pos: *Position }) void {
