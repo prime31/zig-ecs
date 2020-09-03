@@ -195,7 +195,8 @@ pub const Registry = struct {
     }
 
     pub fn deinit(self: *Registry) void {
-        for (self.components.items()) |ptr| {
+        var iter = self.components.iterator();
+        while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
             var storage = @intToPtr(*Storage(u1), ptr.value);
             storage.deinit();
