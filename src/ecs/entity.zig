@@ -14,9 +14,9 @@ pub fn EntityTraitsType(comptime size: EntityTraitsSize) type {
 }
 
 fn EntityTraitsDefinition(comptime EntityType: type, comptime IndexType: type, comptime VersionType: type) type {
-    std.debug.assert(@typeInfo(EntityType) == .Int and !EntityType.is_signed);
-    std.debug.assert(@typeInfo(IndexType) == .Int and !IndexType.is_signed);
-    std.debug.assert(@typeInfo(VersionType) == .Int and !VersionType.is_signed);
+    std.debug.assert(@typeInfo(EntityType) == .Int and !@typeInfo(EntityType).Int.is_signed);
+    std.debug.assert(@typeInfo(IndexType) == .Int and !@typeInfo(IndexType).Int.is_signed);
+    std.debug.assert(@typeInfo(VersionType) == .Int and !@typeInfo(VersionType).Int.is_signed);
 
     if (@bitSizeOf(IndexType) + @bitSizeOf(VersionType) != @bitSizeOf(EntityType))
         @compileError("IndexType and VersionType must sum to EntityType's bit count");
