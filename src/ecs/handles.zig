@@ -4,9 +4,9 @@ const std = @import("std");
 /// you choose the type of the handle (aka its size) and how much of that goes to the index and the version.
 /// the bitsize of version + id must equal the handle size.
 pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime VersionType: type) type {
-    std.debug.assert(@typeInfo(HandleType) == .Int and !@typeInfo(HandleType).Int.is_signed);
-    std.debug.assert(@typeInfo(IndexType) == .Int and !@typeInfo(IndexType).Int.is_signed);
-    std.debug.assert(@typeInfo(VersionType) == .Int and !@typeInfo(VersionType).Int.is_signed);
+    std.debug.assert(@typeInfo(HandleType) == .Int and @typeInfo(HandleType).Int.signedness == .unsigned);
+    std.debug.assert(@typeInfo(IndexType) == .Int and @typeInfo(IndexType).Int.signedness == .unsigned);
+    std.debug.assert(@typeInfo(VersionType) == .Int and @typeInfo(VersionType).signedness == .unsigned);
 
     if (@bitSizeOf(IndexType) + @bitSizeOf(VersionType) != @bitSizeOf(HandleType))
         @compileError("IndexType and VersionType must sum to HandleType's bit count");
