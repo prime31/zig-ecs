@@ -2,6 +2,11 @@
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
     "version": "2.0.0",
+    "options": {
+        "env": {
+            "ZIG_SYSTEM_LINKER_HACK": "1",
+        }
+    },
     "tasks": [
         {
             "label": "Build Project",
@@ -22,6 +27,18 @@
                 "kind": "build",
                 "isDefault": true
             },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Build and Run Project (x64 on arm)",
+            "type": "shell",
+            "command": "~/zig/zig-x64/zig build run",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build",
             "presentation": {
                 "clear": true
             }

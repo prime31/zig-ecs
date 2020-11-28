@@ -1,8 +1,12 @@
-const Builder = @import("std").build.Builder;
+const std = @import("std");
+const Builder = std.build.Builder;
 const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
     const buildMode = b.standardReleaseOptions();
+
+    // use a different cache folder for macos arm builds
+    b.cache_root = if (std.builtin.os.tag == .macos and std.builtin.arch == std.builtin.Arch.aarch64) "zig-arm-cache/bin" else "zig-cache/bin";
 
     const examples = [_][2][]const u8{
         [_][]const u8{ "view_vs_group", "examples/view_vs_group.zig" },
@@ -25,7 +29,7 @@ pub fn build(b: *Builder) void {
 
         // first element in the list is added as "run" so "zig build run" works
         if (i == 0) {
-            exe.setOutputDir("zig-cache/bin");
+            exe.setOutputDir(std.fs.path.joinPosix(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
             const run_exe_step = b.step("run", b.fmt("run {}.zig", .{name}));
             run_exe_step.dependOn(&run_cmd.step);
         }
