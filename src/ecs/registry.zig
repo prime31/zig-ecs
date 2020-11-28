@@ -343,7 +343,8 @@ pub const Registry = struct {
     pub fn removeAll(self: *Registry, entity: Entity) void {
         assert(self.valid(entity));
 
-        for (self.components.items()) |ptr| {
+        var iter = self.components.iterator();
+        for (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
             var store = @intToPtr(*Storage(u1), ptr.value);
             store.removeIfContains(entity);
