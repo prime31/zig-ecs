@@ -55,8 +55,15 @@ pub const LibType = enum(i32) {
     exe_compiled,
 };
 
-/// rel_path is used to add package paths. It should be the the same path used to include this build file
-pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, rel_path: []const u8) void {
+pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
+    return .{
+        .name = "ecs",
+        .path = prefix_path ++ "src/ecs.zig",
+    };
+}
+
+/// prefix_path is used to add package paths. It should be the the same path used to include this build file
+pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, prefix_path: []const u8) void {
     switch (lib_type) {
         .static => {
             const lib = b.addStaticLibrary("ecs", "ecs.zig");
@@ -75,5 +82,5 @@ pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std
         else => {},
     }
 
-    artifact.addPackagePath("ecs", std.fs.path.join(b.allocator, &[_][]const u8{ rel_path, "ecs.zig" }) catch unreachable);
+    artifact.addPackage(getPackage(prefix_path));
 }
