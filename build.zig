@@ -63,7 +63,8 @@ pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
 }
 
 /// prefix_path is used to add package paths. It should be the the same path used to include this build file
-pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, prefix_path: []const u8) void {
+pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, comptime prefix_path: []const u8) void {
+    const buildMode = b.standardReleaseOptions();
     switch (lib_type) {
         .static => {
             const lib = b.addStaticLibrary("ecs", "ecs.zig");
@@ -73,7 +74,7 @@ pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std
             artifact.linkLibrary(lib);
         },
         .dynamic => {
-            const lib = b.addSharedLibrary("ecs", "ecs.zig", null);
+            const lib = b.addSharedLibrary("ecs", "ecs.zig", .unversioned);
             lib.setBuildMode(buildMode);
             lib.install();
 
