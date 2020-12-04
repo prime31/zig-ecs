@@ -67,7 +67,8 @@ pub fn Cache(comptime T: type) type {
         pub fn clear(self: *@This()) void {
             // optionally deinit any resources that have a deinit method
             if (@hasDecl(T, "deinit")) {
-                for (self.resources.items()) |kv| {
+                var iter = self.resources.iterator();
+                while (iter.next()) |kv| {
                     @call(.{ .modifier = .always_inline }, @field(kv.value, "deinit"), .{});
                 }
             }
@@ -75,7 +76,7 @@ pub fn Cache(comptime T: type) type {
         }
 
         pub fn size(self: @This()) usize {
-            return self.resources.items().len;
+            return self.resources.count();
         }
     };
 }

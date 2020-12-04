@@ -344,7 +344,7 @@ pub const Registry = struct {
         assert(self.valid(entity));
 
         var iter = self.components.iterator();
-        for (iter.next()) |ptr| {
+        while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
             var store = @intToPtr(*Storage(u1), ptr.value);
             store.removeIfContains(entity);
