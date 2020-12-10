@@ -3,7 +3,7 @@ const Builder = std.build.Builder;
 const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
-    const buildMode = b.standardReleaseOptions();
+    const build_mode = b.standardReleaseOptions();
 
     // use a different cache folder for macos arm builds
     b.cache_root = if (std.builtin.os.tag == .macos and std.builtin.arch == std.builtin.Arch.aarch64) "zig-arm-cache/bin" else "zig-cache/bin";
@@ -37,12 +37,12 @@ pub fn build(b: *Builder) void {
 
     // internal tests
     const internal_test_step = b.addTest("src/tests.zig");
-    internal_test_step.setBuildMode(buildMode);
+    internal_test_step.setBuildMode(build_mode);
 
     // public api tests
     const test_step = b.addTest("tests/tests.zig");
     test_step.addPackagePath("ecs", "src/ecs.zig");
-    test_step.setBuildMode(buildMode);
+    test_step.setBuildMode(build_mode);
 
     const test_cmd = b.step("test", "Run the tests");
     test_cmd.dependOn(&internal_test_step.step);
@@ -64,18 +64,18 @@ pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
 
 /// prefix_path is used to add package paths. It should be the the same path used to include this build file
 pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, comptime prefix_path: []const u8) void {
-    const buildMode = b.standardReleaseOptions();
+    const build_mode = b.standardReleaseOptions();
     switch (lib_type) {
         .static => {
             const lib = b.addStaticLibrary("ecs", "ecs.zig");
-            lib.setBuildMode(buildMode);
+            lib.setBuildMode(build_mode);
             lib.install();
 
             artifact.linkLibrary(lib);
         },
         .dynamic => {
             const lib = b.addSharedLibrary("ecs", "ecs.zig", .unversioned);
-            lib.setBuildMode(buildMode);
+            lib.setBuildMode(build_mode);
             lib.install();
 
             artifact.linkLibrary(lib);
