@@ -1,8 +1,12 @@
-const Builder = @import("std").build.Builder;
+const std = @import("std");
+const Builder = std.build.Builder;
 const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
-    const buildMode = b.standardReleaseOptions();
+    const build_mode = b.standardReleaseOptions();
+
+    // use a different cache folder for macos arm builds
+    b.cache_root = if (std.builtin.os.tag == .macos and std.builtin.arch == std.builtin.Arch.aarch64) "zig-arm-cache" else "zig-cache";
 
     const examples = [_][2][]const u8{
         [_][]const u8{ "view_vs_group", "examples/view_vs_group.zig" },
@@ -25,7 +29,7 @@ pub fn build(b: *Builder) void {
 
         // first element in the list is added as "run" so "zig build run" works
         if (i == 0) {
-            exe.setOutputDir("zig-cache/bin");
+            exe.setOutputDir(std.fs.path.joinPosix(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
             const run_exe_step = b.step("run", b.fmt("run {}.zig", .{name}));
             run_exe_step.dependOn(&run_cmd.step);
         }
@@ -33,12 +37,12 @@ pub fn build(b: *Builder) void {
 
     // internal tests
     const internal_test_step = b.addTest("src/tests.zig");
-    internal_test_step.setBuildMode(buildMode);
+    internal_test_step.setBuildMode(build_mode);
 
     // public api tests
     const test_step = b.addTest("tests/tests.zig");
     test_step.addPackagePath("ecs", "src/ecs.zig");
-    test_step.setBuildMode(buildMode);
+    test_step.setBuildMode(build_mode);
 
     const test_cmd = b.step("test", "Run the tests");
     test_cmd.dependOn(&internal_test_step.step);
@@ -51,19 +55,27 @@ pub const LibType = enum(i32) {
     exe_compiled,
 };
 
-/// rel_path is used to add package paths. It should be the the same path used to include this build file
-pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, rel_path: []const u8) void {
+pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
+    return .{
+        .name = "ecs",
+        .path = prefix_path ++ "src/ecs.zig",
+    };
+}
+
+/// prefix_path is used to add package paths. It should be the the same path used to include this build file
+pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, comptime prefix_path: []const u8) void {
+    const build_mode = b.standardReleaseOptions();
     switch (lib_type) {
         .static => {
             const lib = b.addStaticLibrary("ecs", "ecs.zig");
-            lib.setBuildMode(buildMode);
+            lib.setBuildMode(build_mode);
             lib.install();
 
             artifact.linkLibrary(lib);
         },
         .dynamic => {
-            const lib = b.addSharedLibrary("ecs", "ecs.zig", null);
-            lib.setBuildMode(buildMode);
+            const lib = b.addSharedLibrary("ecs", "ecs.zig", .unversioned);
+            lib.setBuildMode(build_mode);
             lib.install();
 
             artifact.linkLibrary(lib);
@@ -71,5 +83,5 @@ pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std
         else => {},
     }
 
-    artifact.addPackagePath("ecs", std.fs.path.join(b.allocator, &[_][]const u8{ rel_path, "ecs.zig" }) catch unreachable);
+    artifact.addPackage(getPackage(prefix_path));
 }

@@ -14,7 +14,8 @@ pub const Assets = struct {
     }
 
     pub fn deinit(self: *Assets) void {
-        for (self.caches.items()) |ptr| {
+        var iter = self.caches.iterator();
+        while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
             @intToPtr(*Cache(u1), ptr.value).deinit();
         }
@@ -39,7 +40,7 @@ pub const Assets = struct {
     fn ReturnType(comptime loader: anytype, strip_ptr: bool) type {
         var ret = @typeInfo(@TypeOf(@field(loader, "load"))).BoundFn.return_type.?;
         if (strip_ptr) {
-            return ret.Child;
+            return std.meta.Child(ret);
         }
         return ret;
     }

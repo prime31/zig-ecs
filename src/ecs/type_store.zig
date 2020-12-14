@@ -14,7 +14,8 @@ pub const TypeStore = struct {
     }
 
     pub fn deinit(self: *TypeStore) void {
-        for (self.map.items()) |kv| {
+        var iter = self.map.iterator();
+        while (iter.next()) |kv| {
             self.allocator.free(kv.value);
         }
         self.map.deinit();

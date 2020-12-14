@@ -2,6 +2,11 @@
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
     "version": "2.0.0",
+    "options": {
+        "env": {
+            "ZIG_SYSTEM_LINKER_HACK": "1",
+        }
+    },
     "tasks": [
         {
             "label": "Build Project",
@@ -10,6 +15,21 @@
             "problemMatcher": [
                 "$gcc"
             ],
+        },
+        {
+            "label": "Build and Run Specific Target",
+            "type": "shell",
+            "command": "zig build ${input:zigTarget}",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
         },
         {
             "label": "Build and Run Project",
@@ -27,16 +47,13 @@
             }
         },
         {
-            "label": "Pooooooooop",
+            "label": "Build and Run Project (x64 on arm)",
             "type": "shell",
-            "command": "zig build ${input:zigTarget}",
+            "command": "~/zig/zig-x64/zig build run",
             "problemMatcher": [
                 "$gcc"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "group": "build",
             "presentation": {
                 "clear": true
             }
@@ -120,13 +137,15 @@
     "inputs": [
         {
           "id": "zigTarget",
-          "description": "choose which target to run",
-          "type": "pickString",
-          "options": [
-              "run",
-              "group_sort"
-          ],
-          "default": "run"
+          "type": "command",
+          "command": "zig.getTargets",
+        //   "description": "choose which target to run",
+        //   "type": "pickString",
+        //   "options": [
+        //       "run",
+        //       "group_sort"
+        //   ],
+        //   "default": "run"
         }
     ],
 }

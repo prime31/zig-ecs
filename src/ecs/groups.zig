@@ -85,7 +85,7 @@ pub const OwningGroup = struct {
 
                 var component_ptrs: [component_info.fields.len][*]u8 = undefined;
                 inline for (component_info.fields) |field, i| {
-                    const storage = group.registry.assure(field.field_type.Child);
+                    const storage = group.registry.assure(@typeInfo(field.field_type).Pointer.child);
                     component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
                 }
 
@@ -104,7 +104,7 @@ pub const OwningGroup = struct {
                 // fill and return the struct
                 var comps: Components = undefined;
                 inline for (@typeInfo(Components).Struct.fields) |field, i| {
-                    const typed_ptr = @ptrCast([*]field.field_type.Child, @alignCast(@alignOf(field.field_type.Child), it.component_ptrs[i]));
+                    const typed_ptr = @ptrCast([*]@typeInfo(field.field_type).Pointer.child, @alignCast(@alignOf(@typeInfo(field.field_type).Pointer.child), it.component_ptrs[i]));
                     @field(comps, field.name) = &typed_ptr[it.index];
                 }
                 return comps;
@@ -173,7 +173,7 @@ pub const OwningGroup = struct {
 
         var component_ptrs: [component_info.fields.len][*]u8 = undefined;
         inline for (component_info.fields) |field, i| {
-            const storage = self.registry.assure(field.field_type.Child);
+            const storage = self.registry.assure(std.meta.Child(field.field_type));
             component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
         }
 
@@ -181,7 +181,7 @@ pub const OwningGroup = struct {
         const index = self.firstOwnedStorage().set.index(entity);
         var comps: Components = undefined;
         inline for (component_info.fields) |field, i| {
-            const typed_ptr = @ptrCast([*]field.field_type.Child, @alignCast(@alignOf(field.field_type.Child), component_ptrs[i]));
+            const typed_ptr = @ptrCast([*]std.meta.Child(field.field_type), @alignCast(@alignOf(std.meta.Child(field.field_type)), component_ptrs[i]));
             @field(comps, field.name) = &typed_ptr[index];
         }
 
