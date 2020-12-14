@@ -17,21 +17,6 @@
             ],
         },
         {
-            "label": "Build and Run Specific Target",
-            "type": "shell",
-            "command": "zig build ${input:zigTarget}",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "clear": true
-            }
-        },
-        {
             "label": "Build and Run Project",
             "type": "shell",
             "command": "zig build run",
@@ -133,19 +118,5 @@
                 "isDefault": true
             }
         },
-    ],
-    "inputs": [
-        {
-          "id": "zigTarget",
-          "type": "command",
-          "command": "zig.getTargets",
-        //   "description": "choose which target to run",
-        //   "type": "pickString",
-        //   "options": [
-        //       "run",
-        //       "group_sort"
-        //   ],
-        //   "default": "run"
-        }
-    ],
+    ]
 }
