@@ -27,6 +27,21 @@
             }
         },
         {
+            "label": "Pooooooooop",
+            "type": "shell",
+            "command": "zig build ${input:zigTarget}",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
             "label": "Build and Run Project (release-fast)",
             "type": "shell",
             "command": "zig build run -Drelease-fast",
@@ -101,5 +116,17 @@
                 "isDefault": true
             }
         },
-    ]
+    ],
+    "inputs": [
+        {
+          "id": "zigTarget",
+          "description": "choose which target to run",
+          "type": "pickString",
+          "options": [
+              "run",
+              "group_sort"
+          ],
+          "default": "run"
+        }
+    ],
 }
