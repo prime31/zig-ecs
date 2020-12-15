@@ -4,7 +4,7 @@
     "version": "2.0.0",
     "options": {
         "env": {
-            "ZIG_SYSTEM_LINKER_HACK": "1",
+            "ZIG_SYSTEM_LINKER_HACK": "1"
         }
     },
     "tasks": [
@@ -14,7 +14,7 @@
             "command": "zig build",
             "problemMatcher": [
                 "$gcc"
-            ],
+            ]
         },
         {
             "label": "Build and Run Project",
@@ -117,6 +117,6 @@
                 "kind": "build",
                 "isDefault": true
             }
-        },
+        }
     ]
 }
