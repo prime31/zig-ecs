@@ -20,6 +20,7 @@ pub fn build(b: *Builder) void {
 
         var exe = b.addExecutable(name, source);
         exe.setBuildMode(b.standardReleaseOptions());
+        exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
         exe.addPackagePath("ecs", "src/ecs.zig");
         exe.linkSystemLibrary("c");
 
@@ -29,7 +30,6 @@ pub fn build(b: *Builder) void {
 
         // first element in the list is added as "run" so "zig build run" works
         if (i == 0) {
-            exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
             const run_exe_step = b.step("run", b.fmt("run {}.zig", .{name}));
             run_exe_step.dependOn(&run_cmd.step);
         }
