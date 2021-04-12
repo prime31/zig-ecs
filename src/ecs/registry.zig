@@ -593,7 +593,7 @@ pub const Registry = struct {
 
     /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types between
     /// the 3 groups.
-    inline fn hashGroupTypes(comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) u64 {
+    fn hashGroupTypes(comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) callconv(.Inline) u64 {
         comptime {
             for (owned) |t1| {
                 for (includes) |t2| {
@@ -615,7 +615,7 @@ pub const Registry = struct {
     }
 
     /// expects a tuple of types. Convertes them to type names, sorts them then concatenates and returns the string.
-    inline fn concatTypes(comptime types: anytype) []const u8 {
+    fn concatTypes(comptime types: anytype) callconv(.Inline) []const u8 {
         comptime {
             if (types.len == 0) return "_";
 
