@@ -195,10 +195,10 @@ pub const Registry = struct {
     }
 
     pub fn deinit(self: *Registry) void {
-        var iter = self.components.iterator();
+        var iter = self.components.valueIterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var storage = @intToPtr(*Storage(u1), ptr.value);
+            var storage = @intToPtr(*Storage(u1), ptr.*);
             storage.deinit();
         }
 
@@ -216,7 +216,7 @@ pub const Registry = struct {
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
         var type_id = utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
-            return @intToPtr(*Storage(T), kv.value);
+            return @intToPtr(*Storage(T), kv.value_ptr.*);
         }
 
         var comp_set = Storage(T).initPtr(self.allocator);
@@ -593,7 +593,7 @@ pub const Registry = struct {
 
     /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types between
     /// the 3 groups.
-    fn hashGroupTypes(comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) callconv(.Inline) u64 {
+    inline fn hashGroupTypes(comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) u64 {
         comptime {
             for (owned) |t1| {
                 for (includes) |t2| {
@@ -615,7 +615,7 @@ pub const Registry = struct {
     }
 
     /// expects a tuple of types. Convertes them to type names, sorts them then concatenates and returns the string.
-    fn concatTypes(comptime types: anytype) callconv(.Inline) []const u8 {
+    inline fn concatTypes(comptime types: anytype) []const u8 {
         comptime {
             if (types.len == 0) return "_";
 
