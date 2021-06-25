@@ -43,7 +43,7 @@ pub fn ReverseSliceIterator(comptime T: type) type {
         }
 
         pub fn reset(self: *@This()) void {
-            self.index = slice.len;
+            self.index = self.slice.len;
         }
     };
 }
