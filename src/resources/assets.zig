@@ -62,13 +62,13 @@ test "assets" {
     };
 
     const OtherThingLoadArgs = struct {
-        pub fn load(self: @This()) *OtherThing {
+        pub fn load(_: @This()) *OtherThing {
             return std.testing.allocator.create(OtherThing) catch unreachable;
         }
     };
 
     const ThingLoadArgs = struct {
-        pub fn load(self: @This()) *Thing {
+        pub fn load(_: @This()) *Thing {
             return std.testing.allocator.create(Thing) catch unreachable;
         }
     };
@@ -76,16 +76,16 @@ test "assets" {
     var assets = Assets.init(std.testing.allocator);
     defer assets.deinit();
 
-    var thing = assets.get(Thing).load(6, ThingLoadArgs{});
+    _ = assets.get(Thing).load(6, ThingLoadArgs{});
     try std.testing.expectEqual(assets.get(Thing).size(), 1);
 
-    var thing2 = assets.load(4, ThingLoadArgs{});
+    _ = assets.load(4, ThingLoadArgs{});
     try std.testing.expectEqual(assets.get(Thing).size(), 2);
 
-    var other_thing = assets.get(OtherThing).load(6, OtherThingLoadArgs{});
+    _ = assets.get(OtherThing).load(6, OtherThingLoadArgs{});
     try std.testing.expectEqual(assets.get(OtherThing).size(), 1);
 
-    var other_thing2 = assets.load(8, OtherThingLoadArgs{});
+    _ = assets.load(8, OtherThingLoadArgs{});
     try std.testing.expectEqual(assets.get(OtherThing).size(), 2);
 
     assets.get(OtherThing).clear();

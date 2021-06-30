@@ -64,7 +64,7 @@ fn tester(param: u32) void {
 const Thing = struct {
     field: f32 = 0,
 
-    pub fn tester(self: *Thing, param: u32) void {
+    pub fn tester(_: *Thing, param: u32) void {
         std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
     }
 };

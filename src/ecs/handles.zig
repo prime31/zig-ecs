@@ -58,11 +58,11 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
             self.allocator.free(self.handles);
         }
 
-        pub fn extractId(self: Self, handle: HandleType) IndexType {
+        pub fn extractId(_: Self, handle: HandleType) IndexType {
             return @truncate(IndexType, handle);
         }
 
-        pub fn extractVersion(self: Self, handle: HandleType) VersionType {
+        pub fn extractVersion(_: Self, handle: HandleType) VersionType {
             return @truncate(VersionType, handle >> @bitSizeOf(IndexType));
         }
 

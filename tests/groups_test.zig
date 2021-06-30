@@ -70,7 +70,7 @@ test "sort BasicGroup by Component" {
     }
 
     const SortContext = struct {
-        fn sort(this: void, a: Sprite, b: Sprite) bool {
+        fn sort(_: void, a: Sprite, b: Sprite) bool {
             return a.x > b.x;
         }
     };
@@ -131,7 +131,7 @@ test "sort OwningGroup by Component" {
     }
 
     const SortContext = struct {
-        fn sort(this: void, a: Sprite, b: Sprite) bool {
+        fn sort(_: void, a: Sprite, b: Sprite) bool {
             return a.x > b.x;
         }
     };
@@ -165,7 +165,7 @@ test "sort OwningGroup by Component ensure unsorted non-matches" {
     try std.testing.expectEqual(reg.len(Sprite), 10);
 
     const SortContext = struct {
-        fn sort(this: void, a: Sprite, b: Sprite) bool {
+        fn sort(_: void, a: Sprite, b: Sprite) bool {
             // sprites with x > 50 shouldnt match in the group
             std.testing.expect(a.x < 50 and b.x < 50) catch unreachable;
             return a.x > b.x;
@@ -231,8 +231,8 @@ test "nested OwningGroups entity order" {
     try std.testing.expectEqual(group1.len(), 5);
     try std.testing.expectEqual(group2.len(), 0);
 
-    var sprite_store = reg.assure(Sprite);
-    var transform_store = reg.assure(Transform);
+    _ = reg.assure(Sprite);
+    _ = reg.assure(Transform);
     // printStore(sprite_store, "Sprite");
 
     reg.add(1, Transform{ .x = 1 });

@@ -135,7 +135,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             }
 
             const asc_usize = struct {
-                fn sort(ctx: void, a: usize, b: usize) bool {
+                fn sort(_: void, a: usize, b: usize) bool {
                     return a < b;
                 }
             };
@@ -235,12 +235,12 @@ test "basic multi view" {
     reg.add(e0, @as(u32, 0));
     reg.add(e2, @as(u32, 2));
 
-    var single_view = reg.view(.{u32}, .{});
+    _ = reg.view(.{u32}, .{});
     var view = reg.view(.{ i32, u32 }, .{});
 
     var iterated_entities: usize = 0;
     var iter = view.iterator();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 
@@ -250,7 +250,7 @@ test "basic multi view" {
     reg.remove(u32, e0);
 
     iter.reset();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 
@@ -278,7 +278,7 @@ test "basic multi view with excludes" {
 
     var iterated_entities: usize = 0;
     var iter = view.iterator();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 
@@ -288,7 +288,7 @@ test "basic multi view with excludes" {
     reg.remove(u8, e2);
 
     iter.reset();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 

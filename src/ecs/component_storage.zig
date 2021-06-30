@@ -11,7 +11,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
     std.debug.assert(!utils.isComptime(Component));
 
     // empty (zero-sized) structs will not have an array created
-    comptime const is_empty_struct = @sizeOf(Component) == 0;
+    const is_empty_struct = @sizeOf(Component) == 0;
 
     // HACK: due to this being stored as untyped ptrs, when deinit is called we are casted to a Component of some random
     // non-zero sized type. That will make is_empty_struct false in deinit always so we can't use it. Instead, we stick
@@ -391,16 +391,16 @@ test "sort empty component" {
     store.add(2, Empty{});
     store.add(0, Empty{});
 
-    comptime const asc_u32 = std.sort.asc(u32);
+    const asc_u32 = comptime std.sort.asc(u32);
     store.sort(u32, {}, asc_u32);
     for (store.data()) |e, i| {
         try std.testing.expectEqual(@intCast(u32, i), e);
     }
 
-    comptime const desc_u32 = std.sort.desc(u32);
+    const desc_u32 = comptime std.sort.desc(u32);
     store.sort(u32, {}, desc_u32);
     var counter: u32 = 2;
-    for (store.data()) |e, i| {
+    for (store.data()) |e| {
         try std.testing.expectEqual(counter, e);
         if (counter > 0) counter -= 1;
     }
@@ -427,7 +427,7 @@ test "sort by entity" {
     store.sort(u32, store.len(), context, SortContext.sort);
 
     var compare: f32 = 5;
-    for (store.raw()) |val, i| {
+    for (store.raw()) |val| {
         try std.testing.expect(compare > val);
         compare = val;
     }
@@ -441,11 +441,11 @@ test "sort by component" {
     store.add(11, @as(f32, 1.1));
     store.add(33, @as(f32, 3.3));
 
-    comptime const desc_f32 = std.sort.desc(f32);
+    const desc_f32 = comptime std.sort.desc(f32);
     store.sort(f32, store.len(), {}, desc_f32);
 
     var compare: f32 = 5;
-    for (store.raw()) |val, i| {
+    for (store.raw()) |val| {
         try std.testing.expect(compare > val);
         compare = val;
     }

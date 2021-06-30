@@ -84,6 +84,6 @@ test "TypeStore" {
     try std.testing.expectEqual(v3.*, 0);
     v3.* = 777;
 
-    var v4 = store.get(u32);
+    _ = store.get(u32);
     try std.testing.expectEqual(v3.*, 777);
 }

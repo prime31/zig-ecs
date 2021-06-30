@@ -63,7 +63,7 @@ pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
 }
 
 /// prefix_path is used to add package paths. It should be the the same path used to include this build file
-pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, target: std.build.Target, lib_type: LibType, comptime prefix_path: []const u8) void {
+pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, _: std.build.Target, lib_type: LibType, comptime prefix_path: []const u8) void {
     const build_mode = b.standardReleaseOptions();
     switch (lib_type) {
         .static => {

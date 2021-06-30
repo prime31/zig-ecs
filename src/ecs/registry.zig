@@ -255,12 +255,12 @@ pub const Registry = struct {
     }
 
     /// Returns the entity identifier without the version
-    pub fn entityId(self: Registry, entity: Entity) Entity {
+    pub fn entityId(_: Registry, entity: Entity) Entity {
         return entity & entity_traits.entity_mask;
     }
 
     /// Returns the version stored along with an entity identifier
-    pub fn version(self: *Registry, entity: Entity) entity_traits.version_type {
+    pub fn version(_: *Registry, entity: Entity) entity_traits.version_type {
         return @truncate(entity_traits.version_type, entity >> @bitSizeOf(entity_traits.index_type));
     }
 
@@ -471,7 +471,7 @@ pub const Registry = struct {
         std.debug.assert(owned.len + includes.len + excludes.len > 1);
 
         // create a unique hash to identify the group so that we can look it up
-        comptime const hash = comptime hashGroupTypes(owned, includes, excludes);
+        const hash = comptime hashGroupTypes(owned, includes, excludes);
 
         for (self.groups.items) |grp| {
             if (grp.hash == hash) {
@@ -606,9 +606,9 @@ pub const Registry = struct {
                 }
             }
 
-            const owned_str = comptime concatTypes(owned);
-            const includes_str = comptime concatTypes(includes);
-            const excludes_str = comptime concatTypes(excludes);
+            const owned_str = concatTypes(owned);
+            const includes_str = concatTypes(includes);
+            const excludes_str = concatTypes(excludes);
 
             return utils.hashStringFnv(u64, owned_str ++ includes_str ++ excludes_str);
         }
@@ -620,7 +620,7 @@ pub const Registry = struct {
             if (types.len == 0) return "_";
 
             const impl = struct {
-                fn asc(context: void, lhs: []const u8, rhs: []const u8) bool {
+                fn asc(_: void, lhs: []const u8, rhs: []const u8) bool {
                     return std.mem.lessThan(u8, lhs, rhs);
                 }
             };

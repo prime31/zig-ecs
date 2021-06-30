@@ -8,7 +8,7 @@ const Empty = struct {};
 const BigOne = struct { pos: Position, vel: Velocity, accel: Velocity };
 
 test "entity traits" {
-    const traits = ecs.EntityTraitsType(.large).init();
+    _ = ecs.EntityTraitsType(.large).init();
 }
 
 test "Registry" {
@@ -54,6 +54,7 @@ test "context not pointer" {
     defer reg.deinit();
 
     var pos = Position{ .x = 5, .y = 5 };
+    _ = pos;
     // reg.setContext(pos);
 }
 

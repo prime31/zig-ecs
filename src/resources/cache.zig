@@ -93,6 +93,7 @@ test "cache" {
 
     const ThingLoadArgs = struct {
         pub fn load(self: @This()) *Thing {
+            _ = self;
             return std.testing.allocator.create(Thing) catch unreachable;
         }
     };
@@ -100,8 +101,8 @@ test "cache" {
     var cache = Cache(Thing).init(std.testing.allocator);
     defer cache.deinit();
 
-    var thing = cache.load(utils.hashString("my/id"), ThingLoadArgs{});
-    var thing2 = cache.load(utils.hashString("another/id"), ThingLoadArgs{});
+    _ = cache.load(utils.hashString("my/id"), ThingLoadArgs{});
+    _ = cache.load(utils.hashString("another/id"), ThingLoadArgs{});
     try std.testing.expectEqual(cache.size(), 2);
 
     cache.remove(utils.hashString("my/id"));

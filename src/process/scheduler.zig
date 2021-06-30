@@ -149,27 +149,27 @@ test "" {
         }
 
         fn start(process: *Process) void {
-            const self = process.getParent(@This());
+            _ = process.getParent(@This());
             // std.debug.warn("start {}\n", .{self.fart});
         }
 
         fn aborted(process: *Process) void {
-            const self = process.getParent(@This());
+            _ = process.getParent(@This());
             // std.debug.warn("aborted {}\n", .{self.fart});
         }
 
         fn failed(process: *Process) void {
-            const self = process.getParent(@This());
+            _ = process.getParent(@This());
             // std.debug.warn("failed {}\n", .{self.fart});
         }
 
         fn succeeded(process: *Process) void {
-            const self = process.getParent(@This());
+            _ = process.getParent(@This());
             // std.debug.warn("succeeded {}\n", .{self.fart});
         }
 
         fn update(process: *Process) void {
-            const self = process.getParent(@This());
+            _ = process.getParent(@This());
             // std.debug.warn("update {}\n", .{self.fart});
             process.succeed();
         }
@@ -190,11 +190,11 @@ test "scheduler.clear" {
     const Tester = struct {
         process: Process,
 
-        pub fn initialize(self: *@This(), data: anytype) void {
+        pub fn initialize(self: *@This(), _: anytype) void {
             self.process = .{ .updateFn = update };
         }
 
-        fn update(process: *Process) void {
+        fn update(_: *Process) void {
             std.debug.assert(false);
         }
     };

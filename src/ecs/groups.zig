@@ -287,13 +287,13 @@ test "BasicGroup creation/iteration" {
 
     var iterated_entities: usize = 0;
     var iter = group.iterator();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
     try std.testing.expectEqual(iterated_entities, 1);
 
     iterated_entities = 0;
-    for (group.data()) |entity| {
+    for (group.data()) |_| {
         iterated_entities += 1;
     }
     try std.testing.expectEqual(iterated_entities, 1);
@@ -316,7 +316,7 @@ test "BasicGroup excludes" {
 
     var iterated_entities: usize = 0;
     var iter = group.iterator();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
     try std.testing.expectEqual(iterated_entities, 1);
@@ -422,7 +422,7 @@ test "OwningGroup each" {
     reg.add(e0, @as(u32, 55));
 
     const Thing = struct {
-        fn each(self: @This(), components: struct {
+        fn each(_: @This(), components: struct {
             int: *i32,
             uint: *u32,
         }) void {
@@ -449,9 +449,9 @@ test "multiple OwningGroups" {
     // var group1 = reg.group(.{u64, u32}, .{}, .{});
     // var group2 = reg.group(.{u64, u32, u8}, .{}, .{});
 
-    var group5 = reg.group(.{ Sprite, Transform }, .{ Renderable, Rotation }, .{});
-    var group3 = reg.group(.{Sprite}, .{Renderable}, .{});
-    var group4 = reg.group(.{ Sprite, Transform }, .{Renderable}, .{});
+    _ = reg.group(.{ Sprite, Transform }, .{ Renderable, Rotation }, .{});
+    _ = reg.group(.{Sprite}, .{Renderable}, .{});
+    _ = reg.group(.{ Sprite, Transform }, .{Renderable}, .{});
 
     // ensure groups are ordered correctly internally
     var last_size: u8 = 0;

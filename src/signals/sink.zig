@@ -58,7 +58,7 @@ pub fn Sink(comptime Event: type) type {
             }
         }
 
-        fn indexOf(self: Self, callback: fn (Event) void) ?usize {
+        fn indexOf(_: Self, callback: fn (Event) void) ?usize {
             for (owning_signal.calls.items) |call, i| {
                 if (call.containsFree(callback)) {
                     return i;
@@ -67,7 +67,7 @@ pub fn Sink(comptime Event: type) type {
             return null;
         }
 
-        fn indexOfBound(self: Self, ctx: anytype) ?usize {
+        fn indexOfBound(_: Self, ctx: anytype) ?usize {
             for (owning_signal.calls.items) |call, i| {
                 if (call.containsBound(ctx)) {
                     return i;
@@ -85,7 +85,7 @@ fn tester(param: u32) void {
 const Thing = struct {
     field: f32 = 0,
 
-    pub fn tester(self: *Thing, param: u32) void {
+    pub fn tester(_: *Thing, param: u32) void {
         std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
     }
 };
