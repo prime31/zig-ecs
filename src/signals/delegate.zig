@@ -63,14 +63,14 @@ pub fn Delegate(comptime Event: type) type {
 }
 
 fn tester(param: u32) void {
-    std.testing.expectEqual(@as(u32, 666), param);
+    std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
 }
 
 const Thing = struct {
     field: f32 = 0,
 
-    pub fn tester(self: *Thing, param: u32) void {
-        std.testing.expectEqual(@as(u32, 777), param);
+    pub fn tester(_: *Thing, param: u32) void {
+        std.testing.expectEqual(@as(u32, 777), param) catch unreachable;
     }
 };
 

@@ -58,7 +58,7 @@ pub fn Sink(comptime Event: type) type {
             }
         }
 
-        fn indexOf(self: Self, callback: fn (Event) void) ?usize {
+        fn indexOf(_: Self, callback: fn (Event) void) ?usize {
             for (owning_signal.calls.items) |call, i| {
                 if (call.containsFree(callback)) {
                     return i;
@@ -67,7 +67,7 @@ pub fn Sink(comptime Event: type) type {
             return null;
         }
 
-        fn indexOfBound(self: Self, ctx: anytype) ?usize {
+        fn indexOfBound(_: Self, ctx: anytype) ?usize {
             for (owning_signal.calls.items) |call, i| {
                 if (call.containsBound(ctx)) {
                     return i;
@@ -79,14 +79,14 @@ pub fn Sink(comptime Event: type) type {
 }
 
 fn tester(param: u32) void {
-    std.testing.expectEqual(@as(u32, 666), param);
+    std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
 }
 
 const Thing = struct {
     field: f32 = 0,
 
-    pub fn tester(self: *Thing, param: u32) void {
-        std.testing.expectEqual(@as(u32, 666), param);
+    pub fn tester(_: *Thing, param: u32) void {
+        std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
     }
 };
 
@@ -95,11 +95,11 @@ test "Sink Before free" {
     defer signal.deinit();
 
     signal.sink().connect(tester);
-    std.testing.expectEqual(signal.sink().indexOf(tester).?, 0);
+    try std.testing.expectEqual(signal.sink().indexOf(tester).?, 0);
 
     var thing = Thing{};
     signal.sink().before(tester).connectBound(&thing, "tester");
-    std.testing.expectEqual(signal.sink().indexOfBound(&thing).?, 0);
+    try std.testing.expectEqual(signal.sink().indexOfBound(&thing).?, 0);
 }
 
 test "Sink Before bound" {
@@ -108,8 +108,8 @@ test "Sink Before bound" {
 
     var thing = Thing{};
     signal.sink().connectBound(&thing, "tester");
-    std.testing.expectEqual(signal.sink().indexOfBound(&thing).?, 0);
+    try std.testing.expectEqual(signal.sink().indexOfBound(&thing).?, 0);
 
     signal.sink().beforeBound(&thing).connect(tester);
-    std.testing.expectEqual(signal.sink().indexOf(tester).?, 0);
+    try std.testing.expectEqual(signal.sink().indexOf(tester).?, 0);
 }

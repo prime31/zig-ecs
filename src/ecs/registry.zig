@@ -195,10 +195,10 @@ pub const Registry = struct {
     }
 
     pub fn deinit(self: *Registry) void {
-        var iter = self.components.iterator();
+        var iter = self.components.valueIterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var storage = @intToPtr(*Storage(u1), ptr.value);
+            var storage = @intToPtr(*Storage(u1), ptr.*);
             storage.deinit();
         }
 
@@ -216,7 +216,7 @@ pub const Registry = struct {
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
         var type_id = utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
-            return @intToPtr(*Storage(T), kv.value);
+            return @intToPtr(*Storage(T), kv.value_ptr.*);
         }
 
         var comp_set = Storage(T).initPtr(self.allocator);
@@ -255,12 +255,12 @@ pub const Registry = struct {
     }
 
     /// Returns the entity identifier without the version
-    pub fn entityId(self: Registry, entity: Entity) Entity {
+    pub fn entityId(_: Registry, entity: Entity) Entity {
         return entity & entity_traits.entity_mask;
     }
 
     /// Returns the version stored along with an entity identifier
-    pub fn version(self: *Registry, entity: Entity) entity_traits.version_type {
+    pub fn version(_: *Registry, entity: Entity) entity_traits.version_type {
         return @truncate(entity_traits.version_type, entity >> @bitSizeOf(entity_traits.index_type));
     }
 
@@ -343,10 +343,10 @@ pub const Registry = struct {
     pub fn removeAll(self: *Registry, entity: Entity) void {
         assert(self.valid(entity));
 
-        var iter = self.components.iterator();
-        while (iter.next()) |ptr| {
+        var iter = self.components.valueIterator();
+        while (iter.next()) |value| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
-            var store = @intToPtr(*Storage(u1), ptr.value);
+            var store = @intToPtr(*Storage(u1), value.*);
             store.removeIfContains(entity);
         }
     }
@@ -471,7 +471,7 @@ pub const Registry = struct {
         std.debug.assert(owned.len + includes.len + excludes.len > 1);
 
         // create a unique hash to identify the group so that we can look it up
-        comptime const hash = comptime hashGroupTypes(owned, includes, excludes);
+        const hash = comptime hashGroupTypes(owned, includes, excludes);
 
         for (self.groups.items) |grp| {
             if (grp.hash == hash) {
@@ -593,7 +593,7 @@ pub const Registry = struct {
 
     /// given the 3 group Types arrays, generates a (mostly) unique u64 hash. Simultaneously ensures there are no duped types between
     /// the 3 groups.
-    fn hashGroupTypes(comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) callconv(.Inline) u64 {
+    inline fn hashGroupTypes(comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) u64 {
         comptime {
             for (owned) |t1| {
                 for (includes) |t2| {
@@ -606,21 +606,21 @@ pub const Registry = struct {
                 }
             }
 
-            const owned_str = comptime concatTypes(owned);
-            const includes_str = comptime concatTypes(includes);
-            const excludes_str = comptime concatTypes(excludes);
+            const owned_str = concatTypes(owned);
+            const includes_str = concatTypes(includes);
+            const excludes_str = concatTypes(excludes);
 
             return utils.hashStringFnv(u64, owned_str ++ includes_str ++ excludes_str);
         }
     }
 
     /// expects a tuple of types. Convertes them to type names, sorts them then concatenates and returns the string.
-    fn concatTypes(comptime types: anytype) callconv(.Inline) []const u8 {
+    inline fn concatTypes(comptime types: anytype) []const u8 {
         comptime {
             if (types.len == 0) return "_";
 
             const impl = struct {
-                fn asc(context: void, lhs: []const u8, rhs: []const u8) bool {
+                fn asc(_: void, lhs: []const u8, rhs: []const u8) bool {
                     return std.mem.lessThan(u8, lhs, rhs);
                 }
             };

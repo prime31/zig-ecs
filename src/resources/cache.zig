@@ -57,7 +57,7 @@ pub fn Cache(comptime T: type) type {
         }
 
         pub fn remove(self: *@This(), id: u32) void {
-            if (self.resources.remove(id)) |kv| {
+            if (self.resources.fetchRemove(id)) |kv| {
                 if (@hasDecl(T, "deinit")) {
                     @call(.{ .modifier = .always_inline }, @field(kv.value, "deinit"), .{});
                 }
@@ -69,7 +69,7 @@ pub fn Cache(comptime T: type) type {
             if (@hasDecl(T, "deinit")) {
                 var iter = self.resources.iterator();
                 while (iter.next()) |kv| {
-                    @call(.{ .modifier = .always_inline }, @field(kv.value, "deinit"), .{});
+                    @call(.{ .modifier = .always_inline }, @field(kv.value_ptr.*, "deinit"), .{});
                 }
             }
             self.resources.clearAndFree();
@@ -93,6 +93,7 @@ test "cache" {
 
     const ThingLoadArgs = struct {
         pub fn load(self: @This()) *Thing {
+            _ = self;
             return std.testing.allocator.create(Thing) catch unreachable;
         }
     };
@@ -100,13 +101,13 @@ test "cache" {
     var cache = Cache(Thing).init(std.testing.allocator);
     defer cache.deinit();
 
-    var thing = cache.load(utils.hashString("my/id"), ThingLoadArgs{});
-    var thing2 = cache.load(utils.hashString("another/id"), ThingLoadArgs{});
-    std.testing.expectEqual(cache.size(), 2);
+    _ = cache.load(utils.hashString("my/id"), ThingLoadArgs{});
+    _ = cache.load(utils.hashString("another/id"), ThingLoadArgs{});
+    try std.testing.expectEqual(cache.size(), 2);
 
     cache.remove(utils.hashString("my/id"));
-    std.testing.expectEqual(cache.size(), 1);
+    try std.testing.expectEqual(cache.size(), 1);
 
     cache.clear();
-    std.testing.expectEqual(cache.size(), 0);
+    try std.testing.expectEqual(cache.size(), 0);
 }

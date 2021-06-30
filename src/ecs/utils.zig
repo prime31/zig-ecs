@@ -133,7 +133,7 @@ test "ReverseSliceIterator" {
     var iter = ReverseSliceIterator(usize).init(slice);
     var i: usize = 9;
     while (iter.next()) |val| {
-        std.testing.expectEqual(i, val);
+        try std.testing.expectEqual(i, val);
         if (i > 0) i -= 1;
     }
 }

@@ -53,11 +53,11 @@ test "actor" {
     std.debug.assert(!actor.has(f32));
     actor.addTyped(f32, 67.45);
     if (actor.tryGet(f32)) |val| {
-        std.testing.expectEqual(val.*, 67.45);
+        try std.testing.expectEqual(val.*, 67.45);
     }
 
     actor.addTyped(u64, 8888);
-    std.testing.expectEqual(actor.get(u64).*, 8888);
+    try std.testing.expectEqual(actor.get(u64).*, 8888);
     std.debug.assert(actor.has(u64));
 
     actor.remove(u64);
@@ -83,6 +83,6 @@ test "actor structs" {
     pos.*.x += vel.x;
     pos.*.y += vel.y;
 
-    std.testing.expectEqual(actor.get(Position).*.x, 5);
-    std.testing.expectEqual(actor.get(Position).*.y, 10);
+    try std.testing.expectEqual(actor.get(Position).*.x, 5);
+    try std.testing.expectEqual(actor.get(Position).*.y, 10);
 }

@@ -58,14 +58,14 @@ pub fn Signal(comptime Event: type) type {
 }
 
 fn tester(param: u32) void {
-    std.testing.expectEqual(@as(u32, 666), param);
+    std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
 }
 
 const Thing = struct {
     field: f32 = 0,
 
-    pub fn tester(self: *Thing, param: u32) void {
-        std.testing.expectEqual(@as(u32, 666), param);
+    pub fn tester(_: *Thing, param: u32) void {
+        std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
     }
 };
 
@@ -75,7 +75,7 @@ test "Signal/Sink" {
 
     var sink = signal.sink();
     sink.connect(tester);
-    std.testing.expectEqual(@as(usize, 1), signal.size());
+    try std.testing.expectEqual(@as(usize, 1), signal.size());
 
     // bound listener
     var thing = Thing{};
@@ -85,10 +85,10 @@ test "Signal/Sink" {
 
     sink.disconnect(tester);
     signal.publish(666);
-    std.testing.expectEqual(@as(usize, 1), signal.size());
+    try std.testing.expectEqual(@as(usize, 1), signal.size());
 
     sink.disconnectBound(&thing);
-    std.testing.expectEqual(@as(usize, 0), signal.size());
+    try std.testing.expectEqual(@as(usize, 0), signal.size());
 }
 
 test "Sink Before null" {
@@ -97,9 +97,9 @@ test "Sink Before null" {
 
     var sink = signal.sink();
     sink.connect(tester);
-    std.testing.expectEqual(@as(usize, 1), signal.size());
+    try std.testing.expectEqual(@as(usize, 1), signal.size());
 
     var thing = Thing{};
     sink.before(null).connectBound(&thing, "tester");
-    std.testing.expectEqual(@as(usize, 2), signal.size());
+    try std.testing.expectEqual(@as(usize, 2), signal.size());
 }

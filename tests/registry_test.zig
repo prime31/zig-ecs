@@ -8,7 +8,7 @@ const Empty = struct {};
 const BigOne = struct { pos: Position, vel: Velocity, accel: Velocity };
 
 test "entity traits" {
-    const traits = ecs.EntityTraitsType(.large).init();
+    _ = ecs.EntityTraitsType(.large).init();
 }
 
 test "Registry" {
@@ -20,15 +20,15 @@ test "Registry" {
     reg.addTypes(e1, .{ Empty, Position });
     reg.add(e1, BigOne{ .pos = Position{ .x = 5, .y = 5 }, .vel = Velocity{ .x = 5, .y = 5 }, .accel = Velocity{ .x = 5, .y = 5 } });
 
-    std.testing.expect(reg.has(Empty, e1));
-    std.testing.expect(reg.has(Position, e1));
-    std.testing.expect(reg.has(BigOne, e1));
+    try std.testing.expect(reg.has(Empty, e1));
+    try std.testing.expect(reg.has(Position, e1));
+    try std.testing.expect(reg.has(BigOne, e1));
 
     var iter = reg.entities();
-    while (iter.next()) |e| std.testing.expectEqual(e1, e);
+    while (iter.next()) |e| try std.testing.expectEqual(e1, e);
 
     reg.remove(Empty, e1);
-    std.testing.expect(!reg.has(Empty, e1));
+    try std.testing.expect(!reg.has(Empty, e1));
 }
 
 test "context get/set/unset" {
@@ -36,16 +36,16 @@ test "context get/set/unset" {
     defer reg.deinit();
 
     var ctx = reg.getContext(Position);
-    std.testing.expectEqual(ctx, null);
+    try std.testing.expectEqual(ctx, null);
 
     var pos = Position{ .x = 5, .y = 5 };
     reg.setContext(&pos);
     ctx = reg.getContext(Position);
-    std.testing.expectEqual(ctx.?, &pos);
+    try std.testing.expectEqual(ctx.?, &pos);
 
     reg.unsetContext(Position);
     ctx = reg.getContext(Position);
-    std.testing.expectEqual(ctx, null);
+    try std.testing.expectEqual(ctx, null);
 }
 
 // this test should fail
@@ -54,6 +54,7 @@ test "context not pointer" {
     defer reg.deinit();
 
     var pos = Position{ .x = 5, .y = 5 };
+    _ = pos;
     // reg.setContext(pos);
 }
 
@@ -64,16 +65,16 @@ test "context get/set/unset" {
     defer reg.deinit();
 
     var ctx = reg.getContext(SomeType);
-    std.testing.expectEqual(ctx, null);
+    try std.testing.expectEqual(ctx, null);
 
     var pos = SomeType{ .dummy = 0 };
     reg.setContext(&pos);
     ctx = reg.getContext(SomeType);
-    std.testing.expectEqual(ctx.?, &pos);
+    try std.testing.expectEqual(ctx.?, &pos);
 
     reg.unsetContext(SomeType);
     ctx = reg.getContext(SomeType);
-    std.testing.expectEqual(ctx, null);
+    try std.testing.expectEqual(ctx, null);
 }
 
 test "singletons" {
@@ -82,11 +83,11 @@ test "singletons" {
 
     var pos = Position{ .x = 5, .y = 5 };
     reg.singletons.add(pos);
-    std.testing.expect(reg.singletons.has(Position));
-    std.testing.expectEqual(reg.singletons.get(Position).*, pos);
+    try std.testing.expect(reg.singletons.has(Position));
+    try std.testing.expectEqual(reg.singletons.get(Position).*, pos);
 
     reg.singletons.remove(Position);
-    std.testing.expect(!reg.singletons.has(Position));
+    try std.testing.expect(!reg.singletons.has(Position));
 }
 
 test "destroy" {
@@ -105,7 +106,7 @@ test "destroy" {
     i = 0;
     while (i < 6) : (i += 1) {
         if (i != 3 and i != 4)
-            std.testing.expectEqual(Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) }, reg.getConst(Position, i));
+            try std.testing.expectEqual(Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) }, reg.getConst(Position, i));
     }
 }
 
@@ -117,11 +118,11 @@ test "remove all" {
     reg.add(e, Position{ .x = 1, .y = 1 });
     reg.addTyped(u32, e, 666);
 
-    std.testing.expect(reg.has(Position, e));
-    std.testing.expect(reg.has(u32, e));
+    try std.testing.expect(reg.has(Position, e));
+    try std.testing.expect(reg.has(u32, e));
 
     reg.removeAll(e);
 
-    std.testing.expect(!reg.has(Position, e));
-    std.testing.expect(!reg.has(u32, e));
+    try std.testing.expect(!reg.has(Position, e));
+    try std.testing.expect(!reg.has(u32, e));
 }

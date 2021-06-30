@@ -14,9 +14,9 @@ pub const TypeStore = struct {
     }
 
     pub fn deinit(self: *TypeStore) void {
-        var iter = self.map.iterator();
-        while (iter.next()) |kv| {
-            self.allocator.free(kv.value);
+        var iter = self.map.valueIterator();
+        while (iter.next()) |val_ptr| {
+            self.allocator.free(val_ptr.*);
         }
         self.map.deinit();
     }
@@ -67,23 +67,23 @@ test "TypeStore" {
 
     var orig = Vector{ .x = 5, .y = 6, .z = 8 };
     store.add(orig);
-    std.testing.expect(store.has(Vector));
-    std.testing.expectEqual(store.get(Vector).*, orig);
+    try std.testing.expect(store.has(Vector));
+    try std.testing.expectEqual(store.get(Vector).*, orig);
 
     var v = store.get(Vector);
-    std.testing.expectEqual(v.*, Vector{ .x = 5, .y = 6, .z = 8 });
+    try std.testing.expectEqual(v.*, Vector{ .x = 5, .y = 6, .z = 8 });
     v.*.x = 666;
 
     var v2 = store.get(Vector);
-    std.testing.expectEqual(v2.*, Vector{ .x = 666, .y = 6, .z = 8 });
+    try std.testing.expectEqual(v2.*, Vector{ .x = 666, .y = 6, .z = 8 });
 
     store.remove(Vector);
-    std.testing.expect(!store.has(Vector));
+    try std.testing.expect(!store.has(Vector));
 
     var v3 = store.getOrAdd(u32);
-    std.testing.expectEqual(v3.*, 0);
+    try std.testing.expectEqual(v3.*, 0);
     v3.* = 777;
 
-    var v4 = store.get(u32);
-    std.testing.expectEqual(v3.*, 777);
+    _ = store.get(u32);
+    try std.testing.expectEqual(v3.*, 777);
 }

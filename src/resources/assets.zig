@@ -17,7 +17,7 @@ pub const Assets = struct {
         var iter = self.caches.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            @intToPtr(*Cache(u1), ptr.value).deinit();
+            @intToPtr(*Cache(u1), ptr.value_ptr.*).deinit();
         }
 
         self.caches.deinit();
@@ -62,13 +62,13 @@ test "assets" {
     };
 
     const OtherThingLoadArgs = struct {
-        pub fn load(self: @This()) *OtherThing {
+        pub fn load(_: @This()) *OtherThing {
             return std.testing.allocator.create(OtherThing) catch unreachable;
         }
     };
 
     const ThingLoadArgs = struct {
-        pub fn load(self: @This()) *Thing {
+        pub fn load(_: @This()) *Thing {
             return std.testing.allocator.create(Thing) catch unreachable;
         }
     };
@@ -76,18 +76,18 @@ test "assets" {
     var assets = Assets.init(std.testing.allocator);
     defer assets.deinit();
 
-    var thing = assets.get(Thing).load(6, ThingLoadArgs{});
-    std.testing.expectEqual(assets.get(Thing).size(), 1);
+    _ = assets.get(Thing).load(6, ThingLoadArgs{});
+    try std.testing.expectEqual(assets.get(Thing).size(), 1);
 
-    var thing2 = assets.load(4, ThingLoadArgs{});
-    std.testing.expectEqual(assets.get(Thing).size(), 2);
+    _ = assets.load(4, ThingLoadArgs{});
+    try std.testing.expectEqual(assets.get(Thing).size(), 2);
 
-    var other_thing = assets.get(OtherThing).load(6, OtherThingLoadArgs{});
-    std.testing.expectEqual(assets.get(OtherThing).size(), 1);
+    _ = assets.get(OtherThing).load(6, OtherThingLoadArgs{});
+    try std.testing.expectEqual(assets.get(OtherThing).size(), 1);
 
-    var other_thing2 = assets.load(8, OtherThingLoadArgs{});
-    std.testing.expectEqual(assets.get(OtherThing).size(), 2);
+    _ = assets.load(8, OtherThingLoadArgs{});
+    try std.testing.expectEqual(assets.get(OtherThing).size(), 2);
 
     assets.get(OtherThing).clear();
-    std.testing.expectEqual(assets.get(OtherThing).size(), 0);
+    try std.testing.expectEqual(assets.get(OtherThing).size(), 0);
 }

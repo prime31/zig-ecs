@@ -58,11 +58,11 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
             self.allocator.free(self.handles);
         }
 
-        pub fn extractId(self: Self, handle: HandleType) IndexType {
+        pub fn extractId(_: Self, handle: HandleType) IndexType {
             return @truncate(IndexType, handle);
         }
 
-        pub fn extractVersion(self: Self, handle: HandleType) VersionType {
+        pub fn extractVersion(_: Self, handle: HandleType) VersionType {
             return @truncate(VersionType, handle >> @bitSizeOf(IndexType));
         }
 
@@ -136,7 +136,7 @@ test "handles" {
     hm.remove(e1) catch unreachable;
     std.debug.assert(!hm.alive(e1));
 
-    std.testing.expectError(error.RemovedInvalidHandle, hm.remove(e1));
+    try std.testing.expectError(error.RemovedInvalidHandle, hm.remove(e1));
 
     var e_tmp = hm.create();
     std.debug.assert(hm.alive(e_tmp));

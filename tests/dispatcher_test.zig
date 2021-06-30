@@ -2,22 +2,22 @@ const std = @import("std");
 const Dispatcher = @import("ecs").Dispatcher;
 
 fn tester(param: u32) void {
-    std.testing.expectEqual(@as(u32, 666), param);
+    std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
 }
 
 fn tester2(param: i32) void {
-    std.testing.expectEqual(@as(i32, -543), param);
+    std.testing.expectEqual(@as(i32, -543), param) catch unreachable;
 }
 
 const Thing = struct {
     field: f32 = 0,
 
-    pub fn testU32(self: *Thing, param: u32) void {
-        std.testing.expectEqual(@as(u32, 666), param);
+    pub fn testU32(_: *Thing, param: u32) void {
+        std.testing.expectEqual(@as(u32, 666), param) catch unreachable;
     }
 
-    pub fn testI32(self: *Thing, param: i32) void {
-        std.testing.expectEqual(@as(i32, -543), param);
+    pub fn testI32(_: *Thing, param: i32) void {
+        std.testing.expectEqual(@as(i32, -543), param) catch unreachable;
     }
 };
 

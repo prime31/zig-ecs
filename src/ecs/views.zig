@@ -135,7 +135,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             }
 
             const asc_usize = struct {
-                fn sort(ctx: void, a: usize, b: usize) bool {
+                fn sort(_: void, a: usize, b: usize) bool {
                     return a < b;
                 }
             };
@@ -159,16 +159,16 @@ test "single basic view" {
     store.add(7, 70);
 
     var view = BasicView(f32).init(&store);
-    std.testing.expectEqual(view.len(), 3);
+    try std.testing.expectEqual(view.len(), 3);
 
     store.remove(7);
-    std.testing.expectEqual(view.len(), 2);
+    try std.testing.expectEqual(view.len(), 2);
 
     var i: usize = 0;
     var iter = view.iterator();
     while (iter.next()) |comp| {
-        if (i == 0) std.testing.expectEqual(comp, 50);
-        if (i == 1) std.testing.expectEqual(comp, 30);
+        if (i == 0) try std.testing.expectEqual(comp, 50);
+        if (i == 1) try std.testing.expectEqual(comp, 30);
         i += 1;
     }
 
@@ -176,12 +176,12 @@ test "single basic view" {
     var entIter = view.entityIterator();
     while (entIter.next()) |ent| {
         if (i == 0) {
-            std.testing.expectEqual(ent, 5);
-            std.testing.expectEqual(view.getConst(ent), 50);
+            try std.testing.expectEqual(ent, 5);
+            try std.testing.expectEqual(view.getConst(ent), 50);
         }
         if (i == 1) {
-            std.testing.expectEqual(ent, 3);
-            std.testing.expectEqual(view.getConst(ent), 30);
+            try std.testing.expectEqual(ent, 3);
+            try std.testing.expectEqual(view.getConst(ent), 30);
         }
         i += 1;
     }
@@ -197,27 +197,27 @@ test "single basic view data" {
 
     var view = BasicView(f32).init(&store);
 
-    std.testing.expectEqual(view.get(3).*, 30);
+    try std.testing.expectEqual(view.get(3).*, 30);
 
     for (view.data()) |entity, i| {
         if (i == 0)
-            std.testing.expectEqual(entity, 3);
+            try std.testing.expectEqual(entity, 3);
         if (i == 1)
-            std.testing.expectEqual(entity, 5);
+            try std.testing.expectEqual(entity, 5);
         if (i == 2)
-            std.testing.expectEqual(entity, 7);
+            try std.testing.expectEqual(entity, 7);
     }
 
     for (view.raw()) |data, i| {
         if (i == 0)
-            std.testing.expectEqual(data, 30);
+            try std.testing.expectEqual(data, 30);
         if (i == 1)
-            std.testing.expectEqual(data, 50);
+            try std.testing.expectEqual(data, 50);
         if (i == 2)
-            std.testing.expectEqual(data, 70);
+            try std.testing.expectEqual(data, 70);
     }
 
-    std.testing.expectEqual(view.len(), 3);
+    try std.testing.expectEqual(view.len(), 3);
 }
 
 test "basic multi view" {
@@ -235,26 +235,26 @@ test "basic multi view" {
     reg.add(e0, @as(u32, 0));
     reg.add(e2, @as(u32, 2));
 
-    var single_view = reg.view(.{u32}, .{});
+    _ = reg.view(.{u32}, .{});
     var view = reg.view(.{ i32, u32 }, .{});
 
     var iterated_entities: usize = 0;
     var iter = view.iterator();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 
-    std.testing.expectEqual(iterated_entities, 2);
+    try std.testing.expectEqual(iterated_entities, 2);
     iterated_entities = 0;
 
     reg.remove(u32, e0);
 
     iter.reset();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 
-    std.testing.expectEqual(iterated_entities, 1);
+    try std.testing.expectEqual(iterated_entities, 1);
 }
 
 test "basic multi view with excludes" {
@@ -278,19 +278,19 @@ test "basic multi view with excludes" {
 
     var iterated_entities: usize = 0;
     var iter = view.iterator();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 
-    std.testing.expectEqual(iterated_entities, 1);
+    try std.testing.expectEqual(iterated_entities, 1);
     iterated_entities = 0;
 
     reg.remove(u8, e2);
 
     iter.reset();
-    while (iter.next()) |entity| {
+    while (iter.next()) |_| {
         iterated_entities += 1;
     }
 
-    std.testing.expectEqual(iterated_entities, 2);
+    try std.testing.expectEqual(iterated_entities, 2);
 }
