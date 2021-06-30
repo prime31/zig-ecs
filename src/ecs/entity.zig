@@ -41,7 +41,7 @@ test "entity traits" {
     const m = EntityTraitsType(.medium).init();
     const l = EntityTraitsType(.large).init();
 
-    std.testing.expectEqual(sm.entity_mask, std.math.maxInt(sm.index_type));
-    std.testing.expectEqual(m.entity_mask, std.math.maxInt(m.index_type));
-    std.testing.expectEqual(l.entity_mask, std.math.maxInt(l.index_type));
+    try std.testing.expectEqual(sm.entity_mask, std.math.maxInt(sm.index_type));
+    try std.testing.expectEqual(m.entity_mask, std.math.maxInt(m.index_type));
+    try std.testing.expectEqual(l.entity_mask, std.math.maxInt(l.index_type));
 }

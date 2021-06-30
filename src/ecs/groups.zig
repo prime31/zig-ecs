@@ -277,7 +277,7 @@ test "BasicGroup creation/iteration" {
     defer reg.deinit();
 
     var group = reg.group(.{}, .{ i32, u32 }, .{});
-    std.testing.expectEqual(group.len(), 0);
+    try std.testing.expectEqual(group.len(), 0);
 
     var e0 = reg.create();
     reg.add(e0, @as(i32, 44));
@@ -290,13 +290,13 @@ test "BasicGroup creation/iteration" {
     while (iter.next()) |entity| {
         iterated_entities += 1;
     }
-    std.testing.expectEqual(iterated_entities, 1);
+    try std.testing.expectEqual(iterated_entities, 1);
 
     iterated_entities = 0;
     for (group.data()) |entity| {
         iterated_entities += 1;
     }
-    std.testing.expectEqual(iterated_entities, 1);
+    try std.testing.expectEqual(iterated_entities, 1);
 
     reg.remove(i32, e0);
     std.debug.assert(group.len() == 0);
@@ -307,7 +307,7 @@ test "BasicGroup excludes" {
     defer reg.deinit();
 
     var group = reg.group(.{}, .{i32}, .{u32});
-    std.testing.expectEqual(group.len(), 0);
+    try std.testing.expectEqual(group.len(), 0);
 
     var e0 = reg.create();
     reg.add(e0, @as(i32, 44));
@@ -319,7 +319,7 @@ test "BasicGroup excludes" {
     while (iter.next()) |entity| {
         iterated_entities += 1;
     }
-    std.testing.expectEqual(iterated_entities, 1);
+    try std.testing.expectEqual(iterated_entities, 1);
 
     reg.add(e0, @as(u32, 55));
     std.debug.assert(group.len() == 0);
@@ -334,7 +334,7 @@ test "BasicGroup create late" {
     reg.add(e0, @as(u32, 55));
 
     var group = reg.group(.{}, .{ i32, u32 }, .{});
-    std.testing.expectEqual(group.len(), 1);
+    try std.testing.expectEqual(group.len(), 1);
 }
 
 test "OwningGroup" {
@@ -346,19 +346,19 @@ test "OwningGroup" {
     var e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
-    std.testing.expectEqual(group.len(), 1);
-    std.testing.expect(group.contains(e0));
+    try std.testing.expectEqual(group.len(), 1);
+    try std.testing.expect(group.contains(e0));
 
-    std.testing.expectEqual(group.get(i32, e0).*, 44);
-    std.testing.expectEqual(group.getConst(u32, e0), 55);
+    try std.testing.expectEqual(group.get(i32, e0).*, 44);
+    try std.testing.expectEqual(group.getConst(u32, e0), 55);
 
     var vals = group.getOwned(e0, struct { int: *i32, uint: *u32 });
-    std.testing.expectEqual(vals.int.*, 44);
-    std.testing.expectEqual(vals.uint.*, 55);
+    try std.testing.expectEqual(vals.int.*, 44);
+    try std.testing.expectEqual(vals.uint.*, 55);
 
     vals.int.* = 666;
     var vals2 = group.getOwned(e0, struct { int: *i32, uint: *u32 });
-    std.testing.expectEqual(vals2.int.*, 666);
+    try std.testing.expectEqual(vals2.int.*, 666);
 }
 
 test "OwningGroup add/remove" {
@@ -370,10 +370,10 @@ test "OwningGroup add/remove" {
     var e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
-    std.testing.expectEqual(group.len(), 1);
+    try std.testing.expectEqual(group.len(), 1);
 
     reg.remove(u32, e0);
-    std.testing.expectEqual(group.len(), 0);
+    try std.testing.expectEqual(group.len(), 0);
 }
 
 test "OwningGroup iterate" {
@@ -394,13 +394,13 @@ test "OwningGroup iterate" {
     var iter = group.iterator(struct { int: *i32, uint: *u32 });
     while (iter.next()) |item| {
         if (iter.entity() == e0) {
-            std.testing.expectEqual(item.int.*, 44);
-            std.testing.expectEqual(item.uint.*, 55);
-            std.testing.expectEqual(iter.get(u8).*, 11);
+            try std.testing.expectEqual(item.int.*, 44);
+            try std.testing.expectEqual(item.uint.*, 55);
+            try std.testing.expectEqual(iter.get(u8).*, 11);
         } else {
-            std.testing.expectEqual(item.int.*, 666);
-            std.testing.expectEqual(item.uint.*, 999);
-            std.testing.expectEqual(iter.get(f32).*, 55.5);
+            try std.testing.expectEqual(item.int.*, 666);
+            try std.testing.expectEqual(item.uint.*, 999);
+            try std.testing.expectEqual(iter.get(f32).*, 55.5);
         }
     }
 }
@@ -409,8 +409,8 @@ fn each(components: struct {
     int: *i32,
     uint: *u32,
 }) void {
-    std.testing.expectEqual(components.int.*, 44);
-    std.testing.expectEqual(components.uint.*, 55);
+    std.testing.expectEqual(components.int.*, 44) catch unreachable;
+    std.testing.expectEqual(components.uint.*, 55) catch unreachable;
 }
 
 test "OwningGroup each" {
@@ -426,8 +426,8 @@ test "OwningGroup each" {
             int: *i32,
             uint: *u32,
         }) void {
-            std.testing.expectEqual(components.int.*, 44);
-            std.testing.expectEqual(components.uint.*, 55);
+            std.testing.expectEqual(components.int.*, 44) catch unreachable;
+            std.testing.expectEqual(components.uint.*, 55) catch unreachable;
         }
     };
     var thing = Thing{};
@@ -456,11 +456,11 @@ test "multiple OwningGroups" {
     // ensure groups are ordered correctly internally
     var last_size: u8 = 0;
     for (reg.groups.items) |grp| {
-        std.testing.expect(last_size <= grp.size);
+        try std.testing.expect(last_size <= grp.size);
         last_size = grp.size;
     }
 
-    std.testing.expect(!reg.sortable(Sprite));
+    try std.testing.expect(!reg.sortable(Sprite));
 
     // this will break the group
     // var group6 = reg.group(.{Sprite, Rotation}, .{}, .{});

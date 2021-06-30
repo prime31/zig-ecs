@@ -17,7 +17,7 @@ pub const Assets = struct {
         var iter = self.caches.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            @intToPtr(*Cache(u1), ptr.value).deinit();
+            @intToPtr(*Cache(u1), ptr.value_ptr.*).deinit();
         }
 
         self.caches.deinit();
@@ -77,17 +77,17 @@ test "assets" {
     defer assets.deinit();
 
     var thing = assets.get(Thing).load(6, ThingLoadArgs{});
-    std.testing.expectEqual(assets.get(Thing).size(), 1);
+    try std.testing.expectEqual(assets.get(Thing).size(), 1);
 
     var thing2 = assets.load(4, ThingLoadArgs{});
-    std.testing.expectEqual(assets.get(Thing).size(), 2);
+    try std.testing.expectEqual(assets.get(Thing).size(), 2);
 
     var other_thing = assets.get(OtherThing).load(6, OtherThingLoadArgs{});
-    std.testing.expectEqual(assets.get(OtherThing).size(), 1);
+    try std.testing.expectEqual(assets.get(OtherThing).size(), 1);
 
     var other_thing2 = assets.load(8, OtherThingLoadArgs{});
-    std.testing.expectEqual(assets.get(OtherThing).size(), 2);
+    try std.testing.expectEqual(assets.get(OtherThing).size(), 2);
 
     assets.get(OtherThing).clear();
-    std.testing.expectEqual(assets.get(OtherThing).size(), 0);
+    try std.testing.expectEqual(assets.get(OtherThing).size(), 0);
 }

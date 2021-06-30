@@ -51,7 +51,7 @@ test "sort BasicGroup by Entity" {
     var val: f32 = 0;
     var iter = group.iterator();
     while (iter.next()) |entity| {
-        std.testing.expectEqual(val, group.getConst(Sprite, entity).x);
+        try std.testing.expectEqual(val, group.getConst(Sprite, entity).x);
         val += 1;
     }
 }
@@ -79,7 +79,7 @@ test "sort BasicGroup by Component" {
     var val: f32 = 0;
     var iter = group.iterator();
     while (iter.next()) |entity| {
-        std.testing.expectEqual(val, group.getConst(Sprite, entity).x);
+        try std.testing.expectEqual(val, group.getConst(Sprite, entity).x);
         val += 1;
     }
 }
@@ -112,7 +112,7 @@ test "sort OwningGroup by Entity" {
     var val: f32 = 0;
     var iter = group.iterator(struct { s: *Sprite, r: *Renderable });
     while (iter.next()) |entity| {
-        std.testing.expectEqual(val, entity.s.*.x);
+        try std.testing.expectEqual(val, entity.s.*.x);
         val += 1;
     }
 }
@@ -140,7 +140,7 @@ test "sort OwningGroup by Component" {
     var val: f32 = 0;
     var iter = group.iterator(struct { s: *Sprite, r: *Renderable });
     while (iter.next()) |entity| {
-        std.testing.expectEqual(val, entity.s.*.x);
+        try std.testing.expectEqual(val, entity.s.*.x);
         val += 1;
     }
 }
@@ -161,13 +161,13 @@ test "sort OwningGroup by Component ensure unsorted non-matches" {
         reg.add(e2, Sprite{ .x = @intToFloat(f32, i + 1 * 50) });
     }
 
-    std.testing.expectEqual(group.len(), 5);
-    std.testing.expectEqual(reg.len(Sprite), 10);
+    try std.testing.expectEqual(group.len(), 5);
+    try std.testing.expectEqual(reg.len(Sprite), 10);
 
     const SortContext = struct {
         fn sort(this: void, a: Sprite, b: Sprite) bool {
             // sprites with x > 50 shouldnt match in the group
-            std.testing.expect(a.x < 50 and b.x < 50);
+            std.testing.expect(a.x < 50 and b.x < 50) catch unreachable;
             return a.x > b.x;
         }
     };
@@ -182,7 +182,7 @@ test "sort OwningGroup by Component ensure unsorted non-matches" {
 
         // all sprite.x > 50 should be at the end and we iterate backwards
         if (count < 6) {
-            std.testing.expect(sprite.x >= 50);
+            try std.testing.expect(sprite.x >= 50);
         }
     }
 }
@@ -195,23 +195,23 @@ test "nested OwningGroups add/remove components" {
     var group2 = reg.group(.{ Sprite, Transform }, .{Renderable}, .{});
     var group3 = reg.group(.{ Sprite, Transform }, .{ Renderable, Rotation }, .{});
 
-    std.testing.expect(!reg.sortable(Sprite));
-    std.testing.expect(!reg.sortable(Transform));
-    std.testing.expect(reg.sortable(Renderable));
+    try std.testing.expect(!reg.sortable(Sprite));
+    try std.testing.expect(!reg.sortable(Transform));
+    try std.testing.expect(reg.sortable(Renderable));
 
     var e1 = reg.create();
     reg.addTypes(e1, .{ Sprite, Renderable, Rotation });
-    std.testing.expectEqual(group1.len(), 1);
-    std.testing.expectEqual(group2.len(), 0);
-    std.testing.expectEqual(group3.len(), 0);
+    try std.testing.expectEqual(group1.len(), 1);
+    try std.testing.expectEqual(group2.len(), 0);
+    try std.testing.expectEqual(group3.len(), 0);
 
     reg.add(e1, Transform{});
-    std.testing.expectEqual(group3.len(), 1);
+    try std.testing.expectEqual(group3.len(), 1);
 
     reg.remove(Sprite, e1);
-    std.testing.expectEqual(group1.len(), 0);
-    std.testing.expectEqual(group2.len(), 0);
-    std.testing.expectEqual(group3.len(), 0);
+    try std.testing.expectEqual(group1.len(), 0);
+    try std.testing.expectEqual(group2.len(), 0);
+    try std.testing.expectEqual(group3.len(), 0);
 }
 
 test "nested OwningGroups entity order" {
@@ -228,8 +228,8 @@ test "nested OwningGroups entity order" {
         reg.add(e, Renderable{ .x = @intToFloat(f32, i) });
     }
 
-    std.testing.expectEqual(group1.len(), 5);
-    std.testing.expectEqual(group2.len(), 0);
+    try std.testing.expectEqual(group1.len(), 5);
+    try std.testing.expectEqual(group2.len(), 0);
 
     var sprite_store = reg.assure(Sprite);
     var transform_store = reg.assure(Transform);

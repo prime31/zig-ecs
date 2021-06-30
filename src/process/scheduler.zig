@@ -231,5 +231,5 @@ test "scheduler.attach.next" {
     _ = scheduler.attach(Tester, &counter).next(Tester, &counter);
     scheduler.update();
     scheduler.update();
-    std.testing.expectEqual(counter, 2);
+    try std.testing.expectEqual(counter, 2);
 }

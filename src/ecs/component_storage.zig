@@ -294,15 +294,15 @@ test "add/try-get/remove/clear" {
     defer store.deinit();
 
     store.add(3, 66.45);
-    std.testing.expectEqual(store.tryGetConst(3).?, 66.45);
+    try std.testing.expectEqual(store.tryGetConst(3).?, 66.45);
     if (store.tryGet(3)) |found| {
-        std.testing.expectEqual(@as(f32, 66.45), found.*);
+        try std.testing.expectEqual(@as(f32, 66.45), found.*);
     }
 
     store.remove(3);
 
     var val_null = store.tryGet(3);
-    std.testing.expectEqual(val_null, null);
+    try std.testing.expectEqual(val_null, null);
 
     store.clear();
 }
@@ -312,11 +312,11 @@ test "add/get/remove" {
     defer store.deinit();
 
     store.add(3, 66.45);
-    if (store.tryGet(3)) |found| std.testing.expectEqual(@as(f32, 66.45), found.*);
-    std.testing.expectEqual(store.tryGetConst(3).?, 66.45);
+    if (store.tryGet(3)) |found| try std.testing.expectEqual(@as(f32, 66.45), found.*);
+    try std.testing.expectEqual(store.tryGetConst(3).?, 66.45);
 
     store.remove(3);
-    std.testing.expectEqual(store.tryGet(3), null);
+    try std.testing.expectEqual(store.tryGet(3), null);
 }
 
 test "iterate" {
@@ -329,13 +329,13 @@ test "iterate" {
 
     for (store.data()) |entity, i| {
         if (i == 0) {
-            std.testing.expectEqual(entity, 3);
+            try std.testing.expectEqual(entity, 3);
         }
         if (i == 1) {
-            std.testing.expectEqual(entity, 5);
+            try std.testing.expectEqual(entity, 5);
         }
         if (i == 2) {
-            std.testing.expectEqual(entity, 7);
+            try std.testing.expectEqual(entity, 7);
         }
     }
 }
@@ -394,14 +394,14 @@ test "sort empty component" {
     comptime const asc_u32 = std.sort.asc(u32);
     store.sort(u32, {}, asc_u32);
     for (store.data()) |e, i| {
-        std.testing.expectEqual(@intCast(u32, i), e);
+        try std.testing.expectEqual(@intCast(u32, i), e);
     }
 
     comptime const desc_u32 = std.sort.desc(u32);
     store.sort(u32, {}, desc_u32);
     var counter: u32 = 2;
     for (store.data()) |e, i| {
-        std.testing.expectEqual(counter, e);
+        try std.testing.expectEqual(counter, e);
         if (counter > 0) counter -= 1;
     }
 }
@@ -428,7 +428,7 @@ test "sort by entity" {
 
     var compare: f32 = 5;
     for (store.raw()) |val, i| {
-        std.testing.expect(compare > val);
+        try std.testing.expect(compare > val);
         compare = val;
     }
 }
@@ -446,7 +446,7 @@ test "sort by component" {
 
     var compare: f32 = 5;
     for (store.raw()) |val, i| {
-        std.testing.expect(compare > val);
+        try std.testing.expect(compare > val);
         compare = val;
     }
 }

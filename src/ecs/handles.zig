@@ -136,7 +136,7 @@ test "handles" {
     hm.remove(e1) catch unreachable;
     std.debug.assert(!hm.alive(e1));
 
-    std.testing.expectError(error.RemovedInvalidHandle, hm.remove(e1));
+    try std.testing.expectError(error.RemovedInvalidHandle, hm.remove(e1));
 
     var e_tmp = hm.create();
     std.debug.assert(hm.alive(e_tmp));

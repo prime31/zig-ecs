@@ -228,15 +228,15 @@ test "add/remove/clear" {
 
     set.add(4);
     set.add(3);
-    std.testing.expectEqual(set.len(), 2);
-    std.testing.expectEqual(set.index(4), 0);
-    std.testing.expectEqual(set.index(3), 1);
+    try std.testing.expectEqual(set.len(), 2);
+    try std.testing.expectEqual(set.index(4), 0);
+    try std.testing.expectEqual(set.index(3), 1);
 
     set.remove(4);
-    std.testing.expectEqual(set.len(), 1);
+    try std.testing.expectEqual(set.len(), 1);
 
     set.clear();
-    std.testing.expectEqual(set.len(), 0);
+    try std.testing.expectEqual(set.len(), 0);
 }
 
 test "grow" {
@@ -248,7 +248,7 @@ test "grow" {
         set.add(@intCast(u32, i));
     }
 
-    std.testing.expectEqual(set.len(), std.math.maxInt(u8));
+    try std.testing.expectEqual(set.len(), std.math.maxInt(u8));
 }
 
 test "swap" {
@@ -257,12 +257,12 @@ test "swap" {
 
     set.add(4);
     set.add(3);
-    std.testing.expectEqual(set.index(4), 0);
-    std.testing.expectEqual(set.index(3), 1);
+    try std.testing.expectEqual(set.index(4), 0);
+    try std.testing.expectEqual(set.index(3), 1);
 
     set.swap(4, 3);
-    std.testing.expectEqual(set.index(3), 0);
-    std.testing.expectEqual(set.index(4), 1);
+    try std.testing.expectEqual(set.index(3), 0);
+    try std.testing.expectEqual(set.index(4), 1);
 }
 
 test "data() synced" {
@@ -275,12 +275,12 @@ test "data() synced" {
     set.add(3);
 
     var data = set.data();
-    std.testing.expectEqual(data[1], 1);
-    std.testing.expectEqual(set.len(), data.len);
+    try std.testing.expectEqual(data[1], 1);
+    try std.testing.expectEqual(set.len(), data.len);
 
     set.remove(0);
     set.remove(1);
-    std.testing.expectEqual(set.len(), set.data().len);
+    try std.testing.expectEqual(set.len(), set.data().len);
 }
 
 test "iterate" {
@@ -295,7 +295,7 @@ test "iterate" {
     var i: u32 = @intCast(u32, set.len()) - 1;
     var iter = set.reverseIterator();
     while (iter.next()) |entity| {
-        std.testing.expectEqual(i, entity);
+        try std.testing.expectEqual(i, entity);
         if (i > 0) i -= 1;
     }
 }
@@ -319,8 +319,8 @@ test "respect 1" {
 
     set1.respect(set2);
 
-    std.testing.expectEqual(set1.dense.items[0], set2.dense.items[1]);
-    std.testing.expectEqual(set1.dense.items[1], set2.dense.items[2]);
+    try std.testing.expectEqual(set1.dense.items[0], set2.dense.items[1]);
+    try std.testing.expectEqual(set1.dense.items[1], set2.dense.items[2]);
 }
 
 const desc_u32 = std.sort.desc(u32);
