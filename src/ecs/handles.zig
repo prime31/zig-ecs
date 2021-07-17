@@ -1,4 +1,5 @@
 const std = @import("std");
+const registry = @import("registry.zig");
 
 /// generates versioned "handles" (https://floooh.github.io/2018/06/17/handles-vs-pointers.html)
 /// you choose the type of the handle (aka its size) and how much of that goes to the index and the version.
@@ -38,7 +39,6 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
                         return h;
                     }
                 }
-
                 return null;
             }
         };
@@ -59,15 +59,15 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
         }
 
         pub fn extractId(_: Self, handle: HandleType) IndexType {
-            return @truncate(IndexType, handle);
+            return @truncate(IndexType, handle & @as(IndexType, registry.entity_traits.entity_mask));
         }
 
         pub fn extractVersion(_: Self, handle: HandleType) VersionType {
-            return @truncate(VersionType, handle >> @bitSizeOf(IndexType));
+            return @truncate(VersionType, handle >> registry.entity_traits.entity_shift);
         }
 
         fn forge(id: IndexType, version: VersionType) HandleType {
-            return id | @as(HandleType, version) << @bitSizeOf(IndexType);
+            return id | @as(HandleType, version) << registry.entity_traits.entity_shift;
         }
 
         pub fn create(self: *Self) HandleType {
