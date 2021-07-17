@@ -59,7 +59,7 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
         }
 
         pub fn extractId(_: Self, handle: HandleType) IndexType {
-            return @truncate(IndexType, handle & @as(IndexType, registry.entity_traits.entity_mask));
+            return @truncate(IndexType, handle & registry.entity_traits.entity_mask);
         }
 
         pub fn extractVersion(_: Self, handle: HandleType) VersionType {
