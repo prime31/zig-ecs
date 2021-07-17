@@ -1,14 +1,14 @@
 const std = @import("std");
 const warn = std.debug.warn;
 const utils = @import("utils.zig");
+const registry = @import("registry.zig");
 const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
 
 // TODO: fix entity_mask. it should come from EntityTraitsDefinition.
 pub fn SparseSet(comptime SparseT: type) type {
     return struct {
         const Self = @This();
-        const page_size: usize = 32768;
-        const entity_per_page = page_size / @sizeOf(SparseT);
+        const page_size: usize = 4096;
 
         sparse: std.ArrayList(?[]SparseT),
         dense: std.ArrayList(SparseT),
@@ -17,9 +17,9 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         pub fn initPtr(allocator: *std.mem.Allocator) *Self {
             var set = allocator.create(Self) catch unreachable;
-            set.sparse = std.ArrayList(?[]SparseT).init(allocator);
-            set.dense = std.ArrayList(SparseT).init(allocator);
-            set.entity_mask = std.math.maxInt(SparseT);
+            set.sparse = std.ArrayList(?[]SparseT).initCapacity(allocator, 16) catch unreachable;
+            set.dense = std.ArrayList(SparseT).initCapacity(allocator, 16) catch unreachable;
+            set.entity_mask = registry.entity_traits.entity_mask;
             set.allocator = allocator;
             return set;
         }
@@ -28,7 +28,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             return Self{
                 .sparse = std.ArrayList(?[]SparseT).init(allocator),
                 .dense = std.ArrayList(SparseT).init(allocator),
-                .entity_mask = std.math.maxInt(SparseT),
+                .entity_mask = registry.entity_traits.entity_mask,
                 .allocator = null,
             };
         }
@@ -50,11 +50,11 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         pub fn page(self: Self, sparse: SparseT) usize {
-            return (sparse & self.entity_mask) / entity_per_page;
+            return (sparse & self.entity_mask) / page_size;
         }
 
         fn offset(_: Self, sparse: SparseT) usize {
-            return sparse & (entity_per_page - 1);
+            return sparse & (page_size - 1);
         }
 
         fn assure(self: *Self, pos: usize) []SparseT {
@@ -65,13 +65,11 @@ pub fn SparseSet(comptime SparseT: type) type {
                 std.mem.set(?[]SparseT, self.sparse.items[start_pos..], null);
             }
 
-            if (self.sparse.items[pos]) |arr| {
-                return arr;
+            if (self.sparse.items[pos] == null) {
+                var new_page = self.sparse.allocator.alloc(SparseT, page_size) catch unreachable;
+                std.mem.set(SparseT, new_page, std.math.maxInt(SparseT));
+                self.sparse.items[pos] = new_page;
             }
-
-            var new_page = self.sparse.allocator.alloc(SparseT, entity_per_page) catch unreachable;
-            std.mem.set(SparseT, new_page, std.math.maxInt(SparseT));
-            self.sparse.items[pos] = new_page;
 
             return self.sparse.items[pos].?;
         }
@@ -105,7 +103,9 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         pub fn contains(self: Self, sparse: SparseT) bool {
             const curr = self.page(sparse);
-            return curr < self.sparse.items.len and self.sparse.items[curr] != null and self.sparse.items[curr].?[self.offset(sparse)] != std.math.maxInt(SparseT);
+            return curr < self.sparse.items.len and
+             self.sparse.items[curr] != null and
+              self.sparse.items[curr].?[self.offset(sparse)] != std.math.maxInt(SparseT);
         }
 
         /// Returns the position of an entity in a sparse set
