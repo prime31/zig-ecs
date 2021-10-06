@@ -145,7 +145,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         pub fn reserve(self: *Self, cap: usize) void {
             self.set.reserve(cap);
             if (!is_empty_struct) {
-                elf.instances.items.reserve(cap);
+                self.instances.items.reserve(cap);
             }
         }
 
