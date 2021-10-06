@@ -236,7 +236,7 @@ pub const Registry = struct {
     }
 
     /// Increases the capacity of the registry or of the pools for the given component
-    pub fn reserve(self: *Self, comptime T: type, cap: usize) void {
+    pub fn reserve(self: *Registry, comptime T: type, cap: usize) void {
         self.assure(T).reserve(cap);
     }
 

@@ -12,7 +12,7 @@ pub fn main() !void {
     var reg = ecs.Registry.init(std.heap.c_allocator);
     defer reg.deinit();
 
-    var timer = try std.time.Timer.start();
+    // var timer = try std.time.Timer.start();
 
     createEntities(&reg);
     iterateView(&reg);
@@ -96,8 +96,8 @@ fn owningGroup(reg: *ecs.Registry) void {
 
     timer.reset();
 
-    var storage = reg.assure(Velocity);
-    var vel = storage.instances.items;
+    // var storage = reg.assure(Velocity);
+    // var vel = storage.instances.items;
     var pos = reg.assure(Position).instances.items;
 
     var index: usize = group.group_data.current;
