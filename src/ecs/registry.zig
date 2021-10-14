@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const assert = std.debug.assert;
 const utils = @import("utils.zig");
 
@@ -506,7 +507,7 @@ pub const Registry = struct {
         var new_group_data = GroupData.initPtr(self.allocator, self, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
 
         // before adding the group we need to do some checks to make sure there arent other owning groups with the same types
-        if (std.builtin.mode == .Debug and owned.len > 0) {
+        if (builtin.mode == .Debug and owned.len > 0) {
             for (self.groups.items) |grp| {
                 if (grp.owned.len == 0) continue;
 
