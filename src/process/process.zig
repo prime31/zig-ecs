@@ -33,7 +33,7 @@ pub const Process = struct {
     }
 
     /// Stops a process if it's in a running state
-    pub fn pause(self: *ParentType) void {
+    pub fn pause(self: *Process) void {
         if (self.state == .running) self.state = .paused;
     }
 
