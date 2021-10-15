@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const utils = @import("utils.zig");
 
 const Registry = @import("registry.zig").Registry;
@@ -156,7 +157,7 @@ pub const OwningGroup = struct {
     }
 
     fn validate(self: OwningGroup, comptime Components: anytype) void {
-        if (std.builtin.mode == .Debug and self.group_data.owned.len > 0) {
+        if (builtin.mode == .Debug and self.group_data.owned.len > 0) {
             std.debug.assert(@typeInfo(Components) == .Struct);
 
             inline for (@typeInfo(Components).Struct.fields) |field| {
