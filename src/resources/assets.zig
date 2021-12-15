@@ -4,9 +4,9 @@ const Cache = @import("cache.zig").Cache;
 
 pub const Assets = struct {
     caches: std.AutoHashMap(u32, usize),
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
-    pub fn init(allocator: *std.mem.Allocator) Assets {
+    pub fn init(allocator: std.mem.Allocator) Assets {
         return Assets{
             .caches = std.AutoHashMap(u32, usize).init(allocator),
             .allocator = allocator,

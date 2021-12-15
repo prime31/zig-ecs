@@ -10,9 +10,9 @@ pub fn Cache(comptime T: type) type {
 
         safe_deinit: fn (*@This()) void,
         resources: std.AutoHashMap(u32, *T),
-        allocator: ?*std.mem.Allocator = null,
+        allocator: ?std.mem.Allocator = null,
 
-        pub fn initPtr(allocator: *std.mem.Allocator) *@This() {
+        pub fn initPtr(allocator: std.mem.Allocator) *@This() {
             var cache = allocator.create(@This()) catch unreachable;
             cache.safe_deinit = struct {
                 fn deinit(self: *Self) void {
@@ -26,7 +26,7 @@ pub fn Cache(comptime T: type) type {
             return cache;
         }
 
-        pub fn init(allocator: *std.mem.Allocator) @This() {
+        pub fn init(allocator: std.mem.Allocator) @This() {
             return .{
                 .safe_deinit = struct {
                     fn deinit(self: *Self) void {

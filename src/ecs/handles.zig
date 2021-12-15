@@ -18,7 +18,7 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
         handles: []HandleType,
         append_cursor: IndexType = 0,
         last_destroyed: ?IndexType = null,
-        allocator: *std.mem.Allocator,
+        allocator: std.mem.Allocator,
 
         const invalid_id = std.math.maxInt(IndexType);
 
@@ -43,11 +43,11 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
             }
         };
 
-        pub fn init(allocator: *std.mem.Allocator) Self {
+        pub fn init(allocator: std.mem.Allocator) Self {
             return initWithCapacity(allocator, 32);
         }
 
-        pub fn initWithCapacity(allocator: *std.mem.Allocator, capacity: usize) Self {
+        pub fn initWithCapacity(allocator: std.mem.Allocator, capacity: usize) Self {
             return Self{
                 .handles = allocator.alloc(HandleType, capacity) catch unreachable,
                 .allocator = allocator,

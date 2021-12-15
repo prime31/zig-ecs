@@ -13,9 +13,9 @@ pub fn SparseSet(comptime SparseT: type) type {
         sparse: std.ArrayList(?[]SparseT),
         dense: std.ArrayList(SparseT),
         entity_mask: SparseT,
-        allocator: ?*std.mem.Allocator,
+        allocator: ?std.mem.Allocator,
 
-        pub fn initPtr(allocator: *std.mem.Allocator) *Self {
+        pub fn initPtr(allocator: std.mem.Allocator) *Self {
             var set = allocator.create(Self) catch unreachable;
             set.sparse = std.ArrayList(?[]SparseT).initCapacity(allocator, 16) catch unreachable;
             set.dense = std.ArrayList(SparseT).initCapacity(allocator, 16) catch unreachable;
@@ -24,7 +24,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             return set;
         }
 
-        pub fn init(allocator: *std.mem.Allocator) Self {
+        pub fn init(allocator: std.mem.Allocator) Self {
             return Self{
                 .sparse = std.ArrayList(?[]SparseT).init(allocator),
                 .dense = std.ArrayList(SparseT).init(allocator),
@@ -104,8 +104,8 @@ pub fn SparseSet(comptime SparseT: type) type {
         pub fn contains(self: Self, sparse: SparseT) bool {
             const curr = self.page(sparse);
             return curr < self.sparse.items.len and
-             self.sparse.items[curr] != null and
-              self.sparse.items[curr].?[self.offset(sparse)] != std.math.maxInt(SparseT);
+                self.sparse.items[curr] != null and
+                self.sparse.items[curr].?[self.offset(sparse)] != std.math.maxInt(SparseT);
         }
 
         /// Returns the position of an entity in a sparse set

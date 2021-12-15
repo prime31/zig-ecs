@@ -12,16 +12,16 @@ const Process = @import("process.zig").Process;
 /// - in any callback you can get your oiginal struct back via `process.getParent(@This())`
 pub const Scheduler = struct {
     processes: std.ArrayList(*Process),
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
     /// helper to create and prepare a process
-    fn createProcessHandler(comptime T: type, data: anytype, allocator: *std.mem.Allocator) *Process {
+    fn createProcessHandler(comptime T: type, data: anytype, allocator: std.mem.Allocator) *Process {
         var proc = allocator.create(T) catch unreachable;
         proc.initialize(data);
 
         // get a closure so that we can safely deinit this later
         proc.process.deinit = struct {
-            fn deinit(process: *Process, alloc: *std.mem.Allocator) void {
+            fn deinit(process: *Process, alloc: std.mem.Allocator) void {
                 if (process.next) |next_process| {
                     next_process.deinit(next_process, alloc);
                 }
@@ -35,9 +35,9 @@ pub const Scheduler = struct {
     /// returned when appending a process so that sub-processes can be added to the process
     const Continuation = struct {
         process: *Process,
-        allocator: *std.mem.Allocator,
+        allocator: std.mem.Allocator,
 
-        pub fn init(process: *Process, allocator: *std.mem.Allocator) Continuation {
+        pub fn init(process: *Process, allocator: std.mem.Allocator) Continuation {
             return .{ .process = process, .allocator = allocator };
         }
 
@@ -48,7 +48,7 @@ pub const Scheduler = struct {
         }
     };
 
-    pub fn init(allocator: *std.mem.Allocator) Scheduler {
+    pub fn init(allocator: std.mem.Allocator) Scheduler {
         return .{
             .processes = std.ArrayList(*Process).init(allocator),
             .allocator = allocator,
@@ -72,7 +72,7 @@ pub const Scheduler = struct {
         return Continuation.init(process, self.allocator);
     }
 
-    fn updateProcess(process: **Process, allocator: *std.mem.Allocator) bool {
+    fn updateProcess(process: **Process, allocator: std.mem.Allocator) bool {
         const current_process = process.*;
         current_process.tick();
 

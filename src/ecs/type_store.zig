@@ -4,9 +4,9 @@ const utils = @import("utils.zig");
 /// stores a single object of type T for each T added
 pub const TypeStore = struct {
     map: std.AutoHashMap(u32, []u8),
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
-    pub fn init(allocator: *std.mem.Allocator) TypeStore {
+    pub fn init(allocator: std.mem.Allocator) TypeStore {
         return TypeStore{
             .map = std.AutoHashMap(u32, []u8).init(allocator),
             .allocator = allocator,

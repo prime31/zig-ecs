@@ -24,7 +24,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
 
         set: *SparseSet(Entity),
         instances: std.ArrayList(ComponentOrDummy),
-        allocator: ?*std.mem.Allocator,
+        allocator: ?std.mem.Allocator,
         /// doesnt really belong here...used to denote group ownership
         super: usize = 0,
         safeDeinit: fn (*Self) void,
@@ -34,7 +34,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         update: Signal(Entity),
         destruction: Signal(Entity),
 
-        pub fn init(allocator: *std.mem.Allocator) Self {
+        pub fn init(allocator: std.mem.Allocator) Self {
             var store = Self{
                 .set = SparseSet(Entity).initPtr(allocator),
                 .instances = undefined,
@@ -73,7 +73,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             return store;
         }
 
-        pub fn initPtr(allocator: *std.mem.Allocator) *Self {
+        pub fn initPtr(allocator: std.mem.Allocator) *Self {
             var store = allocator.create(Self) catch unreachable;
             store.set = SparseSet(Entity).initPtr(allocator);
             if (!is_empty_struct) {
