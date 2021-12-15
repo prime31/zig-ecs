@@ -1,5 +1,4 @@
 const std = @import("std");
-const warn = std.debug.warn;
 const utils = @import("utils.zig");
 const registry = @import("registry.zig");
 const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
@@ -210,16 +209,16 @@ pub fn SparseSet(comptime SparseT: type) type {
 }
 
 fn printSet(set: *SparseSet(u32, u8)) void {
-    std.debug.warn("\nsparse -----\n", .{});
+    std.debug.print("\nsparse -----\n", .{});
     for (set.sparse.items) |sparse| {
-        std.debug.warn("{}\t", .{sparse});
+        std.debug.print("{}\t", .{sparse});
     }
 
-    std.debug.warn("\ndense -----\n", .{});
+    std.debug.print("\ndense -----\n", .{});
     for (set.dense.items) |dense| {
-        std.debug.warn("{}\t", .{dense});
+        std.debug.print("{}\t", .{dense});
     }
-    std.debug.warn("\n\n", .{});
+    std.debug.print("\n\n", .{});
 }
 
 test "add/remove/clear" {

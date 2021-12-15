@@ -1,5 +1,4 @@
 const std = @import("std");
-const warn = std.debug.warn;
 const ecs = @import("ecs");
 const Registry = @import("ecs").Registry;
 const BasicGroup = @import("ecs").BasicGroup;
@@ -14,12 +13,12 @@ const Renderable = struct { x: f32 = 0 };
 const Rotation = struct { x: f32 = 0 };
 
 fn printStore(store: anytype, name: []const u8) void {
-    warn("--- {} ---\n", .{name});
+    std.debug.print("--- {} ---\n", .{name});
     for (store.set.dense.items) |e, i| {
-        warn("e[{}] s[{}]{}", .{ e, store.set.page(store.set.dense.items[i]), store.set.sparse.items[store.set.page(store.set.dense.items[i])] });
-        warn(" ({d:.2})   ", .{store.instances.items[i]});
+        std.debug.print("e[{}] s[{}]{}", .{ e, store.set.page(store.set.dense.items[i]), store.set.sparse.items[store.set.page(store.set.dense.items[i])] });
+        std.debug.print(" ({d:.2})   ", .{store.instances.items[i]});
     }
-    warn("\n", .{});
+    std.debug.print("\n", .{});
 }
 
 test "sort BasicGroup by Entity" {
@@ -239,5 +238,5 @@ test "nested OwningGroups entity order" {
 
     // printStore(sprite_store, "Sprite");
     // printStore(transform_store, "Transform");
-    // warn("group2.current: {}\n", .{group2.group_data.current});
+    // std.debug.print("group2.current: {}\n", .{group2.group_data.current});
 }

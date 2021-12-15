@@ -30,11 +30,11 @@ fn createEntities(reg: *ecs.Registry) void {
     }
 
     var end = timer.lap();
-    std.debug.warn("create entities: \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("create entities: \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
 }
 
 fn iterateView(reg: *ecs.Registry) void {
-    std.debug.warn("--- multi-view ---\n", .{});
+    std.debug.print("--- multi-view ---\n", .{});
     var view = reg.view(.{ Velocity, Position }, .{});
 
     var timer = std.time.Timer.start() catch unreachable;
@@ -48,15 +48,15 @@ fn iterateView(reg: *ecs.Registry) void {
     }
 
     var end = timer.lap();
-    std.debug.warn("view (iter): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("view (iter): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
 }
 
 fn nonOwningGroup(reg: *ecs.Registry) void {
-    std.debug.warn("--- non-owning ---\n", .{});
+    std.debug.print("--- non-owning ---\n", .{});
     var timer = std.time.Timer.start() catch unreachable;
     var group = reg.group(.{}, .{ Velocity, Position }, .{});
     var end = timer.lap();
-    std.debug.warn("group (create): {d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (create): {d}\n", .{@intToFloat(f64, end) / 1000000000});
 
     timer.reset();
     var group_iter = group.iterator();
@@ -69,15 +69,15 @@ fn nonOwningGroup(reg: *ecs.Registry) void {
     }
 
     end = timer.lap();
-    std.debug.warn("group (iter): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (iter): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
 }
 
 fn owningGroup(reg: *ecs.Registry) void {
-    std.debug.warn("--- owning ---\n", .{});
+    std.debug.print("--- owning ---\n", .{});
     var timer = std.time.Timer.start() catch unreachable;
     var group = reg.group(.{ Velocity, Position }, .{}, .{});
     var end = timer.lap();
-    std.debug.warn("group (create): {d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (create): {d}\n", .{@intToFloat(f64, end) / 1000000000});
 
     timer.reset();
     var group_iter = group.iterator(struct { vel: *Velocity, pos: *Position });
@@ -87,12 +87,12 @@ fn owningGroup(reg: *ecs.Registry) void {
     }
 
     end = timer.lap();
-    std.debug.warn("group (iter): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (iter): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
 
     timer.reset();
     group.each(each);
     end = timer.lap();
-    std.debug.warn("group (each): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (each): \t{d}\n", .{@intToFloat(f64, end) / 1000000000});
 
     timer.reset();
 
@@ -110,7 +110,7 @@ fn owningGroup(reg: *ecs.Registry) void {
     }
 
     end = timer.lap();
-    std.debug.warn("group (direct): {d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (direct): {d}\n", .{@intToFloat(f64, end) / 1000000000});
 }
 
 fn each(e: struct { vel: *Velocity, pos: *Position }) void {

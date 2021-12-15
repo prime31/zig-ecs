@@ -131,7 +131,7 @@ pub const Scheduler = struct {
 };
 
 test "" {
-    std.debug.warn("\n", .{});
+    std.debug.print("\n", .{});
 
     const Tester = struct {
         process: Process,
@@ -150,27 +150,27 @@ test "" {
 
         fn start(process: *Process) void {
             _ = process.getParent(@This());
-            // std.debug.warn("start {}\n", .{self.fart});
+            // std.debug.print("start {}\n", .{self.fart});
         }
 
         fn aborted(process: *Process) void {
             _ = process.getParent(@This());
-            // std.debug.warn("aborted {}\n", .{self.fart});
+            // std.debug.print("aborted {}\n", .{self.fart});
         }
 
         fn failed(process: *Process) void {
             _ = process.getParent(@This());
-            // std.debug.warn("failed {}\n", .{self.fart});
+            // std.debug.print("failed {}\n", .{self.fart});
         }
 
         fn succeeded(process: *Process) void {
             _ = process.getParent(@This());
-            // std.debug.warn("succeeded {}\n", .{self.fart});
+            // std.debug.print("succeeded {}\n", .{self.fart});
         }
 
         fn update(process: *Process) void {
             _ = process.getParent(@This());
-            // std.debug.warn("update {}\n", .{self.fart});
+            // std.debug.print("update {}\n", .{self.fart});
             process.succeed();
         }
     };

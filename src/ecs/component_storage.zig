@@ -1,5 +1,4 @@
 const std = @import("std");
-const warn = std.debug.warn;
 const utils = @import("utils.zig");
 
 const SparseSet = @import("sparse_set.zig").SparseSet;
