@@ -7,9 +7,9 @@ pub fn Signal(comptime Event: type) type {
         const Self = @This();
 
         calls: std.ArrayList(Delegate(Event)),
-        allocator: ?*std.mem.Allocator = null,
+        allocator: ?std.mem.Allocator = null,
 
-        pub fn init(allocator: *std.mem.Allocator) Self {
+        pub fn init(allocator: std.mem.Allocator) Self {
             // we purposely do not store the allocator locally in this case so we know not to destroy ourself in deint!
             return Self{
                 .calls = std.ArrayList(Delegate(Event)).init(allocator),
@@ -17,7 +17,7 @@ pub fn Signal(comptime Event: type) type {
         }
 
         /// heap allocates a Signal
-        pub fn create(allocator: *std.mem.Allocator) *Self {
+        pub fn create(allocator: std.mem.Allocator) *Self {
             var signal = allocator.create(Self) catch unreachable;
             signal.calls = std.ArrayList(Delegate(Event)).init(allocator);
             signal.allocator = allocator;

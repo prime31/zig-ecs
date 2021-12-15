@@ -35,7 +35,7 @@ pub const Registry = struct {
     contexts: std.AutoHashMap(u32, usize),
     groups: std.ArrayList(*GroupData),
     singletons: TypeStore,
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
     /// internal, persistant data structure to manage the entities in a group
     pub const GroupData = struct {
@@ -49,7 +49,7 @@ pub const Registry = struct {
         registry: *Registry,
         current: usize,
 
-        pub fn initPtr(allocator: *std.mem.Allocator, registry: *Registry, hash: u64, owned: []u32, include: []u32, exclude: []u32) *GroupData {
+        pub fn initPtr(allocator: std.mem.Allocator, registry: *Registry, hash: u64, owned: []u32, include: []u32, exclude: []u32) *GroupData {
             // std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
             // std.debug.assert(std.mem.indexOfAny(u32, owned, exclude) == null);
             // std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
@@ -59,16 +59,16 @@ pub const Registry = struct {
             if (owned.len == 0) {
                 group_data.entity_set = SparseSet(Entity).init(allocator);
             }
-            group_data.owned = std.mem.dupe(allocator, u32, owned) catch unreachable;
-            group_data.include = std.mem.dupe(allocator, u32, include) catch unreachable;
-            group_data.exclude = std.mem.dupe(allocator, u32, exclude) catch unreachable;
+            group_data.owned = allocator.dupe(u32, owned) catch unreachable;
+            group_data.include = allocator.dupe(u32, include) catch unreachable;
+            group_data.exclude = allocator.dupe(u32, exclude) catch unreachable;
             group_data.registry = registry;
             group_data.current = 0;
 
             return group_data;
         }
 
-        pub fn deinit(self: *GroupData, allocator: *std.mem.Allocator) void {
+        pub fn deinit(self: *GroupData, allocator: std.mem.Allocator) void {
             // only deinit th SparseSet for non-owning groups
             if (self.owned.len == 0) {
                 self.entity_set.deinit();
@@ -184,7 +184,7 @@ pub const Registry = struct {
         }
     };
 
-    pub fn init(allocator: *std.mem.Allocator) Registry {
+    pub fn init(allocator: std.mem.Allocator) Registry {
         return Registry{
             .handles = EntityHandles.init(allocator),
             .components = std.AutoHashMap(u32, usize).init(allocator),

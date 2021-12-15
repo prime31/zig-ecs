@@ -1,5 +1,4 @@
 const std = @import("std");
-const warn = std.debug.warn;
 const utils = @import("utils.zig");
 const registry = @import("registry.zig");
 const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
@@ -13,9 +12,9 @@ pub fn SparseSet(comptime SparseT: type) type {
         sparse: std.ArrayList(?[]SparseT),
         dense: std.ArrayList(SparseT),
         entity_mask: SparseT,
-        allocator: ?*std.mem.Allocator,
+        allocator: ?std.mem.Allocator,
 
-        pub fn initPtr(allocator: *std.mem.Allocator) *Self {
+        pub fn initPtr(allocator: std.mem.Allocator) *Self {
             var set = allocator.create(Self) catch unreachable;
             set.sparse = std.ArrayList(?[]SparseT).initCapacity(allocator, 16) catch unreachable;
             set.dense = std.ArrayList(SparseT).initCapacity(allocator, 16) catch unreachable;
@@ -24,7 +23,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             return set;
         }
 
-        pub fn init(allocator: *std.mem.Allocator) Self {
+        pub fn init(allocator: std.mem.Allocator) Self {
             return Self{
                 .sparse = std.ArrayList(?[]SparseT).init(allocator),
                 .dense = std.ArrayList(SparseT).init(allocator),
@@ -104,8 +103,8 @@ pub fn SparseSet(comptime SparseT: type) type {
         pub fn contains(self: Self, sparse: SparseT) bool {
             const curr = self.page(sparse);
             return curr < self.sparse.items.len and
-             self.sparse.items[curr] != null and
-              self.sparse.items[curr].?[self.offset(sparse)] != std.math.maxInt(SparseT);
+                self.sparse.items[curr] != null and
+                self.sparse.items[curr].?[self.offset(sparse)] != std.math.maxInt(SparseT);
         }
 
         /// Returns the position of an entity in a sparse set
@@ -210,16 +209,16 @@ pub fn SparseSet(comptime SparseT: type) type {
 }
 
 fn printSet(set: *SparseSet(u32, u8)) void {
-    std.debug.warn("\nsparse -----\n", .{});
+    std.debug.print("\nsparse -----\n", .{});
     for (set.sparse.items) |sparse| {
-        std.debug.warn("{}\t", .{sparse});
+        std.debug.print("{}\t", .{sparse});
     }
 
-    std.debug.warn("\ndense -----\n", .{});
+    std.debug.print("\ndense -----\n", .{});
     for (set.dense.items) |dense| {
-        std.debug.warn("{}\t", .{dense});
+        std.debug.print("{}\t", .{dense});
     }
-    std.debug.warn("\n\n", .{});
+    std.debug.print("\n\n", .{});
 }
 
 test "add/remove/clear" {

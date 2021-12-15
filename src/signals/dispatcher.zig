@@ -5,9 +5,9 @@ const utils = @import("../ecs/utils.zig");
 
 pub const Dispatcher = struct {
     signals: std.AutoHashMap(u32, usize),
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
-    pub fn init(allocator: *std.mem.Allocator) Dispatcher {
+    pub fn init(allocator: std.mem.Allocator) Dispatcher {
         return Dispatcher{
             .signals = std.AutoHashMap(u32, usize).init(allocator),
             .allocator = allocator,
