@@ -59,9 +59,9 @@ pub const Registry = struct {
             if (owned.len == 0) {
                 group_data.entity_set = SparseSet(Entity).init(allocator);
             }
-            group_data.owned = std.mem.dupe(allocator, u32, owned) catch unreachable;
-            group_data.include = std.mem.dupe(allocator, u32, include) catch unreachable;
-            group_data.exclude = std.mem.dupe(allocator, u32, exclude) catch unreachable;
+            group_data.owned = allocator.dupe(u32, owned) catch unreachable;
+            group_data.include = allocator.dupe(u32, include) catch unreachable;
+            group_data.exclude = allocator.dupe(u32, exclude) catch unreachable;
             group_data.registry = registry;
             group_data.current = 0;
 
