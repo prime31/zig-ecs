@@ -6,7 +6,7 @@ pub fn build(b: *Builder) void {
     const build_mode = b.standardReleaseOptions();
 
     // use a different cache folder for macos arm builds
-    b.cache_root = if (builtin.os.tag == .macos and builtin.arch == builtin.Arch.aarch64) "zig-arm-cache" else "zig-cache";
+    b.cache_root = if (builtin.os.tag == .macos and builtin.target.cpu.arch == .aarch64) "zig-arm-cache" else "zig-cache";
 
     const examples = [_][2][]const u8{
         [_][]const u8{ "view_vs_group", "examples/view_vs_group.zig" },
