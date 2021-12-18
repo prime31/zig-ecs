@@ -14,8 +14,6 @@ pub fn main() !void {
     var reg = ecs.Registry.init(std.heap.c_allocator);
     defer reg.deinit();
 
-    var timer = try std.time.Timer.start();
-
     createEntities(&reg);
     owningGroup(&reg);
 }
@@ -27,8 +25,8 @@ fn createEntities(reg: *ecs.Registry) void {
     var i: usize = 0;
     while (i < total_entities) : (i += 1) {
         var e1 = reg.create();
-        reg.add(e1, Position{ .x = 1, .y = r.random.float(f32) * 100 });
-        reg.add(e1, Velocity{ .x = 1, .y = r.random.float(f32) * 100 });
+        reg.add(e1, Position{ .x = 1, .y = r.random().float(f32) * 100 });
+        reg.add(e1, Velocity{ .x = 1, .y = r.random().float(f32) * 100 });
     }
 
     var end = timer.lap();
@@ -44,7 +42,7 @@ fn owningGroup(reg: *ecs.Registry) void {
     // }
 
     const SortContext = struct {
-        fn sort(this: void, a: Position, b: Position) bool {
+        fn sort(_: void, a: Position, b: Position) bool {
             return a.y < b.y;
         }
     };
