@@ -1,5 +1,5 @@
 # Zig ECS
-This is a zigification of the fantasic [Entt](https://github.com/skypjack/entt). Entt is _highly_ templated C++ code which depending on your opinion is either a good thing or satan itself in code form. Zig doesn't have the same concept as C++ templates (thank goodness!) so the templated code was changed over to use Zig's generics and compile time metaprogramming.
+Zig ECS is a zig port of the fantasic [Entt](https://github.com/skypjack/entt). Entt is _highly_ templated C++ code which depending on your opinion is either a good thing or satan itself in code form. Zig doesn't have the same concept as C++ templates (thank goodness!) so the templated code was changed over to use Zig's generics and compile time metaprogramming.
 
 ## What does a zigified Entt look like?
 Below are examples of a View and a Group, the two main ways to work with entities in the ecs along with the scaffolding code.
