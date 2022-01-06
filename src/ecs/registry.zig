@@ -34,7 +34,7 @@ pub const Registry = struct {
     components: std.AutoHashMap(u32, usize),
     contexts: std.AutoHashMap(u32, usize),
     groups: std.ArrayList(*GroupData),
-    singletons: TypeStore,
+    type_store: TypeStore,
     allocator: std.mem.Allocator,
 
     /// internal, persistant data structure to manage the entities in a group
@@ -190,7 +190,7 @@ pub const Registry = struct {
             .components = std.AutoHashMap(u32, usize).init(allocator),
             .contexts = std.AutoHashMap(u32, usize).init(allocator),
             .groups = std.ArrayList(*GroupData).init(allocator),
-            .singletons = TypeStore.init(allocator),
+            .type_store = TypeStore.init(allocator),
             .allocator = allocator,
         };
     }
@@ -210,7 +210,7 @@ pub const Registry = struct {
         self.components.deinit();
         self.contexts.deinit();
         self.groups.deinit();
-        self.singletons.deinit();
+        self.type_store.deinit();
         self.handles.deinit();
     }
 
@@ -418,8 +418,8 @@ pub const Registry = struct {
     }
 
     /// provides access to a TypeStore letting you add singleton components to the registry
-    pub fn singletons(self: Registry) TypeStore {
-        return self.singletons;
+    pub fn singletons(self: *Registry) *TypeStore {
+        return &self.type_store;
     }
 
     pub fn sort(self: *Registry, comptime T: type, comptime lessThan: fn (void, T, T) bool) void {
