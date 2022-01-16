@@ -24,9 +24,11 @@ pub fn build(b: *Builder) void {
         exe.addPackagePath("ecs", "src/ecs.zig");
         exe.linkSystemLibrary("c");
         
-        exe.emit_docs = .emit;
-        const doc = b.step("docs", "Generate documentation.");
-        doc.dependOn(&exe.step);
+        const docs = exe;
+        docs.emit_docs = .emit;
+
+        const doc = b.step("docs", "Generate documentation");
+        doc.dependOn(&docs.step);
 
 
         const run_cmd = exe.run();
