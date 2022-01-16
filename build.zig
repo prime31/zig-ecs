@@ -23,6 +23,11 @@ pub fn build(b: *Builder) void {
         exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
         exe.addPackagePath("ecs", "src/ecs.zig");
         exe.linkSystemLibrary("c");
+        
+        exe.emit_docs = .emit;
+        const doc = b.step("docs", "Generate documentation.");
+        doc.dependOn(&exe.step);
+
 
         const run_cmd = exe.run();
         const exe_step = b.step(name, b.fmt("run {s}.zig", .{name}));
