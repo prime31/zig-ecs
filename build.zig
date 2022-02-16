@@ -23,13 +23,12 @@ pub fn build(b: *Builder) void {
         exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
         exe.addPackagePath("ecs", "src/ecs.zig");
         exe.linkSystemLibrary("c");
-        
+
         const docs = exe;
         docs.emit_docs = .emit;
 
         const doc = b.step("docs", "Generate documentation");
         doc.dependOn(&docs.step);
-
 
         const run_cmd = exe.run();
         const exe_step = b.step(name, b.fmt("run {s}.zig", .{name}));
@@ -65,7 +64,7 @@ pub const LibType = enum(i32) {
 pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
     return .{
         .name = "ecs",
-        .path = prefix_path ++ "src/ecs.zig",
+        .path = .{ .path = prefix_path ++ "src/ecs.zig" },
     };
 }
 
