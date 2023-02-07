@@ -147,7 +147,7 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         /// Sort elements according to the given comparison function
-        pub fn sort(self: *Self, context: anytype, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool) void {
+        pub fn sort(self: *Self, context: anytype, comptime lessThan: *const fn (@TypeOf(context), SparseT, SparseT) bool) void {
             std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
 
             for (self.dense.items) |_, i| {
@@ -158,7 +158,7 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         /// Sort elements according to the given comparison function. Use this when a data array needs to stay in sync with the SparseSet
         /// by passing in a "swap_context" that contains a "swap" method with a sig of fn(ctx,SparseT,SparseT)void
-        pub fn arrange(self: *Self, length: usize, context: anytype, comptime lessThan: fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: anytype) void {
+        pub fn arrange(self: *Self, length: usize, context: anytype, comptime lessThan: *const fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: anytype) void {
             std.sort.insertionSort(SparseT, self.dense.items[0..length], context, lessThan);
 
             for (self.dense.items[0..length]) |_, pos| {

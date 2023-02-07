@@ -422,7 +422,7 @@ pub const Registry = struct {
         return &self.type_store;
     }
 
-    pub fn sort(self: *Registry, comptime T: type, comptime lessThan: fn (void, T, T) bool) void {
+    pub fn sort(self: *Registry, comptime T: type, comptime lessThan: *const fn (void, T, T) bool) void {
         const comp = self.assure(T);
         std.debug.assert(comp.super == 0);
         comp.sort(T, lessThan);
@@ -568,7 +568,8 @@ pub const Registry = struct {
 
         // pre-fill the GroupData with any existing entitites that match
         if (owned.len == 0) {
-            var view_iter = self.view(owned ++ includes, excludes).iterator();
+            var view_instance = self.view(owned ++ includes, excludes);
+            var view_iter = view_instance.iterator();
             while (view_iter.next()) |entity| {
                 new_group_data.entity_set.add(entity);
             }

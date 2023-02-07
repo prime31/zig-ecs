@@ -49,7 +49,7 @@ pub fn ReverseSliceIterator(comptime T: type) type {
 }
 
 /// sorts items using lessThan and keeps sub_items with the same sort
-pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, comptime lessThan: fn (void, lhs: T1, rhs: T1) bool) void {
+pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, comptime lessThan: *const fn (void, lhs: T1, rhs: T1) bool) void {
     var i: usize = 1;
     while (i < items.len) : (i += 1) {
         const x = items[i];
@@ -64,7 +64,7 @@ pub fn sortSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T
     }
 }
 
-pub fn sortSubSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, context: anytype, comptime lessThan: fn (@TypeOf(context), lhs: T1, rhs: T1) bool) void {
+pub fn sortSubSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: []T2, context: anytype, comptime lessThan: *const fn (@TypeOf(context), lhs: T1, rhs: T1) bool) void {
     var i: usize = 1;
     while (i < items.len) : (i += 1) {
         const x = items[i];

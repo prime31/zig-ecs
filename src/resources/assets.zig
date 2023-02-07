@@ -47,6 +47,9 @@ pub const Assets = struct {
 };
 
 test "assets" {
+    // zig v0.10.0: Compilation Error
+    // error: no field named 'load' in struct 'resources.assets.test.assets.ThingLoadArgs'
+
     const Thing = struct {
         fart: i32,
         pub fn deinit(self: *@This()) void {

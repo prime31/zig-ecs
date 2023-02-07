@@ -18,7 +18,7 @@ pub fn Sink(comptime Event: type) type {
             return Self{ .insert_index = owning_signal.calls.items.len };
         }
 
-        pub fn before(self: Self, callback: ?fn (Event) void) Self {
+        pub fn before(self: Self, callback: ?*const fn  (Event) void) Self {
             if (callback) |cb| {
                 if (self.indexOf(cb)) |index| {
                     return Self{ .insert_index = index };
@@ -36,7 +36,7 @@ pub fn Sink(comptime Event: type) type {
             return self;
         }
 
-        pub fn connect(self: Self, callback: fn (Event) void) void {
+        pub fn connect(self: Self, callback: *const fn (Event) void) void {
             std.debug.assert(self.indexOf(callback) == null);
             _ = owning_signal.calls.insert(self.insert_index, Delegate(Event).initFree(callback)) catch unreachable;
         }
@@ -46,7 +46,7 @@ pub fn Sink(comptime Event: type) type {
             _ = owning_signal.calls.insert(self.insert_index, Delegate(Event).initBound(ctx, fn_name)) catch unreachable;
         }
 
-        pub fn disconnect(self: Self, callback: fn (Event) void) void {
+        pub fn disconnect(self: Self, callback: *const fn (Event) void) void {
             if (self.indexOf(callback)) |index| {
                 _ = owning_signal.calls.swapRemove(index);
             }
@@ -58,7 +58,7 @@ pub fn Sink(comptime Event: type) type {
             }
         }
 
-        fn indexOf(_: Self, callback: fn (Event) void) ?usize {
+        fn indexOf(_: Self, callback: *const fn (Event) void) ?usize {
             for (owning_signal.calls.items) |call, i| {
                 if (call.containsFree(callback)) {
                     return i;

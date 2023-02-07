@@ -5,12 +5,12 @@ const std = @import("std");
 pub const Process = struct {
     const State = enum(u8) { uninitialized, running, paused, succeeded, failed, aborted, finished };
 
-    updateFn: fn (self: *Process) void,
-    startFn: ?fn (self: *Process) void = null,
-    abortedFn: ?fn (self: *Process) void = null,
-    failedFn: ?fn (self: *Process) void = null,
-    succeededFn: ?fn (self: *Process) void = null,
-    deinit: fn (self: *Process, allocator: std.mem.Allocator) void = undefined,
+    updateFn: *const fn (self: *Process) void,
+    startFn: ?*const fn  (self: *Process) void = null,
+    abortedFn: ?*const fn  (self: *Process) void = null,
+    failedFn: ?*const fn  (self: *Process) void = null,
+    succeededFn: ?*const fn  (self: *Process) void = null,
+    deinit: *const fn (self: *Process, allocator: std.mem.Allocator) void = undefined,
 
     state: State = .uninitialized,
     stopped: bool = false,

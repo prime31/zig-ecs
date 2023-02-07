@@ -130,7 +130,7 @@ pub const Scheduler = struct {
     }
 };
 
-test "" {
+test {
     std.debug.print("\n", .{});
 
     const Tester = struct {
@@ -178,7 +178,8 @@ test "" {
     var scheduler = Scheduler.init(std.testing.allocator);
     defer scheduler.deinit();
 
-    _ = scheduler.attach(Tester, 33).next(Tester, 66).next(Tester, 88).next(Tester, 99);
+    var continuation = scheduler.attach(Tester, 33);
+    _ = continuation.next(Tester, 66).next(Tester, 88).next(Tester, 99);
     scheduler.update();
     scheduler.update();
     scheduler.update();
@@ -202,7 +203,8 @@ test "scheduler.clear" {
     var scheduler = Scheduler.init(std.testing.allocator);
     defer scheduler.deinit();
 
-    _ = scheduler.attach(Tester, {}).next(Tester, {});
+    var continuation = scheduler.attach(Tester, {});
+    _ = continuation.next(Tester, {});
     scheduler.clear();
     scheduler.update();
 }
@@ -228,7 +230,8 @@ test "scheduler.attach.next" {
     defer scheduler.deinit();
 
     var counter: usize = 0;
-    _ = scheduler.attach(Tester, &counter).next(Tester, &counter);
+    var continuation = scheduler.attach(Tester, &counter);
+    _ = continuation.next(Tester, &counter);
     scheduler.update();
     scheduler.update();
     try std.testing.expectEqual(counter, 2);

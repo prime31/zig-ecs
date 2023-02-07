@@ -7,8 +7,8 @@ pub fn Delegate(comptime Event: type) type {
 
         ctx_ptr_address: usize = 0,
         callback: union(enum) {
-            free: fn (Event) void,
-            bound: fn (usize, Event) void,
+            free: *const fn (Event) void,
+            bound: *const fn (usize, Event) void,
         },
 
         /// sets a bound function as the Delegate callback
@@ -30,7 +30,7 @@ pub fn Delegate(comptime Event: type) type {
         }
 
         /// sets a free function as the Delegate callback
-        pub fn initFree(func: fn (Event) void) Self {
+        pub fn initFree(func: *const fn (Event) void) Self {
             return Self{
                 .callback = .{ .free = func },
             };
@@ -43,7 +43,7 @@ pub fn Delegate(comptime Event: type) type {
             }
         }
 
-        pub fn containsFree(self: Self, callback: fn (Event) void) bool {
+        pub fn containsFree(self: Self, callback: *const fn (Event) void) bool {
             return switch (self.callback) {
                 .free => |func| func == callback,
                 else => false,
