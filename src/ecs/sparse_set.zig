@@ -3,6 +3,30 @@ const utils = @import("utils.zig");
 const registry = @import("registry.zig");
 const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
 
+/// NOTE: This is a copy of `std.sort.insertionSort` with fixed function pointer
+/// syntax to avoid compilation errors.
+///
+/// Stable in-place sort. O(n) best case, O(pow(n, 2)) worst case.
+/// O(1) memory (no allocator required).
+/// This can be expressed in terms of `insertionSortContext` but the glue
+/// code is slightly longer than the direct implementation.
+fn std_sort_insertionSort_clone(
+    comptime T: type,
+    items: []T,
+    context: anytype,
+    comptime lessThan: *const fn (context: @TypeOf(context), lhs: T, rhs: T) bool,
+) void {
+    var i: usize = 1;
+    while (i < items.len) : (i += 1) {
+        const x = items[i];
+        var j: usize = i;
+        while (j > 0 and lessThan(context, x, items[j - 1])) : (j -= 1) {
+            items[j] = items[j - 1];
+        }
+        items[j] = x;
+    }
+}
+
 // TODO: fix entity_mask. it should come from EntityTraitsDefinition.
 pub fn SparseSet(comptime SparseT: type) type {
     return struct {
@@ -33,7 +57,6 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         pub fn deinit(self: *Self) void {
-            self.sparse.expandToCapacity();
             for (self.sparse.items) |array| {
                 if (array) |arr| {
                     self.sparse.allocator.free(arr);
@@ -148,7 +171,7 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         /// Sort elements according to the given comparison function
         pub fn sort(self: *Self, context: anytype, comptime lessThan: *const fn (@TypeOf(context), SparseT, SparseT) bool) void {
-            std.sort.insertionSort(SparseT, self.dense.items, context, lessThan);
+            std_sort_insertionSort_clone(SparseT, self.dense.items, context, lessThan);
 
             for (self.dense.items) |_, i| {
                 const item = @intCast(SparseT, i);
@@ -159,7 +182,7 @@ pub fn SparseSet(comptime SparseT: type) type {
         /// Sort elements according to the given comparison function. Use this when a data array needs to stay in sync with the SparseSet
         /// by passing in a "swap_context" that contains a "swap" method with a sig of fn(ctx,SparseT,SparseT)void
         pub fn arrange(self: *Self, length: usize, context: anytype, comptime lessThan: *const fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: anytype) void {
-            std.sort.insertionSort(SparseT, self.dense.items[0..length], context, lessThan);
+            std_sort_insertionSort_clone(SparseT, self.dense.items[0..length], context, lessThan);
 
             for (self.dense.items[0..length]) |_, pos| {
                 var curr = @intCast(SparseT, pos);
@@ -190,7 +213,6 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         pub fn clear(self: *Self) void {
-            self.sparse.expandToCapacity();
             for (self.sparse.items) |array, i| {
                 if (array) |arr| {
                     self.sparse.allocator.free(arr);
