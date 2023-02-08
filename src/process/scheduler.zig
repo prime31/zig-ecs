@@ -130,7 +130,7 @@ pub const Scheduler = struct {
     }
 };
 
-test {
+test "scheduler.update" {
     std.debug.print("\n", .{});
 
     const Tester = struct {
