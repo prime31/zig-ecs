@@ -425,7 +425,7 @@ pub const Registry = struct {
     pub fn sort(self: *Registry, comptime T: type, comptime lessThan: *const fn (void, T, T) bool) void {
         const comp = self.assure(T);
         std.debug.assert(comp.super == 0);
-        comp.sort(T, lessThan);
+        comp.sort(T, comp.len(), {}, lessThan);
     }
 
     /// Checks whether the given component belongs to any group. If so, it is not sortable directly.
