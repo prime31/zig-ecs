@@ -22,7 +22,7 @@ pub fn Delegate(comptime Event: type) type {
                 .callback = .{
                     .bound = struct {
                         fn cb(self: usize, param: Event) void {
-                            @call(.{ .modifier = .always_inline }, @field(@intToPtr(T, self), fn_name), .{param});
+                            @call(.always_inline, @field(@intToPtr(T, self), fn_name), .{param});
                         }
                     }.cb,
                 },
@@ -38,8 +38,8 @@ pub fn Delegate(comptime Event: type) type {
 
         pub fn trigger(self: Self, param: Event) void {
             switch (self.callback) {
-                .free => |func| @call(.{}, func, .{param}),
-                .bound => |func| @call(.{}, func, .{ self.ctx_ptr_address, param }),
+                .free => |func| @call(.auto, func, .{param}),
+                .bound => |func| @call(.auto, func, .{ self.ctx_ptr_address, param }),
             }
         }
 
