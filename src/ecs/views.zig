@@ -4,6 +4,7 @@ const utils = @import("utils.zig");
 const Registry = @import("registry.zig").Registry;
 const Storage = @import("registry.zig").Storage;
 const Entity = @import("registry.zig").Entity;
+const ReverseSliceIterator = @import("utils.zig").ReverseSliceIterator;
 
 /// single item view. Iterating raw() directly is the fastest way to get at the data. An iterator is also available to iterate
 /// either the Entities or the Components. If T is sorted note that raw() will be in the reverse order so it should be looped
@@ -63,26 +64,19 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
 
         pub const Iterator = struct {
             view: *Self,
-            index: usize,
-            entities: *const []Entity,
+            internal_it: ReverseSliceIterator(Entity),
 
             pub fn init(view: *Self) Iterator {
                 const ptr = view.registry.components.get(view.type_ids[0]).?;
-                const entities = @intToPtr(*Storage(u8), ptr).dataPtr();
+                const internal_it = @intToPtr(*Storage(u8), ptr).set.reverseIterator();
                 return .{
                     .view = view,
-                    .index = entities.len,
-                    .entities = entities,
+                    .internal_it = internal_it
                 };
             }
 
             pub fn next(it: *Iterator) ?Entity {
-                while (true) blk: {
-                    if (it.index == 0) return null;
-                    it.index -= 1;
-
-                    const entity = it.entities.*[it.index];
-
+                while (it.internal_it.next()) |entity| blk: {
                     // entity must be in all other Storages
                     for (it.view.type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
@@ -101,11 +95,19 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
 
                     return entity;
                 }
+                return null;
             }
 
             // Reset the iterator to the initial index
             pub fn reset(it: *Iterator) void {
-                it.index = it.entities.len;
+                // Assign new iterator instance in case entities have been
+                // removed or added.
+                it.internal_it = it.getInternalIteratorInstance();
+            }
+
+            fn getInternalIteratorInstance(it: *Iterator) ReverseSliceIterator(Entity) {
+                const ptr = it.view.registry.components.get(it.view.type_ids[0]).?;
+                return @intToPtr(*Storage(u8), ptr).set.reverseIterator();
             }
         };
 
