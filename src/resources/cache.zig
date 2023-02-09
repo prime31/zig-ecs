@@ -8,7 +8,7 @@ pub fn Cache(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        safe_deinit: fn (*@This()) void,
+        safe_deinit: *const fn (*@This()) void,
         resources: std.AutoHashMap(u32, *T),
         allocator: ?std.mem.Allocator = null,
 
@@ -42,12 +42,12 @@ pub fn Cache(comptime T: type) type {
             self.safe_deinit(self);
         }
 
-        pub fn load(self: *@This(), id: u32, comptime loader: anytype) @typeInfo(@TypeOf(@field(loader, "load"))).BoundFn.return_type.? {
+        pub fn load(self: *@This(), id: u32, comptime loader: anytype) @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.? {
             if (self.resources.get(id)) |resource| {
                 return resource;
             }
 
-            var resource = loader.load();
+            var resource = loader.load(loader);
             _ = self.resources.put(id, resource) catch unreachable;
             return resource;
         }
@@ -59,7 +59,7 @@ pub fn Cache(comptime T: type) type {
         pub fn remove(self: *@This(), id: u32) void {
             if (self.resources.fetchRemove(id)) |kv| {
                 if (@hasDecl(T, "deinit")) {
-                    @call(.{ .modifier = .always_inline }, @field(kv.value, "deinit"), .{});
+                    @call(.always_inline, @field(kv.value, "deinit"), .{});
                 }
             }
         }
@@ -69,7 +69,7 @@ pub fn Cache(comptime T: type) type {
             if (@hasDecl(T, "deinit")) {
                 var iter = self.resources.iterator();
                 while (iter.next()) |kv| {
-                    @call(.{ .modifier = .always_inline }, @field(kv.value_ptr.*, "deinit"), .{});
+                    @call(.always_inline, @field(kv.value_ptr.*, "deinit"), .{});
                 }
             }
             self.resources.clearAndFree();
@@ -92,7 +92,10 @@ test "cache" {
     };
 
     const ThingLoadArgs = struct {
-        pub fn load(self: @This()) *Thing {
+        // Use actual field "load" as function pointer to avoid zig v0.10.0
+        // compiler error: "error: no field named 'load' in struct '...'"
+        load: *const fn (self: @This()) *Thing,
+        pub fn loadFn(self: @This()) *Thing {
             _ = self;
             return std.testing.allocator.create(Thing) catch unreachable;
         }
@@ -101,8 +104,8 @@ test "cache" {
     var cache = Cache(Thing).init(std.testing.allocator);
     defer cache.deinit();
 
-    _ = cache.load(utils.hashString("my/id"), ThingLoadArgs{});
-    _ = cache.load(utils.hashString("another/id"), ThingLoadArgs{});
+    _ = cache.load(utils.hashString("my/id"), ThingLoadArgs{ .load = ThingLoadArgs.loadFn });
+    _ = cache.load(utils.hashString("another/id"), ThingLoadArgs{ .load = ThingLoadArgs.loadFn });
     try std.testing.expectEqual(cache.size(), 2);
 
     cache.remove(utils.hashString("my/id"));

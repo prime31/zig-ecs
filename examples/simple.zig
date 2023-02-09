@@ -8,7 +8,7 @@ pub const Velocity = struct { x: f32, y: f32 };
 pub const Position = struct { x: f32, y: f32 };
 
 pub fn main() !void {
-    var reg = ecs.Registry.init(std.testing.allocator);
+    var reg = ecs.Registry.init(std.heap.c_allocator);
     defer reg.deinit();
 
     var e1 = reg.create();
@@ -25,7 +25,10 @@ pub fn main() !void {
     while (iter.next()) |entity| {
         var pos = view.get(Position, entity);
         const vel = view.getConst(Velocity, entity);
-        std.debug.print("entity: {}, pos: {d}, vel: {d}\n", .{ entity, pos.*, vel });
+        std.debug.print(
+            "entity: {}, pos: (x = {d}, y = {d}), vel: (x = {d}, y = {d})\n",
+            .{ entity, pos.x, pos.y, vel.x, vel.y },
+        );
         pos.*.x += vel.x;
         pos.*.y += vel.y;
     }
@@ -36,6 +39,9 @@ pub fn main() !void {
     while (iter.next()) |entity| {
         const pos = view.getConst(Position, entity);
         const vel = view.getConst(Velocity, entity);
-        std.debug.print("entity: {}, pos: {d}, vel: {d}\n", .{ entity, pos, vel });
+        std.debug.print(
+            "entity: {}, pos: (x = {d}, y = {d}), vel: (x = {d}, y = {d})\n",
+            .{ entity, pos.x, pos.y, vel.x, vel.y },
+        );
     }
 }

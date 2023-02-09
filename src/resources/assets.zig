@@ -37,8 +37,8 @@ pub const Assets = struct {
         return self.get(ReturnType(loader, true)).load(id, loader);
     }
 
-    fn ReturnType(comptime loader: anytype, strip_ptr: bool) type {
-        var ret = @typeInfo(@TypeOf(@field(loader, "load"))).BoundFn.return_type.?;
+    fn ReturnType(comptime loader: anytype, comptime strip_ptr: bool) type {
+        var ret = @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.?;
         if (strip_ptr) {
             return std.meta.Child(ret);
         }
@@ -62,13 +62,19 @@ test "assets" {
     };
 
     const OtherThingLoadArgs = struct {
-        pub fn load(_: @This()) *OtherThing {
+        // Use actual field "load" as function pointer to avoid zig v0.10.0
+        // compiler error: "error: no field named 'load' in struct '...'"
+        load: *const fn (_: @This()) *OtherThing,
+        pub fn loadFn(_: @This()) *OtherThing {
             return std.testing.allocator.create(OtherThing) catch unreachable;
         }
     };
 
     const ThingLoadArgs = struct {
-        pub fn load(_: @This()) *Thing {
+        // Use actual field "load" as function pointer to avoid zig v0.10.0
+        // compiler error: "error: no field named 'load' in struct '...'"
+        load: *const fn (_: @This()) *Thing,
+        pub fn loadFn(_: @This()) *Thing {
             return std.testing.allocator.create(Thing) catch unreachable;
         }
     };
@@ -76,16 +82,16 @@ test "assets" {
     var assets = Assets.init(std.testing.allocator);
     defer assets.deinit();
 
-    _ = assets.get(Thing).load(6, ThingLoadArgs{});
+    _ = assets.get(Thing).load(6, ThingLoadArgs{ .load = ThingLoadArgs.loadFn });
     try std.testing.expectEqual(assets.get(Thing).size(), 1);
 
-    _ = assets.load(4, ThingLoadArgs{});
+    _ = assets.load(4, ThingLoadArgs{ .load = ThingLoadArgs.loadFn });
     try std.testing.expectEqual(assets.get(Thing).size(), 2);
 
-    _ = assets.get(OtherThing).load(6, OtherThingLoadArgs{});
+    _ = assets.get(OtherThing).load(6, OtherThingLoadArgs{ .load = OtherThingLoadArgs.loadFn });
     try std.testing.expectEqual(assets.get(OtherThing).size(), 1);
 
-    _ = assets.load(8, OtherThingLoadArgs{});
+    _ = assets.load(8, OtherThingLoadArgs{ .load = OtherThingLoadArgs.loadFn });
     try std.testing.expectEqual(assets.get(OtherThing).size(), 2);
 
     assets.get(OtherThing).clear();

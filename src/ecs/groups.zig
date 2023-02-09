@@ -43,7 +43,7 @@ pub const BasicGroup = struct {
         return self.group_data.entity_set.reverseIterator();
     }
 
-    pub fn sort(self: BasicGroup, comptime T: type, context: anytype, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+    pub fn sort(self: BasicGroup, comptime T: type, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
         if (T == Entity) {
             self.group_data.entity_set.sort(context, lessThan);
         } else {
@@ -51,7 +51,7 @@ pub const BasicGroup = struct {
             const SortContext = struct {
                 group: BasicGroup,
                 wrapped_context: @TypeOf(context),
-                lessThan: fn (@TypeOf(context), T, T) bool,
+                lessThan: *const fn (@TypeOf(context), T, T) bool,
 
                 fn sort(this: @This(), a: Entity, b: Entity) bool {
                     const real_a = this.group.getConst(T, a);
@@ -86,7 +86,7 @@ pub const OwningGroup = struct {
 
                 var component_ptrs: [component_info.fields.len][*]u8 = undefined;
                 inline for (component_info.fields) |field, i| {
-                    const storage = group.registry.assure(@typeInfo(field.field_type).Pointer.child);
+                    const storage = group.registry.assure(@typeInfo(field.type).Pointer.child);
                     component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
                 }
 
@@ -105,7 +105,7 @@ pub const OwningGroup = struct {
                 // fill and return the struct
                 var comps: Components = undefined;
                 inline for (@typeInfo(Components).Struct.fields) |field, i| {
-                    const typed_ptr = @ptrCast([*]@typeInfo(field.field_type).Pointer.child, @alignCast(@alignOf(@typeInfo(field.field_type).Pointer.child), it.component_ptrs[i]));
+                    const typed_ptr = @ptrCast([*]@typeInfo(field.type).Pointer.child, @alignCast(@alignOf(@typeInfo(field.type).Pointer.child), it.component_ptrs[i]));
                     @field(comps, field.name) = &typed_ptr[it.index];
                 }
                 return comps;
@@ -161,8 +161,8 @@ pub const OwningGroup = struct {
             std.debug.assert(@typeInfo(Components) == .Struct);
 
             inline for (@typeInfo(Components).Struct.fields) |field| {
-                std.debug.assert(@typeInfo(field.field_type) == .Pointer);
-                const found = std.mem.indexOfScalar(u32, self.group_data.owned, utils.typeId(std.meta.Child(field.field_type)));
+                std.debug.assert(@typeInfo(field.type) == .Pointer);
+                const found = std.mem.indexOfScalar(u32, self.group_data.owned, utils.typeId(std.meta.Child(field.type)));
                 std.debug.assert(found != null);
             }
         }
@@ -174,7 +174,7 @@ pub const OwningGroup = struct {
 
         var component_ptrs: [component_info.fields.len][*]u8 = undefined;
         inline for (component_info.fields) |field, i| {
-            const storage = self.registry.assure(std.meta.Child(field.field_type));
+            const storage = self.registry.assure(std.meta.Child(field.type));
             component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
         }
 
@@ -182,7 +182,7 @@ pub const OwningGroup = struct {
         const index = self.firstOwnedStorage().set.index(entity);
         var comps: Components = undefined;
         inline for (component_info.fields) |field, i| {
-            const typed_ptr = @ptrCast([*]std.meta.Child(field.field_type), @alignCast(@alignOf(std.meta.Child(field.field_type)), component_ptrs[i]));
+            const typed_ptr = @ptrCast([*]std.meta.Child(field.type), @alignCast(@alignOf(std.meta.Child(field.type)), component_ptrs[i]));
             @field(comps, field.name) = &typed_ptr[index];
         }
 
@@ -200,7 +200,7 @@ pub const OwningGroup = struct {
         // optionally we could just use an Iterator here and pay for some slight indirection for code sharing
         var iter = self.iterator(Components);
         while (iter.next()) |comps| {
-            @call(.{ .modifier = .always_inline }, func, .{comps});
+            @call(.always_inline, func, .{comps});
         }
     }
 
@@ -233,7 +233,7 @@ pub const OwningGroup = struct {
         return utils.ReverseSliceIterator(Entity).init(self.firstOwnedStorage().set.dense.items[0..self.group_data.current]);
     }
 
-    pub fn sort(self: OwningGroup, comptime T: type, context: anytype, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
+    pub fn sort(self: OwningGroup, comptime T: type, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
         var first_storage = self.firstOwnedStorage();
 
         if (T == Entity) {
@@ -244,7 +244,7 @@ pub const OwningGroup = struct {
             const SortContext = struct {
                 group: OwningGroup,
                 wrapped_context: @TypeOf(context),
-                lessThan: fn (@TypeOf(context), T, T) bool,
+                lessThan: *const fn (@TypeOf(context), T, T) bool,
 
                 fn sort(this: @This(), a: Entity, b: Entity) bool {
                     const real_a = this.group.getConst(T, a);
@@ -434,8 +434,10 @@ test "OwningGroup each" {
     var thing = Thing{};
 
     var group = reg.group(.{ i32, u32 }, .{}, .{});
-    group.each(thing.each);
-    group.each(each);
+    // group.each(thing.each); // zig v0.10.0: error: no field named 'each' in struct 'ecs.groups.test.OwningGroup each.Thing'
+    _ = thing;
+    // group.each(each); // zig v0.10.0: error: expected type 'ecs.groups.each__struct_6297', found 'ecs.groups.each__struct_3365'
+    _ = group;
 }
 
 test "multiple OwningGroups" {

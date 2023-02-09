@@ -3,7 +3,10 @@ const Builder = std.build.Builder;
 const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
-    const build_mode = b.standardReleaseOptions();
+    const optimize = b.standardOptimizeOption(.{});
+    const ecs_module = b.createModule(.{
+        .source_file = std.build.FileSource{ .path = "src/ecs.zig" },
+    });
 
     // use a different cache folder for macos arm builds
     b.cache_root = if (builtin.os.tag == .macos and builtin.target.cpu.arch == .aarch64) "zig-arm-cache" else "zig-cache";
@@ -18,11 +21,14 @@ pub fn build(b: *Builder) void {
         const name = if (i == 0) "ecs" else example[0];
         const source = example[1];
 
-        var exe = b.addExecutable(name, source);
-        exe.setBuildMode(b.standardReleaseOptions());
+        var exe = b.addExecutable(.{
+            .name = name,
+            .root_source_file = std.build.FileSource{ .path = source },
+            .optimize = optimize,
+        });
         exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
-        exe.addPackagePath("ecs", "src/ecs.zig");
-        exe.linkSystemLibrary("c");
+        exe.addModule("ecs", ecs_module);
+        exe.linkLibC();
 
         const docs = exe;
         docs.emit_docs = .emit;
@@ -42,13 +48,17 @@ pub fn build(b: *Builder) void {
     }
 
     // internal tests
-    const internal_test_step = b.addTest("src/tests.zig");
-    internal_test_step.setBuildMode(build_mode);
+    const internal_test_step = b.addTest(.{
+        .root_source_file = std.build.FileSource{ .path = "src/tests.zig" },
+        .optimize = optimize,
+    });
 
     // public api tests
-    const test_step = b.addTest("tests/tests.zig");
-    test_step.addPackagePath("ecs", "src/ecs.zig");
-    test_step.setBuildMode(build_mode);
+    const test_step = b.addTest(.{
+        .root_source_file = std.build.FileSource{ .path = "tests/tests.zig" },
+        .optimize = optimize,
+    });
+    test_step.addModule("ecs", ecs_module);
 
     const test_cmd = b.step("test", "Run the tests");
     test_cmd.dependOn(&internal_test_step.step);
@@ -61,7 +71,7 @@ pub const LibType = enum(i32) {
     exe_compiled,
 };
 
-pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
+pub fn getModule(comptime prefix_path: []const u8) std.build.Module {
     return .{
         .name = "ecs",
         .path = .{ .path = prefix_path ++ "src/ecs.zig" },
@@ -70,18 +80,16 @@ pub fn getPackage(comptime prefix_path: []const u8) std.build.Pkg {
 
 /// prefix_path is used to add package paths. It should be the the same path used to include this build file
 pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, _: std.build.Target, lib_type: LibType, comptime prefix_path: []const u8) void {
-    const build_mode = b.standardReleaseOptions();
+    const optimize = b.standardOptimizeOption(.{});
     switch (lib_type) {
         .static => {
-            const lib = b.addStaticLibrary("ecs", "ecs.zig");
-            lib.setBuildMode(build_mode);
+            const lib = b.addStaticLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize });
             lib.install();
 
             artifact.linkLibrary(lib);
         },
         .dynamic => {
-            const lib = b.addSharedLibrary("ecs", "ecs.zig", .unversioned);
-            lib.setBuildMode(build_mode);
+            const lib = b.addSharedLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize });
             lib.install();
 
             artifact.linkLibrary(lib);
@@ -89,5 +97,5 @@ pub fn linkArtifact(b: *Builder, artifact: *std.build.LibExeObjStep, _: std.buil
         else => {},
     }
 
-    artifact.addPackage(getPackage(prefix_path));
+    artifact.addModule(getModule(prefix_path));
 }
