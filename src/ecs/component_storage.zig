@@ -326,7 +326,7 @@ test "iterate" {
     store.add(5, 66.45);
     store.add(7, 66.45);
 
-    for (store.data()) |entity, i| {
+    for (store.data(), 0..) |entity, i| {
         if (i == 0) {
             try std.testing.expectEqual(entity, 3);
         }
@@ -392,7 +392,7 @@ test "sort empty component" {
 
     const asc_u32 = comptime std.sort.asc(u32);
     store.sort(u32, {}, asc_u32);
-    for (store.data()) |e, i| {
+    for (store.data(), 0..) |e, i| {
         try std.testing.expectEqual(@intCast(u32, i), e);
     }
 

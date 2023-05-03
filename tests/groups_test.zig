@@ -14,7 +14,7 @@ const Rotation = struct { x: f32 = 0 };
 
 fn printStore(store: anytype, name: []const u8) void {
     std.debug.print("--- {} ---\n", .{name});
-    for (store.set.dense.items) |e, i| {
+    for (store.set.dense.items, 0..) |e, i| {
         std.debug.print("e[{}] s[{}]{}", .{ e, store.set.page(store.set.dense.items[i]), store.set.sparse.items[store.set.page(store.set.dense.items[i])] });
         std.debug.print(" ({d:.2})   ", .{store.instances.items[i]});
     }

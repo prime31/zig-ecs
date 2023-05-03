@@ -84,12 +84,13 @@ pub fn SparseSet(comptime SparseT: type) type {
                 const start_pos = self.sparse.items.len;
                 self.sparse.resize(pos + 1) catch unreachable;
                 self.sparse.expandToCapacity();
-                std.mem.set(?[]SparseT, self.sparse.items[start_pos..], null);
+
+                @memset(self.sparse.items[start_pos..], null);
             }
 
             if (self.sparse.items[pos] == null) {
                 var new_page = self.sparse.allocator.alloc(SparseT, page_size) catch unreachable;
-                std.mem.set(SparseT, new_page, std.math.maxInt(SparseT));
+                @memset(new_page, std.math.maxInt(SparseT));
                 self.sparse.items[pos] = new_page;
             }
 
@@ -173,7 +174,7 @@ pub fn SparseSet(comptime SparseT: type) type {
         pub fn sort(self: *Self, context: anytype, comptime lessThan: *const fn (@TypeOf(context), SparseT, SparseT) bool) void {
             std_sort_insertionSort_clone(SparseT, self.dense.items, context, lessThan);
 
-            for (self.dense.items) |_, i| {
+            for (self.dense.items, 0..) |_, i| {
                 const item = @intCast(SparseT, i);
                 self.sparse.items[self.page(self.dense.items[self.page(item)])].?[self.offset(self.dense.items[self.page(item)])] = @intCast(SparseT, i);
             }
@@ -184,7 +185,7 @@ pub fn SparseSet(comptime SparseT: type) type {
         pub fn arrange(self: *Self, length: usize, context: anytype, comptime lessThan: *const fn (@TypeOf(context), SparseT, SparseT) bool, swap_context: anytype) void {
             std_sort_insertionSort_clone(SparseT, self.dense.items[0..length], context, lessThan);
 
-            for (self.dense.items[0..length]) |_, pos| {
+            for (self.dense.items[0..length], 0..) |_, pos| {
                 var curr = @intCast(SparseT, pos);
                 var next = self.index(self.dense.items[curr]);
 
@@ -213,7 +214,7 @@ pub fn SparseSet(comptime SparseT: type) type {
         }
 
         pub fn clear(self: *Self) void {
-            for (self.sparse.items) |array, i| {
+            for (self.sparse.items, 0..) |array, i| {
                 if (array) |arr| {
                     self.sparse.allocator.free(arr);
                     self.sparse.items[i] = null;
@@ -358,7 +359,7 @@ test "respect 2" {
 
     set.sort({}, desc_u32);
 
-    for (set.dense.items) |item, i| {
+    for (set.dense.items, 0..) |item, i| {
         if (i < set.dense.items.len - 1) {
             std.debug.assert(item > set.dense.items[i + 1]);
         }

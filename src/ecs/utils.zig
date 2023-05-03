@@ -81,12 +81,12 @@ pub fn sortSubSub(comptime T1: type, comptime T2: type, items: []T1, sub_items: 
 
 /// comptime string hashing for the type names
 pub fn typeId(comptime T: type) u32 {
-    comptime return hashStringFnv(u32, @typeName(T));
+    return hashStringFnv(u32, @typeName(T));
 }
 
 /// comptime string hashing for the type names
 pub fn typeId64(comptime T: type) u64 {
-    comptime return hashStringFnv(u64, @typeName(T));
+    return hashStringFnv(u64, @typeName(T));
 }
 
 /// u32 Fowler-Noll-Vo string hash
@@ -126,7 +126,7 @@ test "ReverseSliceIterator" {
     var slice = std.testing.allocator.alloc(usize, 10) catch unreachable;
     defer std.testing.allocator.free(slice);
 
-    for (slice) |*item, i| {
+    for (slice, 0..) |*item, i| {
         item.* = i;
     }
 

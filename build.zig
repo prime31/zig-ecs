@@ -9,7 +9,10 @@ pub fn build(b: *Builder) void {
     });
 
     // use a different cache folder for macos arm builds
-    b.cache_root = if (builtin.os.tag == .macos and builtin.target.cpu.arch == .aarch64) "zig-arm-cache" else "zig-cache";
+    b.cache_root = .{
+        .handle = std.fs.cwd(),
+        .path = if (builtin.os.tag == .macos and builtin.target.cpu.arch == .aarch64) "zig-arm-cache" else "zig-cache",
+    };
 
     const examples = [_][2][]const u8{
         [_][]const u8{ "view_vs_group", "examples/view_vs_group.zig" },
@@ -17,7 +20,7 @@ pub fn build(b: *Builder) void {
         [_][]const u8{ "simple", "examples/simple.zig" },
     };
 
-    for (examples) |example, i| {
+    for (examples, 0..) |example, i| {
         const name = if (i == 0) "ecs" else example[0];
         const source = example[1];
 
@@ -26,17 +29,18 @@ pub fn build(b: *Builder) void {
             .root_source_file = std.build.FileSource{ .path = source },
             .optimize = optimize,
         });
-        exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
+        // exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
+        exe.output_dirname_source = .{ .path = std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root.path.?, "bin" }) catch unreachable, .step = &exe.step };
         exe.addModule("ecs", ecs_module);
         exe.linkLibC();
 
         const docs = exe;
         docs.emit_docs = .emit;
 
-        const doc = b.step("docs", "Generate documentation");
+        const doc = b.step(b.fmt("{s}-docs", .{name}), "Generate documentation");
         doc.dependOn(&docs.step);
 
-        const run_cmd = exe.run();
+        const run_cmd = b.addRunArtifact(exe);
         const exe_step = b.step(name, b.fmt("run {s}.zig", .{name}));
         exe_step.dependOn(&run_cmd.step);
 

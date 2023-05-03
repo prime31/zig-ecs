@@ -6,10 +6,10 @@ pub const Process = struct {
     const State = enum(u8) { uninitialized, running, paused, succeeded, failed, aborted, finished };
 
     updateFn: *const fn (self: *Process) void,
-    startFn: ?*const fn  (self: *Process) void = null,
-    abortedFn: ?*const fn  (self: *Process) void = null,
-    failedFn: ?*const fn  (self: *Process) void = null,
-    succeededFn: ?*const fn  (self: *Process) void = null,
+    startFn: ?*const fn (self: *Process) void = null,
+    abortedFn: ?*const fn (self: *Process) void = null,
+    failedFn: ?*const fn (self: *Process) void = null,
+    succeededFn: ?*const fn (self: *Process) void = null,
     deinit: *const fn (self: *Process, allocator: std.mem.Allocator) void = undefined,
 
     state: State = .uninitialized,

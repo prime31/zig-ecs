@@ -85,7 +85,7 @@ pub const OwningGroup = struct {
                 const component_info = @typeInfo(Components).Struct;
 
                 var component_ptrs: [component_info.fields.len][*]u8 = undefined;
-                inline for (component_info.fields) |field, i| {
+                inline for (component_info.fields, 0..) |field, i| {
                     const storage = group.registry.assure(@typeInfo(field.type).Pointer.child);
                     component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
                 }
@@ -104,7 +104,7 @@ pub const OwningGroup = struct {
 
                 // fill and return the struct
                 var comps: Components = undefined;
-                inline for (@typeInfo(Components).Struct.fields) |field, i| {
+                inline for (@typeInfo(Components).Struct.fields, 0..) |field, i| {
                     const typed_ptr = @ptrCast([*]@typeInfo(field.type).Pointer.child, @alignCast(@alignOf(@typeInfo(field.type).Pointer.child), it.component_ptrs[i]));
                     @field(comps, field.name) = &typed_ptr[it.index];
                 }
@@ -173,7 +173,7 @@ pub const OwningGroup = struct {
         const component_info = @typeInfo(Components).Struct;
 
         var component_ptrs: [component_info.fields.len][*]u8 = undefined;
-        inline for (component_info.fields) |field, i| {
+        inline for (component_info.fields, 0..) |field, i| {
             const storage = self.registry.assure(std.meta.Child(field.type));
             component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
         }
@@ -181,7 +181,7 @@ pub const OwningGroup = struct {
         // fill the struct
         const index = self.firstOwnedStorage().set.index(entity);
         var comps: Components = undefined;
-        inline for (component_info.fields) |field, i| {
+        inline for (component_info.fields, 0..) |field, i| {
             const typed_ptr = @ptrCast([*]std.meta.Child(field.type), @alignCast(@alignOf(std.meta.Child(field.type)), component_ptrs[i]));
             @field(comps, field.name) = &typed_ptr[index];
         }
@@ -191,8 +191,7 @@ pub const OwningGroup = struct {
 
     pub fn each(self: OwningGroup, comptime func: anytype) void {
         const Components = switch (@typeInfo(@TypeOf(func))) {
-            .BoundFn => |func_info| func_info.args[1].arg_type.?,
-            .Fn => |func_info| func_info.args[0].arg_type.?,
+            .Fn => |func_info| func_info.params[0].type.?,
             else => std.debug.assert("invalid func"),
         };
         self.validate(Components);
