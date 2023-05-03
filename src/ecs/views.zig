@@ -69,10 +69,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             pub fn init(view: *Self) Iterator {
                 const ptr = view.registry.components.get(view.type_ids[0]).?;
                 const internal_it = @intToPtr(*Storage(u8), ptr).set.reverseIterator();
-                return .{
-                    .view = view,
-                    .internal_it = internal_it
-                };
+                return .{ .view = view, .internal_it = internal_it };
             }
 
             pub fn next(it: *Iterator) ?Entity {
@@ -130,7 +127,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
         fn sort(self: *Self) void {
             // get our component counts in an array so we can sort the type_ids based on how many entities are in each
             var sub_items: [n_includes]usize = undefined;
-            for (self.type_ids) |tid, i| {
+            for (self.type_ids, 0..) |tid, i| {
                 const ptr = self.registry.components.get(tid).?;
                 const store = @intToPtr(*Storage(u8), ptr);
                 sub_items[i] = store.len();
@@ -201,7 +198,7 @@ test "single basic view data" {
 
     try std.testing.expectEqual(view.get(3).*, 30);
 
-    for (view.data()) |entity, i| {
+    for (view.data(), 0..) |entity, i| {
         if (i == 0)
             try std.testing.expectEqual(entity, 3);
         if (i == 1)
@@ -210,7 +207,7 @@ test "single basic view data" {
             try std.testing.expectEqual(entity, 7);
     }
 
-    for (view.raw()) |data, i| {
+    for (view.raw(), 0..) |data, i| {
         if (i == 0)
             try std.testing.expectEqual(data, 30);
         if (i == 1)

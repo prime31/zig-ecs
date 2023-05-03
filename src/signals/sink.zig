@@ -18,7 +18,7 @@ pub fn Sink(comptime Event: type) type {
             return Self{ .insert_index = owning_signal.calls.items.len };
         }
 
-        pub fn before(self: Self, callback: ?*const fn  (Event) void) Self {
+        pub fn before(self: Self, callback: ?*const fn (Event) void) Self {
             if (callback) |cb| {
                 if (self.indexOf(cb)) |index| {
                     return Self{ .insert_index = index };
@@ -59,7 +59,7 @@ pub fn Sink(comptime Event: type) type {
         }
 
         fn indexOf(_: Self, callback: *const fn (Event) void) ?usize {
-            for (owning_signal.calls.items) |call, i| {
+            for (owning_signal.calls.items, 0..) |call, i| {
                 if (call.containsFree(callback)) {
                     return i;
                 }
@@ -68,7 +68,7 @@ pub fn Sink(comptime Event: type) type {
         }
 
         fn indexOfBound(_: Self, ctx: anytype) ?usize {
-            for (owning_signal.calls.items) |call, i| {
+            for (owning_signal.calls.items, 0..) |call, i| {
                 if (call.containsBound(ctx)) {
                     return i;
                 }

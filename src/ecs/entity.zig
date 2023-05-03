@@ -17,17 +17,17 @@ fn EntityTraitsDefinition(comptime EntityType: type, comptime IndexType: type, c
     std.debug.assert(std.meta.trait.isUnsignedInt(EntityType));
     std.debug.assert(std.meta.trait.isUnsignedInt(IndexType));
     std.debug.assert(std.meta.trait.isUnsignedInt(VersionType));
-    
+
     const sizeOfIndexType = @bitSizeOf(IndexType);
     const sizeOfVersionType = @bitSizeOf(VersionType);
     const entityShift = sizeOfIndexType;
-    
+
     if (sizeOfIndexType + sizeOfVersionType != @bitSizeOf(EntityType))
         @compileError("IndexType and VersionType must sum to EntityType's bit count");
 
     const entityMask = std.math.maxInt(IndexType);
     const versionMask = std.math.maxInt(VersionType);
-    
+
     return struct {
         entity_type: type = EntityType,
         index_type: type = IndexType,

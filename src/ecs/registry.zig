@@ -146,7 +146,7 @@ pub const Registry = struct {
         /// which ensures more specialized (ie less matches) will always be swapping inside the bounds of
         /// the less specialized groups.
         fn findInsertionIndex(self: GroupData, groups: []*GroupData) ?usize {
-            for (groups) |grp, i| {
+            for (groups, 0..) |grp, i| {
                 var overlapping: u8 = 0;
                 for (grp.owned) |grp_owned| {
                     if (std.mem.indexOfScalar(u32, self.owned, grp_owned)) |_| overlapping += 1;
@@ -443,13 +443,13 @@ pub const Registry = struct {
             return BasicView(includes[0]).init(self.assure(includes[0]));
 
         var includes_arr: [includes.len]u32 = undefined;
-        inline for (includes) |t, i| {
+        inline for (includes, 0..) |t, i| {
             _ = self.assure(t);
             includes_arr[i] = utils.typeId(t);
         }
 
         var excludes_arr: [excludes.len]u32 = undefined;
-        inline for (excludes) |t, i| {
+        inline for (excludes, 0..) |t, i| {
             _ = self.assure(t);
             excludes_arr[i] = utils.typeId(t);
         }
@@ -486,19 +486,19 @@ pub const Registry = struct {
 
         // gather up all our Types as typeIds
         var includes_arr: [includes.len]u32 = undefined;
-        inline for (includes) |t, i| {
+        inline for (includes, 0..) |t, i| {
             _ = self.assure(t);
             includes_arr[i] = utils.typeId(t);
         }
 
         var excludes_arr: [excludes.len]u32 = undefined;
-        inline for (excludes) |t, i| {
+        inline for (excludes, 0..) |t, i| {
             _ = self.assure(t);
             excludes_arr[i] = utils.typeId(t);
         }
 
         var owned_arr: [owned.len]u32 = undefined;
-        inline for (owned) |t, i| {
+        inline for (owned, 0..) |t, i| {
             _ = self.assure(t);
             owned_arr[i] = utils.typeId(t);
         }
@@ -628,7 +628,7 @@ pub const Registry = struct {
             };
 
             var names: [types.len][]const u8 = undefined;
-            for (names) |*name, i| {
+            for (&names, 0..) |*name, i| {
                 name.* = @typeName(types[i]);
             }
 
