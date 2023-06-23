@@ -4,7 +4,7 @@ const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
     const optimize = b.standardOptimizeOption(.{});
-    const ecs_module = b.createModule(.{
+    const ecs_module = b.addModule("zig-ecs", .{
         .source_file = std.build.FileSource{ .path = "src/ecs.zig" },
     });
 
