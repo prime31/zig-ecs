@@ -17,12 +17,13 @@ pub fn Delegate(comptime Event: type) type {
             std.debug.assert(@intFromPtr(ctx) != 0);
 
             const T = @TypeOf(ctx);
+            const BaseT = @typeInfo(T).Pointer.child;
             return Self{
                 .ctx_ptr_address = @intFromPtr(ctx),
                 .callback = .{
                     .bound = struct {
                         fn cb(self: usize, param: Event) void {
-                            @call(.always_inline, @field(@ptrFromInt(T, self), fn_name), .{param});
+                            @call(.always_inline, @field(BaseT, fn_name), .{ @ptrFromInt(T, self), param });
                         }
                     }.cb,
                 },

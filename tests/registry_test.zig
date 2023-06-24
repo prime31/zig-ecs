@@ -58,7 +58,7 @@ test "context not pointer" {
     // reg.setContext(pos);
 }
 
-test "context get/set/unset" {
+test "context get/set/unset typed" {
     const SomeType = struct { dummy: u1 };
 
     var reg = Registry.init(std.testing.allocator);
