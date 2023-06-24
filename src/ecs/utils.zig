@@ -7,7 +7,7 @@ pub const ErasedPtr = struct {
         if (@sizeOf(@TypeOf(ptr)) == 0) {
             return .{ .ptr = undefined };
         }
-        return .{ .ptr = @ptrToInt(ptr) };
+        return .{ .ptr = @intFromPtr(ptr) };
     }
 
     pub fn as(self: ErasedPtr, comptime T: type) *T {
@@ -19,7 +19,7 @@ pub const ErasedPtr = struct {
     pub fn asPtr(self: ErasedPtr, comptime PtrT: type) PtrT {
         if (@sizeOf(PtrT) == 0)
             return @as(PtrT, undefined);
-        return @intToPtr(PtrT, self.ptr);
+        return @ptrFromInt(PtrT, self.ptr);
     }
 };
 

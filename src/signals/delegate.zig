@@ -14,15 +14,15 @@ pub fn Delegate(comptime Event: type) type {
         /// sets a bound function as the Delegate callback
         pub fn initBound(ctx: anytype, comptime fn_name: []const u8) Self {
             std.debug.assert(@typeInfo(@TypeOf(ctx)) == .Pointer);
-            std.debug.assert(@ptrToInt(ctx) != 0);
+            std.debug.assert(@intFromPtr(ctx) != 0);
 
             const T = @TypeOf(ctx);
             return Self{
-                .ctx_ptr_address = @ptrToInt(ctx),
+                .ctx_ptr_address = @intFromPtr(ctx),
                 .callback = .{
                     .bound = struct {
                         fn cb(self: usize, param: Event) void {
-                            @call(.always_inline, @field(@intToPtr(T, self), fn_name), .{param});
+                            @call(.always_inline, @field(@ptrFromInt(T, self), fn_name), .{param});
                         }
                     }.cb,
                 },
@@ -51,11 +51,11 @@ pub fn Delegate(comptime Event: type) type {
         }
 
         pub fn containsBound(self: Self, ctx: anytype) bool {
-            std.debug.assert(@ptrToInt(ctx) != 0);
+            std.debug.assert(@intFromPtr(ctx) != 0);
             std.debug.assert(@typeInfo(@TypeOf(ctx)) == .Pointer);
 
             return switch (self.callback) {
-                .bound => @ptrToInt(ctx) == self.ctx_ptr_address,
+                .bound => @intFromPtr(ctx) == self.ctx_ptr_address,
                 else => false,
             };
         }
