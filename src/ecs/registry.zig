@@ -553,7 +553,7 @@ pub const Registry = struct {
             // update super on all owned Storages to be the max of size and their current super value
             inline for (owned) |t| {
                 var storage = self.assure(t);
-                storage.super = std.math.max(storage.super, new_group_data.size);
+                storage.super = @max(storage.super, new_group_data.size);
             }
         }
 
