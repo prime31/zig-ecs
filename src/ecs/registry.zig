@@ -632,7 +632,7 @@ pub const Registry = struct {
                 name.* = @typeName(types[i]);
             }
 
-            std.sort.block([]const u8, &names, {}, impl.asc);
+            std.sort.pdq([]const u8, &names, {}, impl.asc);
 
             comptime var res: []const u8 = "";
             inline for (names) |name| res = res ++ name;
