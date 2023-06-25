@@ -138,7 +138,7 @@ pub const OwningGroup = struct {
     /// grabs an untyped (u1) reference to the first Storage(T) in the owned array
     fn firstOwnedStorage(self: OwningGroup) *Storage(u1) {
         const ptr = self.registry.components.get(self.group_data.owned[0]).?;
-        return @intToPtr(*Storage(u1), ptr);
+        return @ptrFromInt(*Storage(u1), ptr);
     }
 
     /// total number of entities in the group
@@ -265,7 +265,7 @@ pub const OwningGroup = struct {
             // skip the first one since its what we are using to sort with
             for (self.group_data.owned[1..]) |type_id| {
                 var other_ptr = self.registry.components.get(type_id).?;
-                var storage = @intToPtr(*Storage(u1), other_ptr);
+                var storage = @ptrFromInt(*Storage(u1), other_ptr);
                 storage.swap(storage.data()[pos], entity);
             }
         }

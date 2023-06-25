@@ -59,7 +59,7 @@ pub fn Cache(comptime T: type) type {
         pub fn remove(self: *@This(), id: u32) void {
             if (self.resources.fetchRemove(id)) |kv| {
                 if (@hasDecl(T, "deinit")) {
-                    @call(.always_inline, @field(kv.value, "deinit"), .{});
+                    @call(.always_inline, T.deinit, .{kv.value});
                 }
             }
         }
@@ -69,7 +69,7 @@ pub fn Cache(comptime T: type) type {
             if (@hasDecl(T, "deinit")) {
                 var iter = self.resources.iterator();
                 while (iter.next()) |kv| {
-                    @call(.always_inline, @field(kv.value_ptr.*, "deinit"), .{});
+                    @call(.always_inline, T.deinit, .{kv.value_ptr.*});
                 }
             }
             self.resources.clearAndFree();

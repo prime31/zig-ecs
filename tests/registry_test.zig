@@ -58,7 +58,7 @@ test "context not pointer" {
     // reg.setContext(pos);
 }
 
-test "context get/set/unset" {
+test "context get/set/unset typed" {
     const SomeType = struct { dummy: u1 };
 
     var reg = Registry.init(std.testing.allocator);
@@ -97,7 +97,7 @@ test "destroy" {
     var i = @as(u8, 0);
     while (i < 255) : (i += 1) {
         const e = reg.create();
-        reg.add(e, Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) });
+        reg.add(e, Position{ .x = @floatFromInt(f32, i), .y = @floatFromInt(f32, i) });
     }
 
     reg.destroy(3);
@@ -106,7 +106,7 @@ test "destroy" {
     i = 0;
     while (i < 6) : (i += 1) {
         if (i != 3 and i != 4)
-            try std.testing.expectEqual(Position{ .x = @intToFloat(f32, i), .y = @intToFloat(f32, i) }, reg.getConst(Position, i));
+            try std.testing.expectEqual(Position{ .x = @floatFromInt(f32, i), .y = @floatFromInt(f32, i) }, reg.getConst(Position, i));
     }
 }
 

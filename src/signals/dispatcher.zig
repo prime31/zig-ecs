@@ -18,7 +18,7 @@ pub const Dispatcher = struct {
         var iter = self.signals.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var signal = @intToPtr(*Signal(void), ptr.value_ptr.*);
+            var signal = @ptrFromInt(*Signal(void), ptr.value_ptr.*);
             signal.deinit();
         }
 
@@ -28,11 +28,11 @@ pub const Dispatcher = struct {
     fn assure(self: *Dispatcher, comptime T: type) *Signal(T) {
         var type_id = utils.typeId(T);
         if (self.signals.get(type_id)) |value| {
-            return @intToPtr(*Signal(T), value);
+            return @ptrFromInt(*Signal(T), value);
         }
 
         var signal = Signal(T).create(self.allocator);
-        var signal_ptr = @ptrToInt(signal);
+        var signal_ptr = @intFromPtr(signal);
         _ = self.signals.put(type_id, signal_ptr) catch unreachable;
         return signal;
     }
