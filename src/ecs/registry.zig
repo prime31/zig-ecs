@@ -322,7 +322,7 @@ pub const Registry = struct {
     }
 
     /// shortcut for add-or-replace raw comptime_int/float without having to @as cast
-    pub fn addOrReplaceTyped(self: *Registry, T: type, entity: Entity, value: T) void {
+    pub fn addOrReplaceTyped(self: *Registry, comptime T: type, entity: Entity, value: T) void {
         self.addOrReplace(entity, value);
     }
 
