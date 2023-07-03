@@ -142,7 +142,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             std.debug.assert(!self.contains(sparse));
 
             // assure(page(entt))[offset(entt)] = packed.size()
-            self.assure(self.page(sparse))[self.offset(sparse)] = @intCast(SparseT, self.dense.items.len);
+            self.assure(self.page(sparse))[self.offset(sparse)] = @as(SparseT, @intCast(self.dense.items.len));
             _ = self.dense.append(sparse) catch unreachable;
         }
 
@@ -175,8 +175,8 @@ pub fn SparseSet(comptime SparseT: type) type {
             std_sort_insertionSort_clone(SparseT, self.dense.items, context, lessThan);
 
             for (self.dense.items, 0..) |_, i| {
-                const item = @intCast(SparseT, i);
-                self.sparse.items[self.page(self.dense.items[self.page(item)])].?[self.offset(self.dense.items[self.page(item)])] = @intCast(SparseT, i);
+                const item = @as(SparseT, @intCast(i));
+                self.sparse.items[self.page(self.dense.items[self.page(item)])].?[self.offset(self.dense.items[self.page(item)])] = @as(SparseT, @intCast(i));
             }
         }
 
@@ -186,7 +186,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             std_sort_insertionSort_clone(SparseT, self.dense.items[0..length], context, lessThan);
 
             for (self.dense.items[0..length], 0..) |_, pos| {
-                var curr = @intCast(SparseT, pos);
+                var curr = @as(SparseT, @intCast(pos));
                 var next = self.index(self.dense.items[curr]);
 
                 while (curr != next) {
@@ -267,7 +267,7 @@ test "grow" {
 
     var i = @as(usize, std.math.maxInt(u8));
     while (i > 0) : (i -= 1) {
-        set.add(@intCast(u32, i));
+        set.add(@as(u32, @intCast(i)));
     }
 
     try std.testing.expectEqual(set.len(), std.math.maxInt(u8));
@@ -314,7 +314,7 @@ test "iterate" {
     set.add(2);
     set.add(3);
 
-    var i: u32 = @intCast(u32, set.len()) - 1;
+    var i: u32 = @as(u32, @intCast(set.len())) - 1;
     var iter = set.reverseIterator();
     while (iter.next()) |entity| {
         try std.testing.expectEqual(i, entity);

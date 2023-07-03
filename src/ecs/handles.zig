@@ -59,11 +59,11 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
         }
 
         pub fn extractId(_: Self, handle: HandleType) IndexType {
-            return @truncate(IndexType, handle & registry.entity_traits.entity_mask);
+            return @as(IndexType, @truncate(handle & registry.entity_traits.entity_mask));
         }
 
         pub fn extractVersion(_: Self, handle: HandleType) VersionType {
-            return @truncate(VersionType, handle >> registry.entity_traits.entity_shift);
+            return @as(VersionType, @truncate(handle >> registry.entity_traits.entity_shift));
         }
 
         fn forge(id: IndexType, version: VersionType) HandleType {

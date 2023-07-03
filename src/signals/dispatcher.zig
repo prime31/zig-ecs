@@ -18,7 +18,7 @@ pub const Dispatcher = struct {
         var iter = self.signals.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var signal = @ptrFromInt(*Signal(void), ptr.value_ptr.*);
+            var signal = @as(*Signal(void), @ptrFromInt(ptr.value_ptr.*));
             signal.deinit();
         }
 
@@ -28,7 +28,7 @@ pub const Dispatcher = struct {
     fn assure(self: *Dispatcher, comptime T: type) *Signal(T) {
         var type_id = utils.typeId(T);
         if (self.signals.get(type_id)) |value| {
-            return @ptrFromInt(*Signal(T), value);
+            return @as(*Signal(T), @ptrFromInt(value));
         }
 
         var signal = Signal(T).create(self.allocator);

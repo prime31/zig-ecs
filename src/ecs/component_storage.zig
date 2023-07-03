@@ -393,7 +393,7 @@ test "sort empty component" {
     const asc_u32 = comptime std.sort.asc(u32);
     store.sort(u32, {}, asc_u32);
     for (store.data(), 0..) |e, i| {
-        try std.testing.expectEqual(@intCast(u32, i), e);
+        try std.testing.expectEqual(@as(u32, @intCast(i)), e);
     }
 
     const desc_u32 = comptime std.sort.desc(u32);

@@ -30,7 +30,7 @@ fn createEntities(reg: *ecs.Registry) void {
     }
 
     var end = timer.lap();
-    std.debug.print("create {d} entities: {d}\n", .{ total_entities, @intToFloat(f64, end) / 1000000000 });
+    std.debug.print("create {d} entities: {d}\n", .{ total_entities, @as(f64, @floatFromInt(end)) / 1000000000 });
 }
 
 fn owningGroup(reg: *ecs.Registry) void {
@@ -50,12 +50,12 @@ fn owningGroup(reg: *ecs.Registry) void {
     var timer = std.time.Timer.start() catch unreachable;
     group.sort(Position, {}, SortContext.sort);
     var end = timer.lap();
-    std.debug.print("group (sort): {d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (sort): {d}\n", .{@as(f64, @floatFromInt(end)) / 1000000000});
 
     timer.reset();
     group.sort(Position, {}, SortContext.sort);
     end = timer.lap();
-    std.debug.print("group (sort 2): {d}\n", .{@intToFloat(f64, end) / 1000000000});
+    std.debug.print("group (sort 2): {d}\n", .{@as(f64, @floatFromInt(end)) / 1000000000});
 
     // var group_iter2 = group.iterator(struct { vel: *Velocity, pos: *Position });
     // while (group_iter2.next()) |e| {

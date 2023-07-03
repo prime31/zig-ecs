@@ -55,7 +55,7 @@ pub const Registry = struct {
             // std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
             var group_data = allocator.create(GroupData) catch unreachable;
             group_data.hash = hash;
-            group_data.size = @intCast(u8, owned.len + include.len + exclude.len);
+            group_data.size = @as(u8, @intCast(owned.len + include.len + exclude.len));
             if (owned.len == 0) {
                 group_data.entity_set = SparseSet(Entity).init(allocator);
             }
@@ -83,19 +83,19 @@ pub const Registry = struct {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
                     const ptr = self.registry.components.get(tid).?;
-                    if (!@ptrFromInt(*Storage(u1), ptr).contains(entity))
+                    if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
                         break :blk false;
                 }
 
                 for (self.include) |tid| {
                     const ptr = self.registry.components.get(tid).?;
-                    if (!@ptrFromInt(*Storage(u1), ptr).contains(entity))
+                    if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
                         break :blk false;
                 }
 
                 for (self.exclude) |tid| {
                     const ptr = self.registry.components.get(tid).?;
-                    if (@ptrFromInt(*Storage(u1), ptr).contains(entity))
+                    if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
                         break :blk false;
                 }
                 break :blk true;
@@ -108,11 +108,11 @@ pub const Registry = struct {
             } else {
                 if (isValid) {
                     const ptr = self.registry.components.get(self.owned[0]).?;
-                    if (!(@ptrFromInt(*Storage(u1), ptr).set.index(entity) < self.current)) {
+                    if (!(@as(*Storage(u1), @ptrFromInt(ptr)).set.index(entity) < self.current)) {
                         for (self.owned) |tid| {
                             // store.swap hides a safe version that types it correctly
                             const store_ptr = self.registry.components.get(tid).?;
-                            var store = @ptrFromInt(*Storage(u1), store_ptr);
+                            var store = @as(*Storage(u1), @ptrFromInt(store_ptr));
                             store.swap(store.data()[self.current], entity);
                         }
                         self.current += 1;
@@ -129,12 +129,12 @@ pub const Registry = struct {
                 }
             } else {
                 const ptr = self.registry.components.get(self.owned[0]).?;
-                var store = @ptrFromInt(*Storage(u1), ptr);
+                var store = @as(*Storage(u1), @ptrFromInt(ptr));
                 if (store.contains(entity) and store.set.index(entity) < self.current) {
                     self.current -= 1;
                     for (self.owned) |tid| {
                         const store_ptr = self.registry.components.get(tid).?;
-                        store = @ptrFromInt(*Storage(u1), store_ptr);
+                        store = @as(*Storage(u1), @ptrFromInt(store_ptr));
                         store.swap(store.data()[self.current], entity);
                     }
                 }
@@ -199,7 +199,7 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var storage = @ptrFromInt(*Storage(u1), ptr.*);
+            var storage = @as(*Storage(u1), @ptrFromInt(ptr.*));
             storage.deinit();
         }
 
@@ -217,7 +217,7 @@ pub const Registry = struct {
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
         var type_id = utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
-            return @ptrFromInt(*Storage(T), kv.value_ptr.*);
+            return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
         }
 
         var comp_set = Storage(T).initPtr(self.allocator);
@@ -262,7 +262,7 @@ pub const Registry = struct {
 
     /// Returns the version stored along with an entity identifier
     pub fn version(_: *Registry, entity: Entity) entity_traits.version_type {
-        return @truncate(entity_traits.version_type, entity >> entity_traits.entity_shift);
+        return @as(entity_traits.version_type, @truncate(entity >> entity_traits.entity_shift));
     }
 
     /// Creates a new entity and returns it
@@ -322,7 +322,7 @@ pub const Registry = struct {
     }
 
     /// shortcut for add-or-replace raw comptime_int/float without having to @as cast
-    pub fn addOrReplaceTyped(self: *Registry, T: type, entity: Entity, value: T) void {
+    pub fn addOrReplaceTyped(self: *Registry, comptime T: type, entity: Entity, value: T) void {
         self.addOrReplace(entity, value);
     }
 
@@ -347,7 +347,7 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |value| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
-            var store = @ptrFromInt(*Storage(u1), value.*);
+            var store = @as(*Storage(u1), @ptrFromInt(value.*));
             store.removeIfContains(entity);
         }
     }
@@ -412,7 +412,7 @@ pub const Registry = struct {
         std.debug.assert(@typeInfo(T) != .Pointer);
 
         return if (self.contexts.get(utils.typeId(T))) |ptr|
-            return if (ptr > 0) @ptrFromInt(*T, ptr) else null
+            return if (ptr > 0) @as(*T, @ptrFromInt(ptr)) else null
         else
             null;
     }

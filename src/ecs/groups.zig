@@ -87,7 +87,7 @@ pub const OwningGroup = struct {
                 var component_ptrs: [component_info.fields.len][*]u8 = undefined;
                 inline for (component_info.fields, 0..) |field, i| {
                     const storage = group.registry.assure(@typeInfo(field.type).Pointer.child);
-                    component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
+                    component_ptrs[i] = @as([*]u8, @ptrCast(storage.instances.items.ptr));
                 }
 
                 return .{
@@ -105,7 +105,7 @@ pub const OwningGroup = struct {
                 // fill and return the struct
                 var comps: Components = undefined;
                 inline for (@typeInfo(Components).Struct.fields, 0..) |field, i| {
-                    const typed_ptr = @ptrCast([*]@typeInfo(field.type).Pointer.child, @alignCast(@alignOf(@typeInfo(field.type).Pointer.child), it.component_ptrs[i]));
+                    const typed_ptr = @as([*]@typeInfo(field.type).Pointer.child, @ptrCast(@alignCast(it.component_ptrs[i])));
                     @field(comps, field.name) = &typed_ptr[it.index];
                 }
                 return comps;
@@ -138,7 +138,7 @@ pub const OwningGroup = struct {
     /// grabs an untyped (u1) reference to the first Storage(T) in the owned array
     fn firstOwnedStorage(self: OwningGroup) *Storage(u1) {
         const ptr = self.registry.components.get(self.group_data.owned[0]).?;
-        return @ptrFromInt(*Storage(u1), ptr);
+        return @as(*Storage(u1), @ptrFromInt(ptr));
     }
 
     /// total number of entities in the group
@@ -175,14 +175,14 @@ pub const OwningGroup = struct {
         var component_ptrs: [component_info.fields.len][*]u8 = undefined;
         inline for (component_info.fields, 0..) |field, i| {
             const storage = self.registry.assure(std.meta.Child(field.type));
-            component_ptrs[i] = @ptrCast([*]u8, storage.instances.items.ptr);
+            component_ptrs[i] = @as([*]u8, @ptrCast(storage.instances.items.ptr));
         }
 
         // fill the struct
         const index = self.firstOwnedStorage().set.index(entity);
         var comps: Components = undefined;
         inline for (component_info.fields, 0..) |field, i| {
-            const typed_ptr = @ptrCast([*]std.meta.Child(field.type), @alignCast(@alignOf(std.meta.Child(field.type)), component_ptrs[i]));
+            const typed_ptr = @as([*]std.meta.Child(field.type), @ptrCast(@alignCast(component_ptrs[i])));
             @field(comps, field.name) = &typed_ptr[index];
         }
 
@@ -265,7 +265,7 @@ pub const OwningGroup = struct {
             // skip the first one since its what we are using to sort with
             for (self.group_data.owned[1..]) |type_id| {
                 var other_ptr = self.registry.components.get(type_id).?;
-                var storage = @ptrFromInt(*Storage(u1), other_ptr);
+                var storage = @as(*Storage(u1), @ptrFromInt(other_ptr));
                 storage.swap(storage.data()[pos], entity);
             }
         }

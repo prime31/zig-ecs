@@ -19,7 +19,7 @@ pub const ErasedPtr = struct {
     pub fn asPtr(self: ErasedPtr, comptime PtrT: type) PtrT {
         if (@sizeOf(PtrT) == 0)
             return @as(PtrT, undefined);
-        return @ptrFromInt(PtrT, self.ptr);
+        return @as(PtrT, @ptrFromInt(self.ptr));
     }
 };
 
@@ -101,7 +101,7 @@ pub fn hashStringFnv(comptime ReturnType: type, comptime str: []const u8) Return
     const prime = if (ReturnType == u32) @as(u32, 16777619) else @as(u64, 1099511628211);
     var value = if (ReturnType == u32) @as(u32, 2166136261) else @as(u64, 14695981039346656037);
     for (str) |c| {
-        value = (value ^ @intCast(u32, c)) *% prime;
+        value = (value ^ @as(u32, @intCast(c))) *% prime;
     }
     return value;
 }
@@ -110,7 +110,7 @@ pub fn hashStringFnv(comptime ReturnType: type, comptime str: []const u8) Return
 pub fn hashStringDjb2(comptime str: []const u8) comptime_int {
     var hash: comptime_int = 5381;
     for (str) |c| {
-        hash = ((hash << 5) + hash) + @intCast(comptime_int, c);
+        hash = ((hash << 5) + hash) + @as(comptime_int, @intCast(c));
     }
     return hash;
 }
