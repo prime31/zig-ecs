@@ -316,6 +316,7 @@ pub const Registry = struct {
         const store = self.assure(@TypeOf(value));
         if (store.tryGet(entity)) |found| {
             found.* = value;
+            store.update.publish(entity);
         } else {
             store.add(entity, value);
         }
@@ -369,9 +370,10 @@ pub const Registry = struct {
 
     /// Returns a reference to the given component for an entity creating it if necessary
     pub fn getOrAdd(self: *Registry, comptime T: type, entity: Entity) *T {
-        if (self.has(T, entity)) return self.get(T, entity);
-        self.add(T, entity, std.mem.zeros(T));
-        return self.get(T, type);
+        if (!self.has(T, entity)) {
+            self.addTyped(T, entity, .{});
+        }
+        return self.get(T, entity);
     }
 
     pub fn tryGet(self: *Registry, comptime T: type, entity: Entity) ?*T {
