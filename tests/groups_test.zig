@@ -30,8 +30,8 @@ test "sort BasicGroup by Entity" {
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var e = reg.create();
-        reg.add(e, Sprite{ .x = @floatFromInt(f32, i) });
-        reg.add(e, Renderable{ .x = @floatFromInt(f32, i) });
+        reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
+        reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
 
     const SortContext = struct {
@@ -64,8 +64,8 @@ test "sort BasicGroup by Component" {
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var e = reg.create();
-        reg.add(e, Sprite{ .x = @floatFromInt(f32, i) });
-        reg.add(e, Renderable{ .x = @floatFromInt(f32, i) });
+        reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
+        reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
 
     const SortContext = struct {
@@ -92,8 +92,8 @@ test "sort OwningGroup by Entity" {
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var e = reg.create();
-        reg.add(e, Sprite{ .x = @floatFromInt(f32, i) });
-        reg.add(e, Renderable{ .x = @floatFromInt(f32, i) });
+        reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
+        reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
 
     const SortContext = struct {
@@ -125,8 +125,8 @@ test "sort OwningGroup by Component" {
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var e = reg.create();
-        reg.add(e, Sprite{ .x = @floatFromInt(f32, i) });
-        reg.add(e, Renderable{ .x = @floatFromInt(f32, i) });
+        reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
+        reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
 
     const SortContext = struct {
@@ -153,11 +153,11 @@ test "sort OwningGroup by Component ensure unsorted non-matches" {
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var e = reg.create();
-        reg.add(e, Sprite{ .x = @floatFromInt(f32, i) });
-        reg.add(e, Renderable{ .x = @floatFromInt(f32, i) });
+        reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
+        reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
 
         var e2 = reg.create();
-        reg.add(e2, Sprite{ .x = @floatFromInt(f32, i + 1 * 50) });
+        reg.add(e2, Sprite{ .x = @as(f32, @floatFromInt(i + 1 * 50)) });
     }
 
     try std.testing.expectEqual(group.len(), 5);
@@ -223,8 +223,8 @@ test "nested OwningGroups entity order" {
     var i: usize = 0;
     while (i < 5) : (i += 1) {
         var e = reg.create();
-        reg.add(e, Sprite{ .x = @floatFromInt(f32, i) });
-        reg.add(e, Renderable{ .x = @floatFromInt(f32, i) });
+        reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
+        reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
 
     try std.testing.expectEqual(group1.len(), 5);

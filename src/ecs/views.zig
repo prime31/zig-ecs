@@ -68,7 +68,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
 
             pub fn init(view: *Self) Iterator {
                 const ptr = view.registry.components.get(view.type_ids[0]).?;
-                const internal_it = @ptrFromInt(*Storage(u8), ptr).set.reverseIterator();
+                const internal_it = @as(*Storage(u8), @ptrFromInt(ptr)).set.reverseIterator();
                 return .{ .view = view, .internal_it = internal_it };
             }
 
@@ -77,7 +77,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
                     // entity must be in all other Storages
                     for (it.view.type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
-                        if (!@ptrFromInt(*Storage(u1), ptr).contains(entity)) {
+                        if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
                             break :blk;
                         }
                     }
@@ -85,7 +85,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
                     // entity must not be in all other excluded Storages
                     for (it.view.exclude_type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
-                        if (@ptrFromInt(*Storage(u1), ptr).contains(entity)) {
+                        if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
                             break :blk;
                         }
                     }
@@ -104,7 +104,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
 
             fn getInternalIteratorInstance(it: *Iterator) ReverseSliceIterator(Entity) {
                 const ptr = it.view.registry.components.get(it.view.type_ids[0]).?;
-                return @ptrFromInt(*Storage(u8), ptr).set.reverseIterator();
+                return @as(*Storage(u8), @ptrFromInt(ptr)).set.reverseIterator();
             }
         };
 
@@ -129,7 +129,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             var sub_items: [n_includes]usize = undefined;
             for (self.type_ids, 0..) |tid, i| {
                 const ptr = self.registry.components.get(tid).?;
-                const store = @ptrFromInt(*Storage(u8), ptr);
+                const store = @as(*Storage(u8), @ptrFromInt(ptr));
                 sub_items[i] = store.len();
             }
 
