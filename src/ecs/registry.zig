@@ -14,7 +14,7 @@ const root = @import("root");
 pub const entity_traits = if (@hasDecl(root, "EntityTraits")) root.EntityTraits.init() else @import("entity.zig").EntityTraits.init();
 
 // setup the Handles type based on the type set in EntityTraits
-const EntityHandles = Handles(entity_traits.entity_type, entity_traits.index_type, entity_traits.version_type);
+pub const EntityHandles = Handles(entity_traits.entity_type, entity_traits.index_type, entity_traits.version_type);
 pub const Entity = entity_traits.entity_type;
 
 const BasicView = @import("views.zig").BasicView;
