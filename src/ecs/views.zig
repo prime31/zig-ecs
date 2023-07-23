@@ -142,7 +142,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             utils.sortSub(usize, u32, sub_items[0..], self.type_ids[0..], asc_usize.sort);
         }
 
-        pub fn iterator(self: *Self) Iterator {
+        pub fn entityIterator(self: *Self) Iterator {
             self.sort();
             return Iterator.init(self);
         }
