@@ -571,7 +571,7 @@ pub const Registry = struct {
         // pre-fill the GroupData with any existing entitites that match
         if (owned.len == 0) {
             var view_instance = self.view(owned ++ includes, excludes);
-            var view_iter = view_instance.iterator();
+            var view_iter = view_instance.entityIterator();
             while (view_iter.next()) |entity| {
                 new_group_data.entity_set.add(entity);
             }

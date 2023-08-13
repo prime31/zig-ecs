@@ -238,7 +238,7 @@ test "basic multi view" {
     var view = reg.view(.{ i32, u32 }, .{});
 
     var iterated_entities: usize = 0;
-    var iter = view.iterator();
+    var iter = view.entityIterator();
     while (iter.next()) |_| {
         iterated_entities += 1;
     }
@@ -276,7 +276,7 @@ test "basic multi view with excludes" {
     var view = reg.view(.{ i32, u32 }, .{u8});
 
     var iterated_entities: usize = 0;
-    var iter = view.iterator();
+    var iter = view.entityIterator();
     while (iter.next()) |_| {
         iterated_entities += 1;
     }
