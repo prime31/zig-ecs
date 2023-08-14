@@ -30,12 +30,12 @@ pub fn build(b: *Builder) void {
             .optimize = optimize,
         });
         // exe.setOutputDir(std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root, "bin" }) catch unreachable);
-        exe.output_dirname_source = .{ .path = std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root.path.?, "bin" }) catch unreachable, .step = &exe.step };
+        // exe.output_dirname_source = .{ .path = std.fs.path.join(b.allocator, &[_][]const u8{ b.cache_root.path.?, "bin" }) catch unreachable, .step = &exe.step };
         exe.addModule("ecs", ecs_module);
         exe.linkLibC();
 
         const docs = exe;
-        docs.emit_docs = .emit;
+        // docs.emit_docs = .emit;
 
         const doc = b.step(b.fmt("{s}-docs", .{name}), "Generate documentation");
         doc.dependOn(&docs.step);

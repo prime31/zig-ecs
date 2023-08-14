@@ -38,7 +38,7 @@ fn iterateView(reg: *ecs.Registry) void {
     var view = reg.view(.{ Velocity, Position }, .{});
 
     var timer = std.time.Timer.start() catch unreachable;
-    var iter = view.iterator();
+    var iter = view.entityIterator();
     while (iter.next()) |entity| {
         var pos = view.get(Position, entity);
         const vel = view.getConst(Velocity, entity);
