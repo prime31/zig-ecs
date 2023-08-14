@@ -459,6 +459,11 @@ pub const Registry = struct {
         return MultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
     }
 
+    pub fn basicView(self: *Registry, comptime Component: anytype) BasicView(Component) {
+        // just one include so use the optimized BasicView
+        return BasicView(Component).init(self.assure(Component));
+    }
+
     /// returns the Type that a view will be based on the includes and excludes
     fn ViewType(comptime includes: anytype, comptime excludes: anytype) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);

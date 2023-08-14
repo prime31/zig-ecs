@@ -36,11 +36,15 @@ pub fn Sink(comptime Event: type) type {
             return self;
         }
 
+        /// connects a callback `fn(Event) void` to this sink
+        /// NOTE: each callback can only be connected ONCE to the same sink
         pub fn connect(self: Self, callback: *const fn (Event) void) void {
             std.debug.assert(self.indexOf(callback) == null);
             _ = owning_signal.calls.insert(self.insert_index, Delegate(Event).initFree(callback)) catch unreachable;
         }
 
+        /// connects a context `fn ctx.fn_name(Event) void` to this sink
+        /// NOTE: each context can only be connected ONCE to the same sink
         pub fn connectBound(self: Self, ctx: anytype, comptime fn_name: []const u8) void {
             std.debug.assert(self.indexOfBound(ctx) == null);
             _ = owning_signal.calls.insert(self.insert_index, Delegate(Event).initBound(ctx, fn_name)) catch unreachable;
