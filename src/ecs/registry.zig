@@ -215,7 +215,7 @@ pub const Registry = struct {
     }
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
-        var type_id = utils.typeId(T);
+        const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
             return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
         }
