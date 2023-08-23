@@ -322,6 +322,36 @@ pub const Registry = struct {
         }
     }
 
+    /// same as addOrReplace but it returns the previous value (if any)
+    pub fn fetchReplace(self: *Registry, entity: Entity, value: anytype) ?@TypeOf(value) {
+        assert(self.valid(entity));
+
+        const store = self.assure(@TypeOf(value));
+        if (store.tryGet(entity)) |found| {
+            var old = found.*;
+            found.* = value;
+            store.update.publish(entity);
+            return old;
+        } else {
+            store.add(entity, value);
+            return null;
+        }
+    }
+
+    /// same as remove but it returns the previous value (if any)
+    pub fn fetchRemove(self: *Registry, comptime T: type, entity: Entity) ?T {
+        assert(self.valid(entity));
+
+        const store = self.assure(T);
+        if (store.tryGet(entity)) |found| {
+            var old = found.*;
+            store.remove(entity);
+            return old;
+        } else {
+            return null;
+        }
+    }
+
     /// shortcut for add-or-replace raw comptime_int/float without having to @as cast
     pub fn addOrReplaceTyped(self: *Registry, comptime T: type, entity: Entity, value: T) void {
         self.addOrReplace(entity, value);
