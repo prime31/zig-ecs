@@ -215,7 +215,7 @@ pub const Registry = struct {
     }
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
-        var type_id = utils.typeId(T);
+        const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
             return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
         }
@@ -319,6 +319,36 @@ pub const Registry = struct {
             store.update.publish(entity);
         } else {
             store.add(entity, value);
+        }
+    }
+
+    /// same as addOrReplace but it returns the previous value (if any)
+    pub fn fetchReplace(self: *Registry, entity: Entity, value: anytype) ?@TypeOf(value) {
+        assert(self.valid(entity));
+
+        const store = self.assure(@TypeOf(value));
+        if (store.tryGet(entity)) |found| {
+            var old = found.*;
+            found.* = value;
+            store.update.publish(entity);
+            return old;
+        } else {
+            store.add(entity, value);
+            return null;
+        }
+    }
+
+    /// same as remove but it returns the previous value (if any)
+    pub fn fetchRemove(self: *Registry, comptime T: type, entity: Entity) ?T {
+        assert(self.valid(entity));
+
+        const store = self.assure(T);
+        if (store.tryGet(entity)) |found| {
+            var old = found.*;
+            store.remove(entity);
+            return old;
+        } else {
+            return null;
         }
     }
 
@@ -457,6 +487,11 @@ pub const Registry = struct {
         }
 
         return MultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
+    }
+
+    pub fn basicView(self: *Registry, comptime Component: anytype) BasicView(Component) {
+        // just one include so use the optimized BasicView
+        return BasicView(Component).init(self.assure(Component));
     }
 
     /// returns the Type that a view will be based on the includes and excludes
