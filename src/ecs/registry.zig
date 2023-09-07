@@ -494,6 +494,11 @@ pub const Registry = struct {
         return BasicView(Component).init(self.assure(Component));
     }
 
+    pub fn entityIterator(self: *Registry, comptime Component: anytype) utils.ReverseSliceIterator(Entity) {
+        // just one include so use the optimized BasicView
+        return BasicView(Component).init(self.assure(Component)).entityIterator();
+    }
+
     /// returns the Type that a view will be based on the includes and excludes
     fn ViewType(comptime includes: anytype, comptime excludes: anytype) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
