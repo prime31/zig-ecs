@@ -215,6 +215,10 @@ pub const Registry = struct {
     }
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
+        if (@typeInfo(@TypeOf(T)) == .Pointer) {
+            @compileError("assure must receive a value, not a pointer. Received: " ++ @typeName(T));
+        }
+
         const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
             return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
@@ -302,16 +306,23 @@ pub const Registry = struct {
     /// Replaces the given component for an entity
     pub fn replace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
+
         self.assure(@TypeOf(value)).replace(entity, value);
     }
 
     /// shortcut for replacing raw comptime_int/float without having to @as cast
     pub fn replaceTyped(self: *Registry, comptime T: type, entity: Entity, value: T) void {
+        if (@typeInfo(@TypeOf(value)) == .Pointer) {
+            @compileError("replaceTyped must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
+        }
         self.replace(entity, value);
     }
 
     pub fn addOrReplace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
+        if (@typeInfo(@TypeOf(value)) == .Pointer) {
+            @compileError("addOrReplace must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
+        }
 
         const store = self.assure(@TypeOf(value));
         if (store.tryGet(entity)) |found| {
