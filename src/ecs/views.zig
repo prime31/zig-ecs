@@ -227,7 +227,7 @@ test "basic multi view" {
     var e1 = reg.create();
     var e2 = reg.create();
 
-    reg.add(e0, @as(i32, -0));
+    reg.add(e0, @as(i32, 0));
     reg.add(e1, @as(i32, -1));
     reg.add(e2, @as(i32, -2));
 
@@ -264,7 +264,7 @@ test "basic multi view with excludes" {
     var e1 = reg.create();
     var e2 = reg.create();
 
-    reg.add(e0, @as(i32, -0));
+    reg.add(e0, @as(i32, 0));
     reg.add(e1, @as(i32, -1));
     reg.add(e2, @as(i32, -2));
 
