@@ -421,6 +421,16 @@ pub const Registry = struct {
         return self.assure(T).tryGet(entity);
     }
 
+    /// same as tryGet but it stores the result on the stack, this option tends to be preferrable when dealing
+    /// with complex logic that may create CPU cache misses
+    pub fn tryGetConst(self: *Registry, comptime T: type, entity: Entity) ?T {
+        if (self.assure(T).tryGet(entity)) |ptr| {
+            var ret: T = ptr.*;
+            return ret;
+        }
+        return null;
+    }
+
     /// Returns a Sink object for the given component to add/remove listeners with
     pub fn onConstruct(self: *Registry, comptime T: type) Sink(Entity) {
         return self.assure(T).onConstruct();
