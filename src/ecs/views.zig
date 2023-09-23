@@ -48,6 +48,10 @@ pub fn BasicView(comptime T: type) type {
             return utils.ReverseSliceIterator(T).init(self.storage.instances.items);
         }
 
+        pub fn mutIterator(self: Self) utils.ReverseSlicePointerIterator(T) {
+            return utils.ReverseSlicePointerIterator(T).init(self.storage.instances.items);
+        }
+
         pub fn entityIterator(self: Self) utils.ReverseSliceIterator(Entity) {
             return self.storage.set.reverseIterator();
         }

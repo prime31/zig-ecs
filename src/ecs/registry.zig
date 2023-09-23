@@ -532,7 +532,7 @@ pub const Registry = struct {
         std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
         std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(owned.len + includes.len > 0);
-        std.debug.assert(owned.len + includes.len + excludes.len > 1);
+        std.debug.assert(owned.len + includes.len + excludes.len >= 1);
 
         // create a unique hash to identify the group so that we can look it up
         const hash = comptime hashGroupTypes(owned, includes, excludes);
