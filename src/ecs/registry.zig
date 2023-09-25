@@ -334,7 +334,7 @@ pub const Registry = struct {
     }
 
     /// emits a signal for the onUpdate sink
-    pub fn signalUpdated(self: *Registry, comptime T: type, entity: Entity) void {
+    pub fn notifyUpdated(self: *Registry, comptime T: type, entity: Entity) void {
         assert(self.valid(entity));
 
         const store = self.assure(T);
