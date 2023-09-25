@@ -333,6 +333,16 @@ pub const Registry = struct {
         }
     }
 
+    /// emits a signal for the onUpdate sink
+    pub fn signalUpdated(self: *Registry, comptime T: type, entity: Entity) void {
+        assert(self.valid(entity));
+
+        const store = self.assure(T);
+        if (store.contains(entity)) {
+            store.update.publish(entity);
+        }
+    }
+
     /// same as addOrReplace but it returns the previous value (if any)
     pub fn fetchReplace(self: *Registry, entity: Entity, value: anytype) ?@TypeOf(value) {
         assert(self.valid(entity));
