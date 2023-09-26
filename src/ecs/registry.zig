@@ -215,6 +215,10 @@ pub const Registry = struct {
     }
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
+        if (@typeInfo(@TypeOf(T)) == .Pointer) {
+            @compileError("assure must receive a value, not a pointer. Received: " ++ @typeName(T));
+        }
+
         const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
             return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
@@ -302,16 +306,23 @@ pub const Registry = struct {
     /// Replaces the given component for an entity
     pub fn replace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
+
         self.assure(@TypeOf(value)).replace(entity, value);
     }
 
     /// shortcut for replacing raw comptime_int/float without having to @as cast
     pub fn replaceTyped(self: *Registry, comptime T: type, entity: Entity, value: T) void {
+        if (@typeInfo(@TypeOf(value)) == .Pointer) {
+            @compileError("replaceTyped must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
+        }
         self.replace(entity, value);
     }
 
     pub fn addOrReplace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
+        if (@typeInfo(@TypeOf(value)) == .Pointer) {
+            @compileError("addOrReplace must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
+        }
 
         const store = self.assure(@TypeOf(value));
         if (store.tryGet(entity)) |found| {
@@ -319,6 +330,16 @@ pub const Registry = struct {
             store.update.publish(entity);
         } else {
             store.add(entity, value);
+        }
+    }
+
+    /// emits a signal for the onUpdate sink
+    pub fn notifyUpdated(self: *Registry, comptime T: type, entity: Entity) void {
+        assert(self.valid(entity));
+
+        const store = self.assure(T);
+        if (store.contains(entity)) {
+            store.update.publish(entity);
         }
     }
 
@@ -410,6 +431,16 @@ pub const Registry = struct {
         return self.assure(T).tryGet(entity);
     }
 
+    /// same as tryGet but it stores the result on the stack, this option tends to be preferrable when dealing
+    /// with complex logic that may create CPU cache misses
+    pub fn tryGetConst(self: *Registry, comptime T: type, entity: Entity) ?T {
+        if (self.assure(T).tryGet(entity)) |ptr| {
+            var ret: T = ptr.*;
+            return ret;
+        }
+        return null;
+    }
+
     /// Returns a Sink object for the given component to add/remove listeners with
     pub fn onConstruct(self: *Registry, comptime T: type) Sink(Entity) {
         return self.assure(T).onConstruct();
@@ -494,6 +525,11 @@ pub const Registry = struct {
         return BasicView(Component).init(self.assure(Component));
     }
 
+    pub fn entityIterator(self: *Registry, comptime Component: anytype) utils.ReverseSliceIterator(Entity) {
+        // just one include so use the optimized BasicView
+        return BasicView(Component).init(self.assure(Component)).entityIterator();
+    }
+
     /// returns the Type that a view will be based on the includes and excludes
     fn ViewType(comptime includes: anytype, comptime excludes: anytype) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
@@ -506,7 +542,7 @@ pub const Registry = struct {
         std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
         std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(owned.len + includes.len > 0);
-        std.debug.assert(owned.len + includes.len + excludes.len > 1);
+        std.debug.assert(owned.len + includes.len + excludes.len >= 1);
 
         // create a unique hash to identify the group so that we can look it up
         const hash = comptime hashGroupTypes(owned, includes, excludes);

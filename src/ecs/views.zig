@@ -48,6 +48,10 @@ pub fn BasicView(comptime T: type) type {
             return utils.ReverseSliceIterator(T).init(self.storage.instances.items);
         }
 
+        pub fn mutIterator(self: Self) utils.ReverseSlicePointerIterator(T) {
+            return utils.ReverseSlicePointerIterator(T).init(self.storage.instances.items);
+        }
+
         pub fn entityIterator(self: Self) utils.ReverseSliceIterator(Entity) {
             return self.storage.set.reverseIterator();
         }
@@ -227,7 +231,7 @@ test "basic multi view" {
     var e1 = reg.create();
     var e2 = reg.create();
 
-    reg.add(e0, @as(i32, -0));
+    reg.add(e0, @as(i32, 0));
     reg.add(e1, @as(i32, -1));
     reg.add(e2, @as(i32, -2));
 
@@ -264,7 +268,7 @@ test "basic multi view with excludes" {
     var e1 = reg.create();
     var e2 = reg.create();
 
-    reg.add(e0, @as(i32, -0));
+    reg.add(e0, @as(i32, 0));
     reg.add(e1, @as(i32, -1));
     reg.add(e2, @as(i32, -2));
 
