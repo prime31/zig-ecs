@@ -4,6 +4,7 @@ const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
     const optimize = b.standardOptimizeOption(.{});
+    const target = b.standardTargetOptions(.{});
     const ecs_module = b.addModule("zig-ecs", .{
         .source_file = std.build.FileSource{ .path = "src/ecs.zig" },
     });
@@ -52,21 +53,28 @@ pub fn build(b: *Builder) void {
     }
 
     // internal tests
-    const internal_test_step = b.addTest(.{
+    const internal_test = b.addTest(.{
         .root_source_file = std.build.FileSource{ .path = "src/tests.zig" },
         .optimize = optimize,
+        .target = target,
+        .name = "internal_tests",
     });
+    b.installArtifact(internal_test);
 
     // public api tests
-    const test_step = b.addTest(.{
+    const public_test = b.addTest(.{
         .root_source_file = std.build.FileSource{ .path = "tests/tests.zig" },
         .optimize = optimize,
+        .target = target,
+        .name = "public_tests",
     });
-    test_step.addModule("ecs", ecs_module);
+    public_test.addModule("ecs", ecs_module);
+    b.installArtifact(public_test);
 
     const test_cmd = b.step("test", "Run the tests");
-    test_cmd.dependOn(&internal_test_step.step);
-    test_cmd.dependOn(&test_step.step);
+    test_cmd.dependOn(b.getInstallStep());
+    test_cmd.dependOn(&b.addRunArtifact(internal_test).step);
+    test_cmd.dependOn(&b.addRunArtifact(public_test).step);
 }
 
 pub const LibType = enum(i32) {
