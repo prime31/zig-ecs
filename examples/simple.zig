@@ -21,7 +21,7 @@ pub fn main() !void {
 
     var view = reg.view(.{ Velocity, Position }, .{});
 
-    var iter = view.iterator();
+    var iter = view.entityIterator();
     while (iter.next()) |entity| {
         var pos = view.get(Position, entity);
         const vel = view.getConst(Velocity, entity);

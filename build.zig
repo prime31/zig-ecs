@@ -9,12 +9,6 @@ pub fn build(b: *Builder) void {
         .source_file = std.build.FileSource{ .path = "src/ecs.zig" },
     });
 
-    // use a different cache folder for macos arm builds
-    b.cache_root = .{
-        .handle = std.fs.cwd(),
-        .path = if (builtin.os.tag == .macos and builtin.target.cpu.arch == .aarch64) "zig-arm-cache" else "zig-cache",
-    };
-
     const examples = [_][2][]const u8{
         [_][]const u8{ "view_vs_group", "examples/view_vs_group.zig" },
         [_][]const u8{ "group_sort", "examples/group_sort.zig" },
@@ -36,12 +30,13 @@ pub fn build(b: *Builder) void {
         exe.linkLibC();
 
         const docs = exe;
-        // docs.emit_docs = .emit;
-
         const doc = b.step(b.fmt("{s}-docs", .{name}), "Generate documentation");
         doc.dependOn(&docs.step);
 
         const run_cmd = b.addRunArtifact(exe);
+        b.installArtifact(exe);
+        run_cmd.step.dependOn(b.getInstallStep());
+
         const exe_step = b.step(name, b.fmt("run {s}.zig", .{name}));
         exe_step.dependOn(&run_cmd.step);
 

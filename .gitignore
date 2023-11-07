@@ -4,3 +4,4 @@ zig-arm-cache
 /docs/
 
 .DS_Store
+zig-out
