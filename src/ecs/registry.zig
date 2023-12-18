@@ -708,7 +708,7 @@ pub const Registry = struct {
             std.sort.pdq([]const u8, &names, {}, impl.asc);
 
             comptime var res: []const u8 = "";
-            inline for (names) |name| res = res ++ name;
+            for (names) |name| res = res ++ name;
             return res;
         }
     }
