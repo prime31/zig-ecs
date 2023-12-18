@@ -28,7 +28,7 @@ pub const Assets = struct {
             return @as(*Cache(AssetT), @ptrFromInt(tid));
         }
 
-        var cache = Cache(AssetT).initPtr(self.allocator);
+        const cache = Cache(AssetT).initPtr(self.allocator);
         _ = self.caches.put(utils.typeId(AssetT), @intFromPtr(cache)) catch unreachable;
         return cache;
     }
@@ -38,7 +38,7 @@ pub const Assets = struct {
     }
 
     fn ReturnType(comptime loader: anytype, comptime strip_ptr: bool) type {
-        var ret = @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.?;
+        const ret = @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.?;
         if (strip_ptr) {
             return std.meta.Child(ret);
         }

@@ -227,9 +227,9 @@ test "basic multi view" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var e0 = reg.create();
-    var e1 = reg.create();
-    var e2 = reg.create();
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
 
     reg.add(e0, @as(i32, 0));
     reg.add(e1, @as(i32, -1));
@@ -264,9 +264,9 @@ test "basic multi view with excludes" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var e0 = reg.create();
-    var e1 = reg.create();
-    var e2 = reg.create();
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
 
     reg.add(e0, @as(i32, 0));
     reg.add(e1, @as(i32, -1));

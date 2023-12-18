@@ -89,7 +89,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             }
 
             if (self.sparse.items[pos] == null) {
-                var new_page = self.sparse.allocator.alloc(SparseT, page_size) catch unreachable;
+                const new_page = self.sparse.allocator.alloc(SparseT, page_size) catch unreachable;
                 @memset(new_page, std.math.maxInt(SparseT));
                 self.sparse.items[pos] = new_page;
             }
@@ -163,8 +163,8 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         /// Swaps two entities in the internal packed and sparse arrays
         pub fn swap(self: *Self, lhs: SparseT, rhs: SparseT) void {
-            var from = &self.sparse.items[self.page(lhs)].?[self.offset(lhs)];
-            var to = &self.sparse.items[self.page(rhs)].?[self.offset(rhs)];
+            const from = &self.sparse.items[self.page(lhs)].?[self.offset(lhs)];
+            const to = &self.sparse.items[self.page(rhs)].?[self.offset(rhs)];
 
             std.mem.swap(SparseT, &self.dense.items[from.*], &self.dense.items[to.*]);
             std.mem.swap(SparseT, from, to);
@@ -296,7 +296,7 @@ test "data() synced" {
     set.add(2);
     set.add(3);
 
-    var data = set.data();
+    const data = set.data();
     try std.testing.expectEqual(data[1], 1);
     try std.testing.expectEqual(set.len(), data.len);
 

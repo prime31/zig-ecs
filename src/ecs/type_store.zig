@@ -23,8 +23,8 @@ pub const TypeStore = struct {
 
     /// adds instance, returning a pointer to the item as it lives in the store
     pub fn add(self: *TypeStore, instance: anytype) void {
-        var bytes = self.allocator.alloc(u8, @sizeOf(@TypeOf(instance))) catch unreachable;
-        std.mem.copy(u8, bytes, std.mem.asBytes(&instance));
+        const bytes = self.allocator.alloc(u8, @sizeOf(@TypeOf(instance))) catch unreachable;
+        @memcpy(bytes, std.mem.asBytes(&instance));
         _ = self.map.put(utils.typeId(@TypeOf(instance)), bytes) catch unreachable;
     }
 
@@ -41,7 +41,7 @@ pub const TypeStore = struct {
 
     pub fn getOrAdd(self: *TypeStore, comptime T: type) *T {
         if (!self.has(T)) {
-            var instance = std.mem.zeroes(T);
+            const instance = std.mem.zeroes(T);
             self.add(instance);
         }
         return self.get(T);
@@ -65,22 +65,22 @@ test "TypeStore" {
     var store = TypeStore.init(std.testing.allocator);
     defer store.deinit();
 
-    var orig = Vector{ .x = 5, .y = 6, .z = 8 };
+    const orig = Vector{ .x = 5, .y = 6, .z = 8 };
     store.add(orig);
     try std.testing.expect(store.has(Vector));
     try std.testing.expectEqual(store.get(Vector).*, orig);
 
-    var v = store.get(Vector);
+    const v = store.get(Vector);
     try std.testing.expectEqual(v.*, Vector{ .x = 5, .y = 6, .z = 8 });
     v.*.x = 666;
 
-    var v2 = store.get(Vector);
+    const v2 = store.get(Vector);
     try std.testing.expectEqual(v2.*, Vector{ .x = 666, .y = 6, .z = 8 });
 
     store.remove(Vector);
     try std.testing.expect(!store.has(Vector));
 
-    var v3 = store.getOrAdd(u32);
+    const v3 = store.getOrAdd(u32);
     try std.testing.expectEqual(v3.*, 0);
     v3.* = 777;
 

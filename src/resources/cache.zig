@@ -47,7 +47,7 @@ pub fn Cache(comptime T: type) type {
                 return resource;
             }
 
-            var resource = loader.load(loader);
+            const resource = loader.load(loader);
             _ = self.resources.put(id, resource) catch unreachable;
             return resource;
         }

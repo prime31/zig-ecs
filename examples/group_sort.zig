@@ -24,12 +24,12 @@ fn createEntities(reg: *ecs.Registry) void {
     var timer = std.time.Timer.start() catch unreachable;
     var i: usize = 0;
     while (i < total_entities) : (i += 1) {
-        var e1 = reg.create();
+        const e1 = reg.create();
         reg.add(e1, Position{ .x = 1, .y = r.random().float(f32) * 100 });
         reg.add(e1, Velocity{ .x = 1, .y = r.random().float(f32) * 100 });
     }
 
-    var end = timer.lap();
+    const end = timer.lap();
     std.debug.print("create {d} entities: {d}\n", .{ total_entities, @as(f64, @floatFromInt(end)) / 1000000000 });
 }
 
