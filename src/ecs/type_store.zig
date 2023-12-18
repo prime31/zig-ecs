@@ -24,7 +24,7 @@ pub const TypeStore = struct {
     /// adds instance, returning a pointer to the item as it lives in the store
     pub fn add(self: *TypeStore, instance: anytype) void {
         const bytes = self.allocator.alloc(u8, @sizeOf(@TypeOf(instance))) catch unreachable;
-        std.mem.copy(u8, bytes, std.mem.asBytes(&instance));
+        @memcpy(bytes, std.mem.asBytes(&instance));
         _ = self.map.put(utils.typeId(@TypeOf(instance)), bytes) catch unreachable;
     }
 
