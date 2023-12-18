@@ -16,7 +16,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
     // non-zero sized type. That will make is_empty_struct false in deinit always so we can't use it. Instead, we stick
     // a small dummy struct in the instances ArrayList so it can safely be deallocated.
     // Perhaps we should just allocate instances with a dummy allocator or the tmp allocator?
-    comptime var ComponentOrDummy = if (is_empty_struct) struct { dummy: u1 } else Component;
+    const ComponentOrDummy = if (is_empty_struct) struct { dummy: u1 } else Component;
 
     return struct {
         const Self = @This();
