@@ -148,7 +148,7 @@ pub fn isComptime(comptime T: type) bool {
 }
 
 test "ReverseSliceIterator" {
-    var slice = std.testing.allocator.alloc(usize, 10) catch unreachable;
+    const slice = std.testing.allocator.alloc(usize, 10) catch unreachable;
     defer std.testing.allocator.free(slice);
 
     for (slice, 0..) |*item, i| {

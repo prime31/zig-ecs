@@ -26,13 +26,13 @@ pub const Dispatcher = struct {
     }
 
     fn assure(self: *Dispatcher, comptime T: type) *Signal(T) {
-        var type_id = utils.typeId(T);
+        const type_id = utils.typeId(T);
         if (self.signals.get(type_id)) |value| {
             return @as(*Signal(T), @ptrFromInt(value));
         }
 
-        var signal = Signal(T).create(self.allocator);
-        var signal_ptr = @intFromPtr(signal);
+        const signal = Signal(T).create(self.allocator);
+        const signal_ptr = @intFromPtr(signal);
         _ = self.signals.put(type_id, signal_ptr) catch unreachable;
         return signal;
     }

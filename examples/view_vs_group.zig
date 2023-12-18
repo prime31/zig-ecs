@@ -24,12 +24,12 @@ fn createEntities(reg: *ecs.Registry) void {
     var timer = std.time.Timer.start() catch unreachable;
     var i: usize = 0;
     while (i < 1000000) : (i += 1) {
-        var e1 = reg.create();
+        const e1 = reg.create();
         reg.add(e1, Position{ .x = 1, .y = 1 });
         reg.add(e1, Velocity{ .x = 1, .y = 1 });
     }
 
-    var end = timer.lap();
+    const end = timer.lap();
     std.debug.print("create entities: \t{d}\n", .{@as(f64, @floatFromInt(end)) / 1000000000});
 }
 
@@ -40,14 +40,14 @@ fn iterateView(reg: *ecs.Registry) void {
     var timer = std.time.Timer.start() catch unreachable;
     var iter = view.entityIterator();
     while (iter.next()) |entity| {
-        var pos = view.get(Position, entity);
+        const pos = view.get(Position, entity);
         const vel = view.getConst(Velocity, entity);
 
         pos.*.x += vel.x;
         pos.*.y += vel.y;
     }
 
-    var end = timer.lap();
+    const end = timer.lap();
     std.debug.print("view (iter): \t{d}\n", .{@as(f64, @floatFromInt(end)) / 1000000000});
 }
 
@@ -61,7 +61,7 @@ fn nonOwningGroup(reg: *ecs.Registry) void {
     timer.reset();
     var group_iter = group.iterator();
     while (group_iter.next()) |entity| {
-        var pos = group.get(Position, entity);
+        const pos = group.get(Position, entity);
         const vel = group.getConst(Velocity, entity);
 
         pos.*.x += vel.x;

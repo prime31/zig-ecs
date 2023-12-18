@@ -77,8 +77,8 @@ test "actor structs" {
     actor.add(Velocity{ .x = 5, .y = 10 });
     actor.add(Position{});
 
-    var vel = actor.get(Velocity);
-    var pos = actor.get(Position);
+    const vel = actor.get(Velocity);
+    const pos = actor.get(Position);
 
     pos.*.x += vel.x;
     pos.*.y += vel.y;

@@ -29,7 +29,7 @@ test "sort BasicGroup by Entity" {
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
-        var e = reg.create();
+        const e = reg.create();
         reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
         reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
@@ -63,7 +63,7 @@ test "sort BasicGroup by Component" {
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
-        var e = reg.create();
+        const e = reg.create();
         reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
         reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
@@ -91,7 +91,7 @@ test "sort OwningGroup by Entity" {
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
-        var e = reg.create();
+        const e = reg.create();
         reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
         reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
@@ -124,7 +124,7 @@ test "sort OwningGroup by Component" {
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
-        var e = reg.create();
+        const e = reg.create();
         reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
         reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }
@@ -152,11 +152,11 @@ test "sort OwningGroup by Component ensure unsorted non-matches" {
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
-        var e = reg.create();
+        const e = reg.create();
         reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
         reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
 
-        var e2 = reg.create();
+        const e2 = reg.create();
         reg.add(e2, Sprite{ .x = @as(f32, @floatFromInt(i + 1 * 50)) });
     }
 
@@ -198,7 +198,7 @@ test "nested OwningGroups add/remove components" {
     try std.testing.expect(!reg.sortable(Transform));
     try std.testing.expect(reg.sortable(Renderable));
 
-    var e1 = reg.create();
+    const e1 = reg.create();
     reg.addTypes(e1, .{ Sprite, Renderable, Rotation });
     try std.testing.expectEqual(group1.len(), 1);
     try std.testing.expectEqual(group2.len(), 0);
@@ -222,7 +222,7 @@ test "nested OwningGroups entity order" {
 
     var i: usize = 0;
     while (i < 5) : (i += 1) {
-        var e = reg.create();
+        const e = reg.create();
         reg.add(e, Sprite{ .x = @as(f32, @floatFromInt(i)) });
         reg.add(e, Renderable{ .x = @as(f32, @floatFromInt(i)) });
     }

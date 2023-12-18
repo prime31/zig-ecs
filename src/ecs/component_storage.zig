@@ -300,7 +300,7 @@ test "add/try-get/remove/clear" {
 
     store.remove(3);
 
-    var val_null = store.tryGet(3);
+    const val_null = store.tryGet(3);
     try std.testing.expectEqual(val_null, null);
 
     store.clear();

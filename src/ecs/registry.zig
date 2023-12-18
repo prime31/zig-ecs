@@ -224,8 +224,8 @@ pub const Registry = struct {
             return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
         }
 
-        var comp_set = Storage(T).initPtr(self.allocator);
-        var comp_set_ptr = @intFromPtr(comp_set);
+        const comp_set = Storage(T).initPtr(self.allocator);
+        const comp_set_ptr = @intFromPtr(comp_set);
         _ = self.components.put(type_id, comp_set_ptr) catch unreachable;
         return comp_set;
     }
@@ -349,7 +349,7 @@ pub const Registry = struct {
 
         const store = self.assure(@TypeOf(value));
         if (store.tryGet(entity)) |found| {
-            var old = found.*;
+            const old = found.*;
             found.* = value;
             store.update.publish(entity);
             return old;
@@ -365,7 +365,7 @@ pub const Registry = struct {
 
         const store = self.assure(T);
         if (store.tryGet(entity)) |found| {
-            var old = found.*;
+            const old = found.*;
             store.remove(entity);
             return old;
         } else {
@@ -435,7 +435,7 @@ pub const Registry = struct {
     /// with complex logic that may create CPU cache misses
     pub fn tryGetConst(self: *Registry, comptime T: type, entity: Entity) ?T {
         if (self.assure(T).tryGet(entity)) |ptr| {
-            var ret: T = ptr.*;
+            const ret: T = ptr.*;
             return ret;
         }
         return null;
@@ -460,7 +460,7 @@ pub const Registry = struct {
     pub fn setContext(self: *Registry, context: anytype) void {
         std.debug.assert(@typeInfo(@TypeOf(context)) == .Pointer);
 
-        var type_id = utils.typeId(@typeInfo(@TypeOf(context)).Pointer.child);
+        const type_id = utils.typeId(@typeInfo(@TypeOf(context)).Pointer.child);
         _ = self.contexts.put(type_id, @intFromPtr(context)) catch unreachable;
     }
 

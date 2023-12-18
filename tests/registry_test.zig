@@ -15,7 +15,7 @@ test "Registry" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var e1 = reg.create();
+    const e1 = reg.create();
 
     reg.addTypes(e1, .{ Empty, Position });
     reg.add(e1, BigOne{ .pos = Position{ .x = 5, .y = 5 }, .vel = Velocity{ .x = 5, .y = 5 }, .accel = Velocity{ .x = 5, .y = 5 } });
@@ -53,7 +53,7 @@ test "context not pointer" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var pos = Position{ .x = 5, .y = 5 };
+    const pos = Position{ .x = 5, .y = 5 };
     _ = pos;
     // reg.setContext(pos);
 }
@@ -81,7 +81,7 @@ test "singletons" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var pos = Position{ .x = 5, .y = 5 };
+    const pos = Position{ .x = 5, .y = 5 };
     reg.singletons().add(pos);
     try std.testing.expect(reg.singletons().has(Position));
     try std.testing.expectEqual(reg.singletons().get(Position).*, pos);
@@ -114,7 +114,7 @@ test "remove all" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var e = reg.create();
+    const e = reg.create();
     reg.add(e, Position{ .x = 1, .y = 1 });
     reg.addTyped(u32, e, 666);
 

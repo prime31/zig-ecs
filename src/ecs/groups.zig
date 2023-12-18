@@ -59,7 +59,7 @@ pub const BasicGroup = struct {
                     return this.lessThan(this.wrapped_context, real_a, real_b);
                 }
             };
-            var wrapper = SortContext{ .group = self, .wrapped_context = context, .lessThan = lessThan };
+            const wrapper = SortContext{ .group = self, .wrapped_context = context, .lessThan = lessThan };
             self.group_data.entity_set.sort(wrapper, SortContext.sort);
         }
     }
@@ -264,7 +264,7 @@ pub const OwningGroup = struct {
 
             // skip the first one since its what we are using to sort with
             for (self.group_data.owned[1..]) |type_id| {
-                var other_ptr = self.registry.components.get(type_id).?;
+                const other_ptr = self.registry.components.get(type_id).?;
                 var storage = @as(*Storage(u1), @ptrFromInt(other_ptr));
                 storage.swap(storage.data()[pos], entity);
             }
@@ -279,7 +279,7 @@ test "BasicGroup creation/iteration" {
     var group = reg.group(.{}, .{ i32, u32 }, .{});
     try std.testing.expectEqual(group.len(), 0);
 
-    var e0 = reg.create();
+    const e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
 
@@ -309,7 +309,7 @@ test "BasicGroup excludes" {
     var group = reg.group(.{}, .{i32}, .{u32});
     try std.testing.expectEqual(group.len(), 0);
 
-    var e0 = reg.create();
+    const e0 = reg.create();
     reg.add(e0, @as(i32, 44));
 
     std.debug.assert(group.len() == 1);
@@ -329,7 +329,7 @@ test "BasicGroup create late" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var e0 = reg.create();
+    const e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
 
@@ -343,7 +343,7 @@ test "OwningGroup" {
 
     var group = reg.group(.{ i32, u32 }, .{}, .{});
 
-    var e0 = reg.create();
+    const e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
     try std.testing.expectEqual(group.len(), 1);
@@ -352,12 +352,12 @@ test "OwningGroup" {
     try std.testing.expectEqual(group.get(i32, e0).*, 44);
     try std.testing.expectEqual(group.getConst(u32, e0), 55);
 
-    var vals = group.getOwned(e0, struct { int: *i32, uint: *u32 });
+    const vals = group.getOwned(e0, struct { int: *i32, uint: *u32 });
     try std.testing.expectEqual(vals.int.*, 44);
     try std.testing.expectEqual(vals.uint.*, 55);
 
     vals.int.* = 666;
-    var vals2 = group.getOwned(e0, struct { int: *i32, uint: *u32 });
+    const vals2 = group.getOwned(e0, struct { int: *i32, uint: *u32 });
     try std.testing.expectEqual(vals2.int.*, 666);
 }
 
@@ -367,7 +367,7 @@ test "OwningGroup add/remove" {
 
     var group = reg.group(.{ i32, u32 }, .{}, .{});
 
-    var e0 = reg.create();
+    const e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
     try std.testing.expectEqual(group.len(), 1);
@@ -380,12 +380,12 @@ test "OwningGroup iterate" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var e0 = reg.create();
+    const e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
     reg.add(e0, @as(u8, 11));
 
-    var e1 = reg.create();
+    const e1 = reg.create();
     reg.add(e1, @as(i32, 666));
     reg.add(e1, @as(u32, 999));
     reg.add(e1, @as(f32, 55.5));
@@ -417,7 +417,7 @@ test "OwningGroup each" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var e0 = reg.create();
+    const e0 = reg.create();
     reg.add(e0, @as(i32, 44));
     reg.add(e0, @as(u32, 55));
 
@@ -430,9 +430,9 @@ test "OwningGroup each" {
             std.testing.expectEqual(components.uint.*, 55) catch unreachable;
         }
     };
-    var thing = Thing{};
+    const thing = Thing{};
 
-    var group = reg.group(.{ i32, u32 }, .{}, .{});
+    const group = reg.group(.{ i32, u32 }, .{}, .{});
     // group.each(thing.each); // zig v0.10.0: error: no field named 'each' in struct 'ecs.groups.test.OwningGroup each.Thing'
     _ = thing;
     // group.each(each); // zig v0.10.0: error: expected type 'ecs.groups.each__struct_6297', found 'ecs.groups.each__struct_3365'
