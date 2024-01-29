@@ -78,31 +78,34 @@ pub const LibType = enum(i32) {
     exe_compiled,
 };
 
-// pub fn getModule(comptime prefix_path: []const u8) std.build.Module {
-//     return .{
-//         .name = "ecs",
-//         .path = .{ .path = prefix_path ++ "src/ecs.zig" },
-//     };
-// }
+pub fn getModule(b: *std.Build, comptime prefix_path: []const u8) *std.Build.Module {
+    return b.addModule(.{
+        .root_source_file = .{.path = prefix_path ++ "src/ecs.zig"},
+        .target = b.standardTargetOptions(.{}),
+        .optimize = b.standardOptimizeOption(.{}),
+        .name = "ecs",
+    });
+}
 
-// /// prefix_path is used to add package paths. It should be the the same path used to include this build file
-// pub fn linkArtifact(b: *std.Build, artifact: *std.Build.Artifact, _: std.build.Target, lib_type: LibType, comptime prefix_path: []const u8) void {
-//     const optimize = b.standardOptimizeOption(.{});
-//     switch (lib_type) {
-//         .static => {
-//             const lib = b.addStaticLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize });
-//             lib.install();
+/// prefix_path is used to add package paths. It should be the the same path used to include this build file
+pub fn linkArtifact(b: *std.Build, artifact: *std.Build.Step.Compile, lib_type: LibType, comptime prefix_path: []const u8) void {
+    const optimize = b.standardOptimizeOption(.{});
+    const target = b.standardTargetOptions(.{});
+    switch (lib_type) {
+        .static => {
+            const lib = b.addStaticLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize, .target = target});
+            b.installArtifact(lib);
 
-//             artifact.linkLibrary(lib);
-//         },
-//         .dynamic => {
-//             const lib = b.addSharedLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize });
-//             lib.install();
+            artifact.linkLibrary(lib);
+        },
+        .dynamic => {
+            const lib = b.addSharedLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize, .target = target});
+            b.installArtifact(lib);
 
-//             artifact.linkLibrary(lib);
-//         },
-//         else => {},
-//     }
+            artifact.linkLibrary(lib);
+        },
+        else => {},
+    }
 
-//     artifact.addModule(getModule(prefix_path));
-// }
+    artifact.root_module.addImport("ecs", getModule(prefix_path));
+}
