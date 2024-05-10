@@ -1,6 +1,7 @@
 const std = @import("std");
 const utils = @import("utils.zig");
 
+const Registry = @import("registry.zig").Registry;
 const SparseSet = @import("sparse_set.zig").SparseSet;
 const Signal = @import("../signals/signal.zig").Signal;
 const Sink = @import("../signals/sink.zig").Sink;
@@ -29,9 +30,11 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         safeDeinit: *const fn (*Self) void,
         safeSwap: *const fn (*Self, Entity, Entity, bool) void,
         safeRemoveIfContains: *const fn (*Self, Entity) void,
-        construction: Signal(Entity),
-        update: Signal(Entity),
-        destruction: Signal(Entity),
+
+        registry: *Registry = undefined,
+        construction: Signal(.{*Registry, Entity}),
+        update: Signal(.{*Registry, Entity}),
+        destruction: Signal(.{*Registry, Entity}),
 
         pub fn init(allocator: std.mem.Allocator) Self {
             var store = Self{
@@ -60,9 +63,9 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                     }
                 }.removeIfContains,
                 .allocator = null,
-                .construction = Signal(Entity).init(allocator),
-                .update = Signal(Entity).init(allocator),
-                .destruction = Signal(Entity).init(allocator),
+                .construction = Signal(.{*Registry, Entity}).init(allocator),
+                .update = Signal(.{*Registry, Entity}).init(allocator),
+                .destruction = Signal(.{*Registry, Entity}).init(allocator),
             };
 
             if (!is_empty_struct) {
@@ -80,9 +83,9 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             }
             store.allocator = allocator;
             store.super = 0;
-            store.construction = Signal(Entity).init(allocator);
-            store.update = Signal(Entity).init(allocator);
-            store.destruction = Signal(Entity).init(allocator);
+            store.construction = Signal(.{*Registry, Entity}).init(allocator);
+            store.update = Signal(.{*Registry, Entity}).init(allocator);
+            store.destruction = Signal(.{*Registry, Entity}).init(allocator);
 
             // since we are stored as a pointer, we need to catpure this
             store.safeDeinit = struct {
@@ -128,15 +131,15 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             }
         }
 
-        pub fn onConstruct(self: *Self) Sink(Entity) {
+        pub fn onConstruct(self: *Self) Sink(.{*Registry, Entity}) {
             return self.construction.sink();
         }
 
-        pub fn onUpdate(self: *Self) Sink(Entity) {
+        pub fn onUpdate(self: *Self) Sink(.{*Registry, Entity}) {
             return self.update.sink();
         }
 
-        pub fn onDestruct(self: *Self) Sink(Entity) {
+        pub fn onDestruct(self: *Self) Sink(.{*Registry, Entity}) {
             return self.destruction.sink();
         }
 
@@ -154,12 +157,12 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 _ = self.instances.append(value) catch unreachable;
             }
             self.set.add(entity);
-            self.construction.publish(entity);
+            self.construction.publish(.{ self.registry, entity });
         }
 
         /// Removes an entity from a storage
         pub fn remove(self: *Self, entity: Entity) void {
-            self.destruction.publish(entity);
+            self.destruction.publish(.{ self.registry, entity });
             if (!is_empty_struct) {
                 _ = self.instances.swapRemove(self.set.index(entity));
             }
@@ -202,7 +205,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                 /// Replaces the given component for an entity
                 pub fn replace(self: *Self, entity: Entity, value: Component) void {
                     self.get(entity).* = value;
-                    self.update.publish(entity);
+                    self.update.publish(.{ self.registry, entity });
                 }
 
                 /// Returns the object associated with an entity
@@ -349,13 +352,13 @@ test "empty component" {
     store.remove(3);
 }
 
-fn construct(e: u32) void {
+fn construct(_: *Registry, e: u32) void {
     std.debug.assert(e == 3);
 }
-fn update(e: u32) void {
+fn update(_: *Registry, e: u32) void {
     std.debug.assert(e == 3);
 }
-fn destruct(e: u32) void {
+fn destruct(_: *Registry, e: u32) void {
     std.debug.assert(e == 3);
 }
 

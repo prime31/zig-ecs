@@ -46,10 +46,9 @@ pub const Registry = struct {
         owned: []u32,
         include: []u32,
         exclude: []u32,
-        registry: *Registry,
         current: usize,
 
-        pub fn initPtr(allocator: std.mem.Allocator, registry: *Registry, hash: u64, owned: []u32, include: []u32, exclude: []u32) *GroupData {
+        pub fn initPtr(allocator: std.mem.Allocator, hash: u64, owned: []u32, include: []u32, exclude: []u32) *GroupData {
             // std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
             // std.debug.assert(std.mem.indexOfAny(u32, owned, exclude) == null);
             // std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
@@ -62,7 +61,6 @@ pub const Registry = struct {
             group_data.owned = allocator.dupe(u32, owned) catch unreachable;
             group_data.include = allocator.dupe(u32, include) catch unreachable;
             group_data.exclude = allocator.dupe(u32, exclude) catch unreachable;
-            group_data.registry = registry;
             group_data.current = 0;
 
             return group_data;
@@ -79,22 +77,22 @@ pub const Registry = struct {
             allocator.destroy(self);
         }
 
-        pub fn maybeValidIf(self: *GroupData, entity: Entity) void {
+        pub fn maybeValidIf(self: *GroupData, registry: *Registry, entity: Entity) void {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
-                    const ptr = self.registry.components.get(tid).?;
+                    const ptr = registry.components.get(tid).?;
                     if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
                         break :blk false;
                 }
 
                 for (self.include) |tid| {
-                    const ptr = self.registry.components.get(tid).?;
+                    const ptr = registry.components.get(tid).?;
                     if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
                         break :blk false;
                 }
 
                 for (self.exclude) |tid| {
-                    const ptr = self.registry.components.get(tid).?;
+                    const ptr = registry.components.get(tid).?;
                     if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
                         break :blk false;
                 }
@@ -107,11 +105,11 @@ pub const Registry = struct {
                 }
             } else {
                 if (isValid) {
-                    const ptr = self.registry.components.get(self.owned[0]).?;
+                    const ptr = registry.components.get(self.owned[0]).?;
                     if (!(@as(*Storage(u1), @ptrFromInt(ptr)).set.index(entity) < self.current)) {
                         for (self.owned) |tid| {
                             // store.swap hides a safe version that types it correctly
-                            const store_ptr = self.registry.components.get(tid).?;
+                            const store_ptr = registry.components.get(tid).?;
                             var store = @as(*Storage(u1), @ptrFromInt(store_ptr));
                             store.swap(store.data()[self.current], entity);
                         }
@@ -122,18 +120,18 @@ pub const Registry = struct {
             }
         }
 
-        pub fn discardIf(self: *GroupData, entity: Entity) void {
+        pub fn discardIf(self: *GroupData, registry: *Registry, entity: Entity) void {
             if (self.owned.len == 0) {
                 if (self.entity_set.contains(entity)) {
                     self.entity_set.remove(entity);
                 }
             } else {
-                const ptr = self.registry.components.get(self.owned[0]).?;
+                const ptr = registry.components.get(self.owned[0]).?;
                 var store = @as(*Storage(u1), @ptrFromInt(ptr));
                 if (store.contains(entity) and store.set.index(entity) < self.current) {
                     self.current -= 1;
                     for (self.owned) |tid| {
-                        const store_ptr = self.registry.components.get(tid).?;
+                        const store_ptr = registry.components.get(tid).?;
                         store = @as(*Storage(u1), @ptrFromInt(store_ptr));
                         store.swap(store.data()[self.current], entity);
                     }
@@ -225,6 +223,7 @@ pub const Registry = struct {
         }
 
         const comp_set = Storage(T).initPtr(self.allocator);
+        comp_set.registry = self;
         const comp_set_ptr = @intFromPtr(comp_set);
         _ = self.components.put(type_id, comp_set_ptr) catch unreachable;
         return comp_set;
@@ -327,7 +326,7 @@ pub const Registry = struct {
         const store = self.assure(@TypeOf(value));
         if (store.tryGet(entity)) |found| {
             found.* = value;
-            store.update.publish(entity);
+            store.update.publish(.{ self, entity });
         } else {
             store.add(entity, value);
         }
@@ -339,7 +338,7 @@ pub const Registry = struct {
 
         const store = self.assure(T);
         if (store.contains(entity)) {
-            store.update.publish(entity);
+            store.update.publish(.{ self, entity });
         }
     }
 
@@ -351,7 +350,7 @@ pub const Registry = struct {
         if (store.tryGet(entity)) |found| {
             const old = found.*;
             found.* = value;
-            store.update.publish(entity);
+            store.update.publish(.{ self, entity });
             return old;
         } else {
             store.add(entity, value);
@@ -442,17 +441,17 @@ pub const Registry = struct {
     }
 
     /// Returns a Sink object for the given component to add/remove listeners with
-    pub fn onConstruct(self: *Registry, comptime T: type) Sink(Entity) {
+    pub fn onConstruct(self: *Registry, comptime T: type) Sink(.{*Registry, Entity}) {
         return self.assure(T).onConstruct();
     }
 
     /// Returns a Sink object for the given component to add/remove listeners with
-    pub fn onUpdate(self: *Registry, comptime T: type) Sink(Entity) {
+    pub fn onUpdate(self: *Registry, comptime T: type) Sink(.{*Registry, Entity}) {
         return self.assure(T).onUpdate();
     }
 
     /// Returns a Sink object for the given component to add/remove listeners with
-    pub fn onDestruct(self: *Registry, comptime T: type) Sink(Entity) {
+    pub fn onDestruct(self: *Registry, comptime T: type) Sink(.{*Registry, Entity}) {
         return self.assure(T).onDestruct();
     }
 
@@ -577,7 +576,7 @@ pub const Registry = struct {
         }
 
         // we need to create a new GroupData
-        var new_group_data = GroupData.initPtr(self.allocator, self, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
+        var new_group_data = GroupData.initPtr(self.allocator, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
 
         // before adding the group we need to do some checks to make sure there arent other owning groups with the same types
         if (builtin.mode == .Debug and owned.len > 0) {
@@ -631,13 +630,13 @@ pub const Registry = struct {
         }
 
         // wire up our listeners
-        inline for (owned) |t| self.onConstruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, "maybeValidIf");
-        inline for (includes) |t| self.onConstruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, "maybeValidIf");
-        inline for (excludes) |t| self.onDestruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, "maybeValidIf");
+        inline for (owned) |t| self.onConstruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, GroupData.maybeValidIf);
+        inline for (includes) |t| self.onConstruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, GroupData.maybeValidIf);
+        inline for (excludes) |t| self.onDestruct(t).beforeBound(maybe_valid_if).connectBound(new_group_data, GroupData.maybeValidIf);
 
-        inline for (owned) |t| self.onDestruct(t).beforeBound(discard_if).connectBound(new_group_data, "discardIf");
-        inline for (includes) |t| self.onDestruct(t).beforeBound(discard_if).connectBound(new_group_data, "discardIf");
-        inline for (excludes) |t| self.onConstruct(t).beforeBound(discard_if).connectBound(new_group_data, "discardIf");
+        inline for (owned) |t| self.onDestruct(t).beforeBound(discard_if).connectBound(new_group_data, GroupData.discardIf);
+        inline for (includes) |t| self.onDestruct(t).beforeBound(discard_if).connectBound(new_group_data, GroupData.discardIf);
+        inline for (excludes) |t| self.onConstruct(t).beforeBound(discard_if).connectBound(new_group_data, GroupData.discardIf);
 
         // pre-fill the GroupData with any existing entitites that match
         if (owned.len == 0) {
@@ -651,7 +650,7 @@ pub const Registry = struct {
             // ??? why not?
             var first_owned_storage = self.assure(owned[0]);
             for (first_owned_storage.data()) |entity| {
-                new_group_data.maybeValidIf(entity);
+                new_group_data.maybeValidIf(self, entity);
             }
             // for(auto *first = std::get<0>(cpools).data(), *last = first + std::get<0>(cpools).size(); first != last; ++first) {
             //     handler->template maybe_valid_if<std::tuple_element_t<0, std::tuple<std::decay_t<Owned>...>>>(*this, *first);
