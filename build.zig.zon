@@ -1,0 +1,11 @@
+.{
+  .name = "entt",
+  .version = "1.0.0",
+  .paths = .{
+    "src",
+    "tests",
+    "examples",
+    "build.zig",
+    "build.zig.zon",
+  },
+}
