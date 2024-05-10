@@ -326,7 +326,7 @@ pub const Registry = struct {
         const store = self.assure(@TypeOf(value));
         if (store.tryGet(entity)) |found| {
             found.* = value;
-            store.update.publish(entity);
+            store.update.publish(.{ self, entity });
         } else {
             store.add(entity, value);
         }
@@ -338,7 +338,7 @@ pub const Registry = struct {
 
         const store = self.assure(T);
         if (store.contains(entity)) {
-            store.update.publish(entity);
+            store.update.publish(.{ self, entity });
         }
     }
 
@@ -350,7 +350,7 @@ pub const Registry = struct {
         if (store.tryGet(entity)) |found| {
             const old = found.*;
             found.* = value;
-            store.update.publish(entity);
+            store.update.publish(.{ self, entity });
             return old;
         } else {
             store.add(entity, value);
