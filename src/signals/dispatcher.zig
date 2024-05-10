@@ -1,6 +1,7 @@
 const std = @import("std");
 const Sink = @import("sink.zig").Sink;
 const Signal = @import("signal.zig").Signal;
+const Tuple = @import("delegate.zig").Tuple;
 const utils = @import("../ecs/utils.zig");
 
 pub const Dispatcher = struct {
@@ -18,30 +19,30 @@ pub const Dispatcher = struct {
         var iter = self.signals.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var signal = @as(*Signal(void), @ptrFromInt(ptr.value_ptr.*));
+            var signal = @as(*Signal(.{}), @ptrFromInt(ptr.value_ptr.*));
             signal.deinit();
         }
 
         self.signals.deinit();
     }
 
-    fn assure(self: *Dispatcher, comptime T: type) *Signal(T) {
-        const type_id = utils.typeId(T);
+    fn assure(self: *Dispatcher, comptime Params: anytype) *Signal(Params) {
+        const type_id = utils.typeId(Tuple(Params));
         if (self.signals.get(type_id)) |value| {
-            return @as(*Signal(T), @ptrFromInt(value));
+            return @as(*Signal(Params), @ptrFromInt(value));
         }
 
-        const signal = Signal(T).create(self.allocator);
+        const signal = Signal(Params).create(self.allocator);
         const signal_ptr = @intFromPtr(signal);
         _ = self.signals.put(type_id, signal_ptr) catch unreachable;
         return signal;
     }
 
-    pub fn sink(self: *Dispatcher, comptime T: type) Sink(T) {
-        return self.assure(T).sink();
+    pub fn sink(self: *Dispatcher, comptime Params: anytype) Sink(Params) {
+        return self.assure(Params).sink();
     }
 
-    pub fn trigger(self: *Dispatcher, comptime T: type, value: T) void {
-        self.assure(T).publish(value);
+    pub fn trigger(self: *Dispatcher, comptime Params: anytype, value: Tuple(Params)) void {
+        self.assure(Params).publish(value);
     }
 };

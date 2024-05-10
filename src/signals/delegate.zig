@@ -1,66 +1,108 @@
 const std = @import("std");
 
-/// wraps either a free function or a bound function that takes an Event as a parameter
-pub fn Delegate(comptime Event: type) type {
+pub fn Delegate(comptime Params: anytype) type {
+  return DelegateFromTuple(Tuple(Params));
+}
+
+/// wraps either a free function or a bind function that takes an Event as a parameter
+pub fn DelegateFromTuple(comptime Params: type) type {
     return struct {
         const Self = @This();
 
-        ctx_ptr_address: usize = 0,
-        callback: union(enum) {
-            free: *const fn (Event) void,
-            bound: *const fn (usize, Event) void,
-        },
+        pub const FreeFn = Fn(Params);
+        pub fn BindFn(comptime T: type) type {
+            const fields = std.meta.fields(Params);
+            comptime var params: [1 + fields.len]std.builtin.Type.Fn.Param = undefined;
+            params[0] = .{
+                .is_generic = false,
+                .is_noalias = false,
+                .type = T,
+            };
+            for (fields, 1..) |field, i| {
+                params[i] = .{
+                    .is_generic = false,
+                    .is_noalias = false,
+                    .type = field.type,
+                };
+            }
+            return *const @Type(.{.Fn = .{
+                .calling_convention = .Unspecified,
+                .alignment = 1,
+                .is_generic = false,
+                .is_var_args = false,
+                .return_type = void,
+                .params = &params,
+            }});
+        }
 
-        /// sets a bound function as the Delegate callback
-        pub fn initBound(ctx: anytype, comptime fn_name: []const u8) Self {
-            std.debug.assert(@typeInfo(@TypeOf(ctx)) == .Pointer);
-            std.debug.assert(@intFromPtr(ctx) != 0);
+        ctx_ptr: usize = 0,
+        bind_ptr: usize = 0,
+        free_ptr: usize = 0,
 
-            const T = @TypeOf(ctx);
-            const BaseT = @typeInfo(T).Pointer.child;
+        /// sets a bind function as the Delegate callback
+        pub fn initBind(ctx_ptr: anytype, bind_fn: BindFn(@TypeOf(ctx_ptr))) Self {
+            const T = @TypeOf(ctx_ptr);
+            const Temp = struct {
+                fn cb(self: Self, params: Params) void {
+                    @call(.auto, @as(BindFn(T), @ptrFromInt(self.bind_ptr)), .{ @as(T, @ptrFromInt(self.ctx_ptr)) } ++ params);
+                }
+            };
             return Self{
-                .ctx_ptr_address = @intFromPtr(ctx),
-                .callback = .{
-                    .bound = struct {
-                        fn cb(self: usize, param: Event) void {
-                            @call(.always_inline, @field(BaseT, fn_name), .{ @as(T, @ptrFromInt(self)), param });
-                        }
-                    }.cb,
-                },
+                .ctx_ptr = @intFromPtr(ctx_ptr),
+                .free_ptr = @intFromPtr(&Temp.cb),
+                .bind_ptr = @intFromPtr(bind_fn),
             };
         }
 
         /// sets a free function as the Delegate callback
-        pub fn initFree(func: *const fn (Event) void) Self {
+        pub fn initFree(free_fn: FreeFn) Self {
             return Self{
-                .callback = .{ .free = func },
+                .free_ptr = @intFromPtr(free_fn),
             };
         }
 
-        pub fn trigger(self: Self, param: Event) void {
-            switch (self.callback) {
-                .free => |func| @call(.auto, func, .{param}),
-                .bound => |func| @call(.auto, func, .{ self.ctx_ptr_address, param }),
+        pub fn trigger(self: Self, params: Params) void {
+            if (self.ctx_ptr == 0) {
+                @call(.auto, @as(FreeFn, @ptrFromInt(self.free_ptr)), params);
+            } else {
+                @as(*const fn(Self, Params) void, @ptrFromInt(self.free_ptr))(self, params);
             }
         }
 
-        pub fn containsFree(self: Self, callback: *const fn (Event) void) bool {
-            return switch (self.callback) {
-                .free => |func| func == callback,
-                else => false,
-            };
+        pub fn containsFree(self: Self, free_fn: FreeFn) bool {
+            return self.ctx_ptr == 0 and self.free_ptr == @intFromPtr(free_fn);
         }
 
         pub fn containsBound(self: Self, ctx: anytype) bool {
-            std.debug.assert(@intFromPtr(ctx) != 0);
-            std.debug.assert(@typeInfo(@TypeOf(ctx)) == .Pointer);
-
-            return switch (self.callback) {
-                .bound => @intFromPtr(ctx) == self.ctx_ptr_address,
-                else => false,
-            };
+            return self.ctx_ptr == @intFromPtr(ctx);
         }
     };
+}
+
+fn Fn(comptime Params: type) type {
+    const fields = std.meta.fields(Params);
+    comptime var params: [fields.len]std.builtin.Type.Fn.Param = undefined;
+    for (fields, 0..) |field, i| {
+        params[i] = .{
+            .is_generic = false,
+            .is_noalias = false,
+            .type = field.type,
+        };
+    }
+    return *const @Type(.{.Fn = .{
+        .calling_convention = .Unspecified,
+        .alignment = 1,
+        .is_generic = false,
+        .is_var_args = false,
+        .return_type = void,
+        .params = &params,
+    }});
+}
+
+pub fn Tuple(comptime Params: anytype) type {
+  comptime var params: [Params.len]type = undefined;
+  for (Params, 0..) |Param, i| { params[i] = Param; }
+  return std.meta.Tuple(&params);
 }
 
 fn tester(param: u32) void {
@@ -76,13 +118,13 @@ const Thing = struct {
 };
 
 test "free Delegate" {
-    var d = Delegate(u32).initFree(tester);
-    d.trigger(666);
+    var d = Delegate(.{u32}).initFree(tester);
+    d.trigger(.{666});
 }
 
 test "bound Delegate" {
     var thing = Thing{};
 
-    var d = Delegate(u32).initBound(&thing, "tester");
-    d.trigger(777);
+    var d = Delegate(.{u32}).initBind(&thing, Thing.tester);
+    d.trigger(.{777});
 }

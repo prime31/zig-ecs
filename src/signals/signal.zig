@@ -1,25 +1,30 @@
 const std = @import("std");
-const Sink = @import("sink.zig").Sink;
-const Delegate = @import("delegate.zig").Delegate;
+const Sink = @import("sink.zig").SinkFromTuple;
+const Delegate = @import("delegate.zig").DelegateFromTuple;
+const Tuple = @import("delegate.zig").Tuple;
 
-pub fn Signal(comptime Event: type) type {
+pub fn Signal(comptime Params: anytype) type {
+  return SignalFromTuple(Tuple(Params));
+}
+
+pub fn SignalFromTuple(comptime Params: type) type {
     return struct {
         const Self = @This();
 
-        calls: std.ArrayList(Delegate(Event)),
+        calls: std.ArrayList(Delegate(Params)),
         allocator: ?std.mem.Allocator = null,
 
         pub fn init(allocator: std.mem.Allocator) Self {
             // we purposely do not store the allocator locally in this case so we know not to destroy ourself in deint!
             return Self{
-                .calls = std.ArrayList(Delegate(Event)).init(allocator),
+                .calls = std.ArrayList(Delegate(Params)).init(allocator),
             };
         }
 
         /// heap allocates a Signal
         pub fn create(allocator: std.mem.Allocator) *Self {
             var signal = allocator.create(Self) catch unreachable;
-            signal.calls = std.ArrayList(Delegate(Event)).init(allocator);
+            signal.calls = std.ArrayList(Delegate(Params)).init(allocator);
             signal.allocator = allocator;
             return signal;
         }
@@ -44,15 +49,15 @@ pub fn Signal(comptime Event: type) type {
             self.calls.items.len = 0;
         }
 
-        pub fn publish(self: Self, arg: Event) void {
+        pub fn publish(self: Self, arg: Params) void {
             for (self.calls.items) |call| {
                 call.trigger(arg);
             }
         }
 
         /// Constructs a sink that is allowed to modify a given signal
-        pub fn sink(self: *Self) Sink(Event) {
-            return Sink(Event).init(self);
+        pub fn sink(self: *Self) Sink(Params) {
+            return Sink(Params).init(self);
         }
     };
 }
@@ -70,7 +75,7 @@ const Thing = struct {
 };
 
 test "Signal/Sink" {
-    var signal = Signal(u32).init(std.testing.allocator);
+    var signal = Signal(.{u32}).init(std.testing.allocator);
     defer signal.deinit();
 
     var sink = signal.sink();
@@ -79,12 +84,12 @@ test "Signal/Sink" {
 
     // bound listener
     var thing = Thing{};
-    sink.connectBound(&thing, "tester");
+    sink.connectBound(&thing, Thing.tester);
 
-    signal.publish(666);
+    signal.publish(.{666});
 
     sink.disconnect(tester);
-    signal.publish(666);
+    signal.publish(.{666});
     try std.testing.expectEqual(@as(usize, 1), signal.size());
 
     sink.disconnectBound(&thing);
@@ -92,7 +97,7 @@ test "Signal/Sink" {
 }
 
 test "Sink Before null" {
-    var signal = Signal(u32).init(std.testing.allocator);
+    var signal = Signal(.{u32}).init(std.testing.allocator);
     defer signal.deinit();
 
     var sink = signal.sink();
@@ -100,6 +105,6 @@ test "Sink Before null" {
     try std.testing.expectEqual(@as(usize, 1), signal.size());
 
     var thing = Thing{};
-    sink.before(null).connectBound(&thing, "tester");
+    sink.before(null).connectBound(&thing, Thing.tester);
     try std.testing.expectEqual(@as(usize, 2), signal.size());
 }
