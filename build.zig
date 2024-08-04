@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
     const ecs_module = b.addModule("zig-ecs", .{
-        .root_source_file = .{.path = "src/ecs.zig"},
+        .root_source_file = b.path("src/ecs.zig"),
         .optimize = optimize,
         .target = target,
     });
@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
 
         const exe = b.addExecutable(.{
             .name = name,
-            .root_source_file = .{.path = source},
+            .root_source_file = b.path(source),
             .optimize = optimize,
             .target = target,
         });
@@ -49,7 +49,7 @@ pub fn build(b: *std.Build) void {
 
     // internal tests
     const internal_test = b.addTest(.{
-        .root_source_file = .{.path = "src/tests.zig"},
+        .root_source_file = b.path("src/tests.zig"),
         .optimize = optimize,
         .target = target,
         .name = "internal_tests",
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
 
     // public api tests
     const public_test = b.addTest(.{
-        .root_source_file = .{.path = "tests/tests.zig"},
+        .root_source_file = b.path("src/tests.zig"),
         .optimize = optimize,
         .target = target,
         .name = "public_tests",
