@@ -17,7 +17,7 @@ pub const Process = struct {
     next: ?*Process = null,
 
     pub fn getParent(self: *Process, comptime T: type) *T {
-        return @fieldParentPtr(T, "process", self);
+        return @fieldParentPtr("process", self);
     }
 
     /// Terminates a process with success if it's still alive

@@ -25,7 +25,7 @@ pub const Scheduler = struct {
                 if (process.next) |next_process| {
                     next_process.deinit(next_process, alloc);
                 }
-                alloc.destroy(@fieldParentPtr(T, "process", process));
+                alloc.destroy(@as(*T, @fieldParentPtr("process", process)));
             }
         }.deinit;
 
