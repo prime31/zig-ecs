@@ -17,7 +17,7 @@ var reg = ecs.Registry.init(std.testing.allocator);
 
 Create a couple entities and add some components to them
 ```zig
-var entity = reg.create();
+const entity = reg.create();
 reg.add(entity, Position{ .x = 0, .y = 0 });
 reg.add(entity, Velocity{ .x = 5, .y = 7 });
 ...
@@ -27,7 +27,7 @@ Create and iterate a View that matches all entities with a `Velocity` and `Posit
 ```zig
 var view = reg.view(.{ Velocity, Position }, .{});
 
-var iter = view.iterator();
+var iter = view.entityIterator();
 while (iter.next()) |entity| {
     const pos = view.getConst(Position, entity); // readonly copy
     var vel = view.get(Velocity, entity); // mutable
