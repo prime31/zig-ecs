@@ -7,7 +7,7 @@ const Tuple = @import("delegate.zig").Tuple;
 /// helper used to connect and disconnect listeners on the fly from a Signal. Listeners are wrapped in Delegates
 /// and can be either free functions or functions bound to a struct.
 pub fn Sink(comptime Params: anytype) type {
-  return SinkFromTuple(Tuple(Params));
+    return SinkFromTuple(Tuple(Params));
 }
 
 /// helper used to connect and disconnect listeners on the fly from a Signal. Listeners are wrapped in Delegates
@@ -36,7 +36,7 @@ pub fn SinkFromTuple(comptime Params: type) type {
         }
 
         pub fn beforeBound(self: Self, ctx_ptr: anytype) Self {
-            if (@typeInfo(@TypeOf(ctx_ptr)) == .Pointer) {
+            if (@typeInfo(@TypeOf(ctx_ptr)) == .pointer) {
                 if (self.indexOfBound(ctx_ptr)) |index| {
                     return Self{ .insert_index = index };
                 }

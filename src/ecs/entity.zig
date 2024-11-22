@@ -14,9 +14,9 @@ pub fn EntityTraitsType(comptime size: EntityTraitsSize) type {
 }
 
 fn EntityTraitsDefinition(comptime EntityType: type, comptime IndexType: type, comptime VersionType: type) type {
-    std.debug.assert(@typeInfo(EntityType) == .Int and std.meta.Int(.unsigned, @bitSizeOf(EntityType)) == EntityType);
-    std.debug.assert(@typeInfo(IndexType) == .Int and std.meta.Int(.unsigned, @bitSizeOf(IndexType)) == IndexType);
-    std.debug.assert(@typeInfo(VersionType) == .Int and std.meta.Int(.unsigned, @bitSizeOf(VersionType)) == VersionType);
+    std.debug.assert(std.meta.Int(.unsigned, @bitSizeOf(EntityType)) == EntityType);
+    std.debug.assert(std.meta.Int(.unsigned, @bitSizeOf(IndexType)) == IndexType);
+    std.debug.assert(std.meta.Int(.unsigned, @bitSizeOf(VersionType)) == VersionType);
 
     const sizeOfIndexType = @bitSizeOf(IndexType);
     const sizeOfVersionType = @bitSizeOf(VersionType);

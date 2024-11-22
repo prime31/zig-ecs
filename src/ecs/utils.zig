@@ -142,7 +142,7 @@ pub fn hashStringDjb2(comptime str: []const u8) comptime_int {
 
 pub fn isComptime(comptime T: type) bool {
     return switch (@typeInfo(T)) {
-        .ComptimeInt, .ComptimeFloat => true,
+        .comptime_int, .comptime_float => true,
         else => false,
     };
 }
