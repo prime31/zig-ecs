@@ -19,7 +19,7 @@ pub fn main() !void {
 }
 
 fn createEntities(reg: *ecs.Registry) void {
-    var r = std.rand.DefaultPrng.init(666);
+    var r = std.Random.DefaultPrng.init(666);
 
     var timer = std.time.Timer.start() catch unreachable;
     var i: usize = 0;

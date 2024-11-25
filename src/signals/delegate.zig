@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub fn Delegate(comptime Params: anytype) type {
-  return DelegateFromTuple(Tuple(Params));
+    return DelegateFromTuple(Tuple(Params));
 }
 
 /// wraps either a free function or a bind function that takes an Event as a parameter
@@ -25,13 +25,13 @@ pub fn DelegateFromTuple(comptime Params: type) type {
                     .type = field.type,
                 };
             }
-            return *const @Type(.{.Fn = .{
+            return *const @Type(.{ .@"fn" = .{
                 .calling_convention = .Unspecified,
                 .is_generic = false,
                 .is_var_args = false,
                 .return_type = void,
                 .params = &params,
-            }});
+            } });
         }
 
         ctx_ptr: usize = 0,
@@ -43,7 +43,7 @@ pub fn DelegateFromTuple(comptime Params: type) type {
             const T = @TypeOf(ctx_ptr);
             const Temp = struct {
                 fn cb(self: Self, params: Params) void {
-                    @call(.auto, @as(BindFn(T), @ptrFromInt(self.bind_ptr)), .{ @as(T, @ptrFromInt(self.ctx_ptr)) } ++ params);
+                    @call(.auto, @as(BindFn(T), @ptrFromInt(self.bind_ptr)), .{@as(T, @ptrFromInt(self.ctx_ptr))} ++ params);
                 }
             };
             return Self{
@@ -64,7 +64,7 @@ pub fn DelegateFromTuple(comptime Params: type) type {
             if (self.ctx_ptr == 0) {
                 @call(.auto, @as(FreeFn, @ptrFromInt(self.free_ptr)), params);
             } else {
-                @as(*const fn(Self, Params) void, @ptrFromInt(self.free_ptr))(self, params);
+                @as(*const fn (Self, Params) void, @ptrFromInt(self.free_ptr))(self, params);
             }
         }
 
@@ -88,19 +88,21 @@ fn Fn(comptime Params: type) type {
             .type = field.type,
         };
     }
-    return *const @Type(.{.Fn = .{
+    return *const @Type(.{ .@"fn" = .{
         .calling_convention = .Unspecified,
         .is_generic = false,
         .is_var_args = false,
         .return_type = void,
         .params = &params,
-    }});
+    } });
 }
 
 pub fn Tuple(comptime Params: anytype) type {
-  comptime var params: [Params.len]type = undefined;
-  for (Params, 0..) |Param, i| { params[i] = Param; }
-  return std.meta.Tuple(&params);
+    comptime var params: [Params.len]type = undefined;
+    for (Params, 0..) |Param, i| {
+        params[i] = Param;
+    }
+    return std.meta.Tuple(&params);
 }
 
 fn tester(param: u32) void {
