@@ -80,7 +80,7 @@ pub const LibType = enum(i32) {
 
 pub fn getModule(b: *std.Build, comptime prefix_path: []const u8) *std.Build.Module {
     return b.addModule(.{
-        .root_source_file = .{.path = prefix_path ++ "src/ecs.zig"},
+        .root_source_file = b.path(prefix_path ++ "src/ecs.zig"),
         .target = b.standardTargetOptions(.{}),
         .optimize = b.standardOptimizeOption(.{}),
         .name = "ecs",
