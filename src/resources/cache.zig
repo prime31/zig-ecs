@@ -42,7 +42,7 @@ pub fn Cache(comptime T: type) type {
             self.safe_deinit(self);
         }
 
-        pub fn load(self: *@This(), id: u32, comptime loader: anytype) @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).pointer.child).@"fn".return_type.? {
+        pub fn load(self: *@This(), id: u32, comptime loader: anytype) @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.? {
             if (self.resources.get(id)) |resource| {
                 return resource;
             }

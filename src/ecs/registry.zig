@@ -213,7 +213,7 @@ pub const Registry = struct {
     }
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
-        if (@typeInfo(@TypeOf(T)) == .pointer) {
+        if (@typeInfo(@TypeOf(T)) == .Pointer) {
             @compileError("assure must receive a value, not a pointer. Received: " ++ @typeName(T));
         }
 
@@ -311,7 +311,7 @@ pub const Registry = struct {
 
     /// shortcut for replacing raw comptime_int/float without having to @as cast
     pub fn replaceTyped(self: *Registry, comptime T: type, entity: Entity, value: T) void {
-        if (@typeInfo(@TypeOf(value)) == .pointer) {
+        if (@typeInfo(@TypeOf(value)) == .Pointer) {
             @compileError("replaceTyped must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
         }
         self.replace(entity, value);
@@ -319,7 +319,7 @@ pub const Registry = struct {
 
     pub fn addOrReplace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
-        if (@typeInfo(@TypeOf(value)) == .pointer) {
+        if (@typeInfo(@TypeOf(value)) == .Pointer) {
             @compileError("addOrReplace must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
         }
 
@@ -457,21 +457,21 @@ pub const Registry = struct {
 
     /// Binds an object to the context of the registry
     pub fn setContext(self: *Registry, context: anytype) void {
-        std.debug.assert(@typeInfo(@TypeOf(context)) == .pointer);
+        std.debug.assert(@typeInfo(@TypeOf(context)) == .Pointer);
 
-        const type_id = utils.typeId(@typeInfo(@TypeOf(context)).pointer.child);
+        const type_id = utils.typeId(@typeInfo(@TypeOf(context)).Pointer.child);
         _ = self.contexts.put(type_id, @intFromPtr(context)) catch unreachable;
     }
 
     /// Unsets a context variable if it exists
     pub fn unsetContext(self: *Registry, comptime T: type) void {
-        std.debug.assert(@typeInfo(T) != .pointer);
+        std.debug.assert(@typeInfo(T) != .Pointer);
         _ = self.contexts.put(utils.typeId(T), 0) catch unreachable;
     }
 
     /// Returns a pointer to an object in the context of the registry
     pub fn getContext(self: *Registry, comptime T: type) ?*T {
-        std.debug.assert(@typeInfo(T) != .pointer);
+        std.debug.assert(@typeInfo(T) != .Pointer);
 
         return if (self.contexts.get(utils.typeId(T))) |ptr|
             return if (ptr > 0) @as(*T, @ptrFromInt(ptr)) else null
@@ -496,8 +496,8 @@ pub const Registry = struct {
     }
 
     pub fn view(self: *Registry, comptime includes: anytype, comptime excludes: anytype) ViewType(includes, excludes) {
-        std.debug.assert(@typeInfo(@TypeOf(includes)) == .@"struct");
-        std.debug.assert(@typeInfo(@TypeOf(excludes)) == .@"struct");
+        std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
+        std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(includes.len > 0);
 
         // just one include so use the optimized BasicView
@@ -537,9 +537,9 @@ pub const Registry = struct {
 
     /// creates an optimized group for iterating components
     pub fn group(self: *Registry, comptime owned: anytype, comptime includes: anytype, comptime excludes: anytype) (if (owned.len == 0) BasicGroup else OwningGroup) {
-        std.debug.assert(@typeInfo(@TypeOf(owned)) == .@"struct");
-        std.debug.assert(@typeInfo(@TypeOf(includes)) == .@"struct");
-        std.debug.assert(@typeInfo(@TypeOf(excludes)) == .@"struct");
+        std.debug.assert(@typeInfo(@TypeOf(owned)) == .Struct);
+        std.debug.assert(@typeInfo(@TypeOf(includes)) == .Struct);
+        std.debug.assert(@typeInfo(@TypeOf(excludes)) == .Struct);
         std.debug.assert(owned.len + includes.len > 0);
         std.debug.assert(owned.len + includes.len + excludes.len >= 1);
 

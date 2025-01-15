@@ -79,14 +79,14 @@ pub const OwningGroup = struct {
             group: OwningGroup,
             index: usize,
             storage: *Storage(u1),
-            component_ptrs: [@typeInfo(Components).@"struct".fields.len][*]u8,
+            component_ptrs: [@typeInfo(Components).Struct.fields.len][*]u8,
 
             pub fn init(group: OwningGroup) @This() {
-                const component_info = @typeInfo(Components).@"struct";
+                const component_info = @typeInfo(Components).Struct;
 
                 var component_ptrs: [component_info.fields.len][*]u8 = undefined;
                 inline for (component_info.fields, 0..) |field, i| {
-                    const storage = group.registry.assure(@typeInfo(field.type).pointer.child);
+                    const storage = group.registry.assure(@typeInfo(field.type).Pointer.child);
                     component_ptrs[i] = @as([*]u8, @ptrCast(storage.instances.items.ptr));
                 }
 
@@ -104,8 +104,8 @@ pub const OwningGroup = struct {
 
                 // fill and return the struct
                 var comps: Components = undefined;
-                inline for (@typeInfo(Components).@"struct".fields, 0..) |field, i| {
-                    const typed_ptr = @as([*]@typeInfo(field.type).pointer.child, @ptrCast(@alignCast(it.component_ptrs[i])));
+                inline for (@typeInfo(Components).Struct.fields, 0..) |field, i| {
+                    const typed_ptr = @as([*]@typeInfo(field.type).Pointer.child, @ptrCast(@alignCast(it.component_ptrs[i])));
                     @field(comps, field.name) = &typed_ptr[it.index];
                 }
                 return comps;
@@ -158,10 +158,10 @@ pub const OwningGroup = struct {
 
     fn validate(self: OwningGroup, comptime Components: anytype) void {
         if (builtin.mode == .Debug and self.group_data.owned.len > 0) {
-            std.debug.assert(@typeInfo(Components) == .@"struct");
+            std.debug.assert(@typeInfo(Components) == .Struct);
 
-            inline for (@typeInfo(Components).@"struct".fields) |field| {
-                std.debug.assert(@typeInfo(field.type) == .pointer);
+            inline for (@typeInfo(Components).Struct.fields) |field| {
+                std.debug.assert(@typeInfo(field.type) == .Pointer);
                 const found = std.mem.indexOfScalar(u32, self.group_data.owned, utils.typeId(std.meta.Child(field.type)));
                 std.debug.assert(found != null);
             }
@@ -170,7 +170,7 @@ pub const OwningGroup = struct {
 
     pub fn getOwned(self: OwningGroup, entity: Entity, comptime Components: anytype) Components {
         self.validate(Components);
-        const component_info = @typeInfo(Components).@"struct";
+        const component_info = @typeInfo(Components).Struct;
 
         var component_ptrs: [component_info.fields.len][*]u8 = undefined;
         inline for (component_info.fields, 0..) |field, i| {
@@ -191,7 +191,7 @@ pub const OwningGroup = struct {
 
     pub fn each(self: OwningGroup, comptime func: anytype) void {
         const Components = switch (@typeInfo(@TypeOf(func))) {
-            .@"fn" => |func_info| func_info.params[0].type.?,
+            .Fn => |func_info| func_info.params[0].type.?,
             else => std.debug.assert("invalid func"),
         };
         self.validate(Components);
