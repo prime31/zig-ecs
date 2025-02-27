@@ -48,7 +48,7 @@ pub const Registry = struct {
         exclude: []u32,
         current: usize,
 
-        pub fn initPtr(allocator: std.mem.Allocator, hash: u64, owned: []u32, include: []u32, exclude: []u32) *GroupData {
+        pub fn create(allocator: std.mem.Allocator, hash: u64, owned: []u32, include: []u32, exclude: []u32) *GroupData {
             // std.debug.assert(std.mem.indexOfAny(u32, owned, include) == null);
             // std.debug.assert(std.mem.indexOfAny(u32, owned, exclude) == null);
             // std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
@@ -66,7 +66,7 @@ pub const Registry = struct {
             return group_data;
         }
 
-        pub fn deinit(self: *GroupData, allocator: std.mem.Allocator) void {
+        pub fn destroy(self: *GroupData, allocator: std.mem.Allocator) void {
             // only deinit th SparseSet for non-owning groups
             if (self.owned.len == 0) {
                 self.entity_set.deinit();
@@ -198,11 +198,11 @@ pub const Registry = struct {
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
             var storage = @as(*Storage(u1), @ptrFromInt(ptr.*));
-            storage.deinit();
+            storage.destroy();
         }
 
         for (self.groups.items) |grp| {
-            grp.deinit(self.allocator);
+            grp.destroy(self.allocator);
         }
 
         self.components.deinit(self.allocator);
@@ -222,7 +222,7 @@ pub const Registry = struct {
             return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
         }
 
-        const comp_set = Storage(T).initPtr(self.allocator);
+        const comp_set = Storage(T).create(self.allocator);
         comp_set.registry = self;
         const comp_set_ptr = @intFromPtr(comp_set);
         _ = self.components.put(self.allocator, type_id, comp_set_ptr) catch unreachable;
@@ -576,7 +576,7 @@ pub const Registry = struct {
         }
 
         // we need to create a new GroupData
-        var new_group_data = GroupData.initPtr(self.allocator, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
+        var new_group_data = GroupData.create(self.allocator, hash, owned_arr[0..], includes_arr[0..], excludes_arr[0..]);
 
         // before adding the group we need to do some checks to make sure there arent other owning groups with the same types
         if (builtin.mode == .Debug and owned.len > 0) {
