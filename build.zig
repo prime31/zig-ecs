@@ -14,6 +14,7 @@ pub fn build(b: *std.Build) void {
         [_][]const u8{ "view_vs_group", "examples/view_vs_group.zig" },
         [_][]const u8{ "group_sort", "examples/group_sort.zig" },
         [_][]const u8{ "simple", "examples/simple.zig" },
+        [_][]const u8{ "empty", "examples/empty.zig" },
     };
 
     for (examples, 0..) |example, i| {
