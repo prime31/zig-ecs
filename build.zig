@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
 
     // public api tests
     const public_test = b.addTest(.{
-        .root_source_file = b.path("src/tests.zig"),
+        .root_source_file = b.path("tests/tests.zig"),
         .optimize = optimize,
         .target = target,
         .name = "public_tests",
