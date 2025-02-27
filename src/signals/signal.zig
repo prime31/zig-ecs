@@ -4,36 +4,39 @@ const Delegate = @import("delegate.zig").DelegateFromTuple;
 const Tuple = @import("delegate.zig").Tuple;
 
 pub fn Signal(comptime Params: anytype) type {
-  return SignalFromTuple(Tuple(Params));
+    return SignalFromTuple(Tuple(Params));
 }
 
 pub fn SignalFromTuple(comptime Params: type) type {
     return struct {
         const Self = @This();
 
-        calls: std.ArrayList(Delegate(Params)),
-        allocator: ?std.mem.Allocator = null,
+        calls: std.ArrayListUnmanaged(Delegate(Params)),
+        allocator: std.mem.Allocator,
 
         pub fn init(allocator: std.mem.Allocator) Self {
             // we purposely do not store the allocator locally in this case so we know not to destroy ourself in deint!
             return Self{
-                .calls = std.ArrayList(Delegate(Params)).init(allocator),
+                .calls = std.ArrayListUnmanaged(Delegate(Params)){},
+                .allocator = allocator,
             };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.calls.deinit(self.allocator);
         }
 
         /// heap allocates a Signal
         pub fn create(allocator: std.mem.Allocator) *Self {
-            var signal = allocator.create(Self) catch unreachable;
-            signal.calls = std.ArrayList(Delegate(Params)).init(allocator);
-            signal.allocator = allocator;
+            const signal = allocator.create(Self) catch unreachable;
+            signal.* = Self.init(allocator);
             return signal;
         }
 
-        pub fn deinit(self: *Self) void {
-            self.calls.deinit();
-
-            // optionally destroy ourself as well if we came from an allocator
-            if (self.allocator) |allocator| allocator.destroy(self);
+        pub fn destroy(self: *Self) void {
+            const allocator = self.allocator;
+            self.deinit();
+            allocator.destroy(self);
         }
 
         pub fn size(self: Self) usize {

@@ -20,7 +20,7 @@ pub const Dispatcher = struct {
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
             var signal = @as(*Signal(.{}), @ptrFromInt(ptr.value_ptr.*));
-            signal.deinit();
+            signal.destroy();
         }
 
         self.signals.deinit();
