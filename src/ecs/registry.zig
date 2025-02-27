@@ -31,9 +31,9 @@ pub fn Storage(comptime CompT: type) type {
 /// no errors to keep the API clean and because if a component array cant be allocated you've got bigger problems.
 pub const Registry = struct {
     handles: EntityHandles,
-    components: std.AutoHashMap(u32, usize),
-    contexts: std.AutoHashMap(u32, usize),
-    groups: std.ArrayList(*GroupData),
+    components: std.AutoHashMapUnmanaged(u32, usize),
+    contexts: std.AutoHashMapUnmanaged(u32, usize),
+    groups: std.ArrayListUnmanaged(*GroupData),
     type_store: TypeStore,
     allocator: std.mem.Allocator,
 
@@ -185,9 +185,9 @@ pub const Registry = struct {
     pub fn init(allocator: std.mem.Allocator) Registry {
         return Registry{
             .handles = EntityHandles.init(allocator),
-            .components = std.AutoHashMap(u32, usize).init(allocator),
-            .contexts = std.AutoHashMap(u32, usize).init(allocator),
-            .groups = std.ArrayList(*GroupData).init(allocator),
+            .components = std.AutoHashMapUnmanaged(u32, usize){},
+            .contexts = std.AutoHashMapUnmanaged(u32, usize){},
+            .groups = std.ArrayListUnmanaged(*GroupData){},
             .type_store = TypeStore.init(allocator),
             .allocator = allocator,
         };
@@ -205,9 +205,9 @@ pub const Registry = struct {
             grp.deinit(self.allocator);
         }
 
-        self.components.deinit();
-        self.contexts.deinit();
-        self.groups.deinit();
+        self.components.deinit(self.allocator);
+        self.contexts.deinit(self.allocator);
+        self.groups.deinit(self.allocator);
         self.type_store.deinit();
         self.handles.deinit();
     }
@@ -225,7 +225,7 @@ pub const Registry = struct {
         const comp_set = Storage(T).initPtr(self.allocator);
         comp_set.registry = self;
         const comp_set_ptr = @intFromPtr(comp_set);
-        _ = self.components.put(type_id, comp_set_ptr) catch unreachable;
+        _ = self.components.put(self.allocator, type_id, comp_set_ptr) catch unreachable;
         return comp_set;
     }
 
@@ -460,13 +460,13 @@ pub const Registry = struct {
         std.debug.assert(@typeInfo(@TypeOf(context)) == .Pointer);
 
         const type_id = utils.typeId(@typeInfo(@TypeOf(context)).Pointer.child);
-        _ = self.contexts.put(type_id, @intFromPtr(context)) catch unreachable;
+        _ = self.contexts.put(self.allocator, type_id, @intFromPtr(context)) catch unreachable;
     }
 
     /// Unsets a context variable if it exists
     pub fn unsetContext(self: *Registry, comptime T: type) void {
         std.debug.assert(@typeInfo(T) != .Pointer);
-        _ = self.contexts.put(utils.typeId(T), 0) catch unreachable;
+        _ = self.contexts.put(self.allocator, utils.typeId(T), 0) catch unreachable;
     }
 
     /// Returns a pointer to an object in the context of the registry
@@ -605,7 +605,7 @@ pub const Registry = struct {
         var discard_if: ?*GroupData = null;
 
         if (owned.len == 0) {
-            self.groups.append(new_group_data) catch unreachable;
+            self.groups.append(self.allocator, new_group_data) catch unreachable;
         } else {
             // if this is a group in a family, we may need to do an insert so get the insertion index first
             const maybe_index = new_group_data.findInsertionIndex(self.groups.items);
@@ -617,9 +617,9 @@ pub const Registry = struct {
 
             if (maybe_index) |index| {
                 maybe_valid_if = self.groups.items[index];
-                self.groups.insert(index, new_group_data) catch unreachable;
+                self.groups.insert(self.allocator, index, new_group_data) catch unreachable;
             } else {
-                self.groups.append(new_group_data) catch unreachable;
+                self.groups.append(self.allocator, new_group_data) catch unreachable;
             }
 
             // update super on all owned Storages to be the max of size and their current super value

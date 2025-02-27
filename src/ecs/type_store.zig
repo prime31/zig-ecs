@@ -3,12 +3,12 @@ const utils = @import("utils.zig");
 
 /// stores a single object of type T for each T added
 pub const TypeStore = struct {
-    map: std.AutoHashMap(u32, []u8),
+    map: std.AutoHashMapUnmanaged(u32, []u8),
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) TypeStore {
         return TypeStore{
-            .map = std.AutoHashMap(u32, []u8).init(allocator),
+            .map = std.AutoHashMapUnmanaged(u32, []u8){},
             .allocator = allocator,
         };
     }
@@ -18,14 +18,14 @@ pub const TypeStore = struct {
         while (iter.next()) |val_ptr| {
             self.allocator.free(val_ptr.*);
         }
-        self.map.deinit();
+        self.map.deinit(self.allocator);
     }
 
     /// adds instance, returning a pointer to the item as it lives in the store
     pub fn add(self: *TypeStore, instance: anytype) void {
         const bytes = self.allocator.alloc(u8, @sizeOf(@TypeOf(instance))) catch unreachable;
         @memcpy(bytes, std.mem.asBytes(&instance));
-        _ = self.map.put(utils.typeId(@TypeOf(instance)), bytes) catch unreachable;
+        _ = self.map.put(self.allocator, utils.typeId(@TypeOf(instance)), bytes) catch unreachable;
     }
 
     pub fn get(self: *TypeStore, comptime T: type) *T {
