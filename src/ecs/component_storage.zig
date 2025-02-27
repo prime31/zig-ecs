@@ -32,13 +32,13 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         safeRemoveIfContains: *const fn (*Self, Entity) void,
 
         registry: *Registry = undefined,
-        construction: Signal(.{*Registry, Entity}),
-        update: Signal(.{*Registry, Entity}),
-        destruction: Signal(.{*Registry, Entity}),
+        construction: Signal(.{ *Registry, Entity }),
+        update: Signal(.{ *Registry, Entity }),
+        destruction: Signal(.{ *Registry, Entity }),
 
         pub fn init(allocator: std.mem.Allocator) Self {
             var store = Self{
-                .set = SparseSet(Entity).initPtr(allocator),
+                .set = SparseSet(Entity).create(allocator),
                 .instances = undefined,
                 .safeDeinit = struct {
                     fn deinit(self: *Self) void {
@@ -63,9 +63,9 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                     }
                 }.removeIfContains,
                 .allocator = null,
-                .construction = Signal(.{*Registry, Entity}).init(allocator),
-                .update = Signal(.{*Registry, Entity}).init(allocator),
-                .destruction = Signal(.{*Registry, Entity}).init(allocator),
+                .construction = Signal(.{ *Registry, Entity }).init(allocator),
+                .update = Signal(.{ *Registry, Entity }).init(allocator),
+                .destruction = Signal(.{ *Registry, Entity }).init(allocator),
             };
 
             if (!is_empty_struct) {
@@ -77,15 +77,15 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
 
         pub fn initPtr(allocator: std.mem.Allocator) *Self {
             var store = allocator.create(Self) catch unreachable;
-            store.set = SparseSet(Entity).initPtr(allocator);
+            store.set = SparseSet(Entity).create(allocator);
             if (!is_empty_struct) {
                 store.instances = std.ArrayList(ComponentOrDummy).init(allocator);
             }
             store.allocator = allocator;
             store.super = 0;
-            store.construction = Signal(.{*Registry, Entity}).init(allocator);
-            store.update = Signal(.{*Registry, Entity}).init(allocator);
-            store.destruction = Signal(.{*Registry, Entity}).init(allocator);
+            store.construction = Signal(.{ *Registry, Entity }).init(allocator);
+            store.update = Signal(.{ *Registry, Entity }).init(allocator);
+            store.destruction = Signal(.{ *Registry, Entity }).init(allocator);
 
             // since we are stored as a pointer, we need to catpure this
             store.safeDeinit = struct {
@@ -121,7 +121,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             // will be wrong since it has to cast to a random struct when deiniting. Because of all that, is_empty_struct
             // will allways be false here so we have to deinit the instances no matter what.
             self.safeDeinit(self);
-            self.set.deinit();
+            self.set.destroy();
             self.construction.deinit();
             self.update.deinit();
             self.destruction.deinit();
@@ -131,15 +131,15 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             }
         }
 
-        pub fn onConstruct(self: *Self) Sink(.{*Registry, Entity}) {
+        pub fn onConstruct(self: *Self) Sink(.{ *Registry, Entity }) {
             return self.construction.sink();
         }
 
-        pub fn onUpdate(self: *Self) Sink(.{*Registry, Entity}) {
+        pub fn onUpdate(self: *Self) Sink(.{ *Registry, Entity }) {
             return self.update.sink();
         }
 
-        pub fn onDestruct(self: *Self) Sink(.{*Registry, Entity}) {
+        pub fn onDestruct(self: *Self) Sink(.{ *Registry, Entity }) {
             return self.destruction.sink();
         }
 

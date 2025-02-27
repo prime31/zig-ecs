@@ -33,42 +33,42 @@ pub fn SparseSet(comptime SparseT: type) type {
         const Self = @This();
         const page_size: usize = 4096;
 
-        sparse: std.ArrayList(?[]SparseT),
-        dense: std.ArrayList(SparseT),
+        sparse: std.ArrayListUnmanaged(?[]SparseT),
+        dense: std.ArrayListUnmanaged(SparseT),
         entity_mask: SparseT,
-        allocator: ?std.mem.Allocator,
 
-        pub fn initPtr(allocator: std.mem.Allocator) *Self {
-            var set = allocator.create(Self) catch unreachable;
-            set.sparse = std.ArrayList(?[]SparseT).initCapacity(allocator, 16) catch unreachable;
-            set.dense = std.ArrayList(SparseT).initCapacity(allocator, 16) catch unreachable;
-            set.entity_mask = registry.entity_traits.entity_mask;
-            set.allocator = allocator;
+        allocator: std.mem.Allocator,
+
+        pub fn create(allocator: std.mem.Allocator) *Self {
+            const set = allocator.create(Self) catch unreachable;
+            set.* = Self.init(allocator);
             return set;
+        }
+
+        pub fn destroy(self: *Self) void {
+            const allocator = self.allocator;
+            self.deinit();
+            allocator.destroy(self);
         }
 
         pub fn init(allocator: std.mem.Allocator) Self {
             return Self{
-                .sparse = std.ArrayList(?[]SparseT).init(allocator),
-                .dense = std.ArrayList(SparseT).init(allocator),
+                .sparse = std.ArrayListUnmanaged(?[]SparseT){},
+                .dense = std.ArrayListUnmanaged(SparseT){},
                 .entity_mask = registry.entity_traits.entity_mask,
-                .allocator = null,
+                .allocator = allocator,
             };
         }
 
         pub fn deinit(self: *Self) void {
             for (self.sparse.items) |array| {
                 if (array) |arr| {
-                    self.sparse.allocator.free(arr);
+                    self.allocator.free(arr);
                 }
             }
 
-            self.dense.deinit();
-            self.sparse.deinit();
-
-            if (self.allocator) |allocator| {
-                allocator.destroy(self);
-            }
+            self.dense.deinit(self.allocator);
+            self.sparse.deinit(self.allocator);
         }
 
         pub fn page(self: Self, sparse: SparseT) usize {
@@ -82,14 +82,14 @@ pub fn SparseSet(comptime SparseT: type) type {
         fn assure(self: *Self, pos: usize) []SparseT {
             if (pos >= self.sparse.items.len) {
                 const start_pos = self.sparse.items.len;
-                self.sparse.resize(pos + 1) catch unreachable;
+                self.sparse.resize(self.allocator, pos + 1) catch unreachable;
                 self.sparse.expandToCapacity();
 
                 @memset(self.sparse.items[start_pos..], null);
             }
 
             if (self.sparse.items[pos] == null) {
-                const new_page = self.sparse.allocator.alloc(SparseT, page_size) catch unreachable;
+                const new_page = self.allocator.alloc(SparseT, page_size) catch unreachable;
                 @memset(new_page, std.math.maxInt(SparseT));
                 self.sparse.items[pos] = new_page;
             }
@@ -143,7 +143,7 @@ pub fn SparseSet(comptime SparseT: type) type {
 
             // assure(page(entt))[offset(entt)] = packed.size()
             self.assure(self.page(sparse))[self.offset(sparse)] = @as(SparseT, @intCast(self.dense.items.len));
-            _ = self.dense.append(sparse) catch unreachable;
+            _ = self.dense.append(self.allocator, sparse) catch unreachable;
         }
 
         /// Removes an entity from a sparse set
@@ -216,7 +216,7 @@ pub fn SparseSet(comptime SparseT: type) type {
         pub fn clear(self: *Self) void {
             for (self.sparse.items, 0..) |array, i| {
                 if (array) |arr| {
-                    self.sparse.allocator.free(arr);
+                    self.allocator.free(arr);
                     self.sparse.items[i] = null;
                 }
             }
@@ -245,8 +245,8 @@ fn printSet(set: *SparseSet(u32, u8)) void {
 }
 
 test "add/remove/clear" {
-    var set = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set.deinit();
+    var set = SparseSet(u32).create(std.testing.allocator);
+    defer set.destroy();
 
     set.add(4);
     set.add(3);
@@ -262,8 +262,8 @@ test "add/remove/clear" {
 }
 
 test "grow" {
-    var set = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set.deinit();
+    var set = SparseSet(u32).create(std.testing.allocator);
+    defer set.destroy();
 
     var i = @as(usize, std.math.maxInt(u8));
     while (i > 0) : (i -= 1) {
@@ -274,8 +274,8 @@ test "grow" {
 }
 
 test "swap" {
-    var set = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set.deinit();
+    var set = SparseSet(u32).create(std.testing.allocator);
+    defer set.destroy();
 
     set.add(4);
     set.add(3);
@@ -288,8 +288,8 @@ test "swap" {
 }
 
 test "data() synced" {
-    var set = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set.deinit();
+    var set = SparseSet(u32).create(std.testing.allocator);
+    defer set.destroy();
 
     set.add(0);
     set.add(1);
@@ -306,8 +306,8 @@ test "data() synced" {
 }
 
 test "iterate" {
-    var set = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set.deinit();
+    var set = SparseSet(u32).create(std.testing.allocator);
+    defer set.destroy();
 
     set.add(0);
     set.add(1);
@@ -323,11 +323,11 @@ test "iterate" {
 }
 
 test "respect 1" {
-    var set1 = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set1.deinit();
+    var set1 = SparseSet(u32).create(std.testing.allocator);
+    defer set1.destroy();
 
-    var set2 = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set2.deinit();
+    var set2 = SparseSet(u32).create(std.testing.allocator);
+    defer set2.destroy();
 
     set1.add(3);
     set1.add(4);
@@ -348,8 +348,8 @@ test "respect 1" {
 const desc_u32 = std.sort.desc(u32);
 
 test "respect 2" {
-    var set = SparseSet(u32).initPtr(std.testing.allocator);
-    defer set.deinit();
+    var set = SparseSet(u32).create(std.testing.allocator);
+    defer set.destroy();
 
     set.add(5);
     set.add(2);
