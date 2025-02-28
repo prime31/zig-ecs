@@ -324,6 +324,16 @@ pub const Registry = struct {
         }
 
         const store = self.assure(@TypeOf(value));
+
+        const is_empty_struct = @sizeOf(@TypeOf(value)) == 0;
+        if (is_empty_struct) {
+            if (!self.assure(@TypeOf(value)).contains(entity)) {
+                store.add(entity, value);
+                store.update.publish(.{ self, entity });
+            }
+            return;
+        }
+
         if (store.tryGet(entity)) |found| {
             found.* = value;
             store.update.publish(.{ self, entity });
@@ -347,6 +357,17 @@ pub const Registry = struct {
         assert(self.valid(entity));
 
         const store = self.assure(@TypeOf(value));
+
+        const is_empty_struct = @sizeOf(@TypeOf(value)) == 0;
+        if (is_empty_struct) {
+            if (!self.assure(@TypeOf(value)).contains(entity)) {
+                store.add(entity, value);
+                store.update.publish(.{ self, entity });
+                return null;
+            }
+            return value;
+        }
+
         if (store.tryGet(entity)) |found| {
             const old = found.*;
             found.* = value;
@@ -363,6 +384,16 @@ pub const Registry = struct {
         assert(self.valid(entity));
 
         const store = self.assure(T);
+
+        const is_empty_struct = @sizeOf(T) == 0;
+        if (is_empty_struct) {
+            if (self.assure(T).contains(entity)) {
+                store.remove(entity);
+                store.update.publish(.{ self, entity });
+                return T{};
+            }
+            return null;
+        }
         if (store.tryGet(entity)) |found| {
             const old = found.*;
             store.remove(entity);
