@@ -23,8 +23,8 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         const Self = @This();
 
         set: *SparseSet(Entity),
-        instances: std.ArrayList(ComponentOrDummy),
-        allocator: ?std.mem.Allocator,
+        instances: std.ArrayListUnmanaged(ComponentOrDummy),
+        allocator: std.mem.Allocator,
         /// doesnt really belong here...used to denote group ownership
         super: usize = 0,
         safeDeinit: *const fn (*Self) void,
@@ -32,18 +32,30 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         safeRemoveIfContains: *const fn (*Self, Entity) void,
 
         registry: *Registry = undefined,
-        construction: Signal(.{*Registry, Entity}),
-        update: Signal(.{*Registry, Entity}),
-        destruction: Signal(.{*Registry, Entity}),
+        construction: Signal(.{ *Registry, Entity }),
+        update: Signal(.{ *Registry, Entity }),
+        destruction: Signal(.{ *Registry, Entity }),
+
+        pub fn create(allocator: std.mem.Allocator) *Self {
+            const store = allocator.create(Self) catch unreachable;
+            store.* = Self.init(allocator);
+            return store;
+        }
+
+        pub fn destroy(self: *Self) void {
+            const allocator = self.allocator;
+            self.deinit();
+            allocator.destroy(self);
+        }
 
         pub fn init(allocator: std.mem.Allocator) Self {
             var store = Self{
-                .set = SparseSet(Entity).initPtr(allocator),
+                .set = SparseSet(Entity).create(allocator),
                 .instances = undefined,
                 .safeDeinit = struct {
                     fn deinit(self: *Self) void {
                         if (!is_empty_struct) {
-                            self.instances.deinit();
+                            self.instances.deinit(self.allocator);
                         }
                     }
                 }.deinit,
@@ -62,56 +74,15 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
                         }
                     }
                 }.removeIfContains,
-                .allocator = null,
-                .construction = Signal(.{*Registry, Entity}).init(allocator),
-                .update = Signal(.{*Registry, Entity}).init(allocator),
-                .destruction = Signal(.{*Registry, Entity}).init(allocator),
+                .allocator = allocator,
+                .construction = Signal(.{ *Registry, Entity }).init(allocator),
+                .update = Signal(.{ *Registry, Entity }).init(allocator),
+                .destruction = Signal(.{ *Registry, Entity }).init(allocator),
             };
 
             if (!is_empty_struct) {
-                store.instances = std.ArrayList(ComponentOrDummy).init(allocator);
+                store.instances = std.ArrayListUnmanaged(ComponentOrDummy){};
             }
-
-            return store;
-        }
-
-        pub fn initPtr(allocator: std.mem.Allocator) *Self {
-            var store = allocator.create(Self) catch unreachable;
-            store.set = SparseSet(Entity).initPtr(allocator);
-            if (!is_empty_struct) {
-                store.instances = std.ArrayList(ComponentOrDummy).init(allocator);
-            }
-            store.allocator = allocator;
-            store.super = 0;
-            store.construction = Signal(.{*Registry, Entity}).init(allocator);
-            store.update = Signal(.{*Registry, Entity}).init(allocator);
-            store.destruction = Signal(.{*Registry, Entity}).init(allocator);
-
-            // since we are stored as a pointer, we need to catpure this
-            store.safeDeinit = struct {
-                fn deinit(self: *Self) void {
-                    if (!is_empty_struct) {
-                        self.instances.deinit();
-                    }
-                }
-            }.deinit;
-
-            store.safeSwap = struct {
-                fn swap(self: *Self, lhs: Entity, rhs: Entity, instances_only: bool) void {
-                    if (!is_empty_struct) {
-                        std.mem.swap(Component, &self.instances.items[self.set.index(lhs)], &self.instances.items[self.set.index(rhs)]);
-                    }
-                    if (!instances_only) self.set.swap(lhs, rhs);
-                }
-            }.swap;
-
-            store.safeRemoveIfContains = struct {
-                fn removeIfContains(self: *Self, entity: Entity) void {
-                    if (self.contains(entity)) {
-                        self.remove(entity);
-                    }
-                }
-            }.removeIfContains;
 
             return store;
         }
@@ -121,25 +92,21 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             // will be wrong since it has to cast to a random struct when deiniting. Because of all that, is_empty_struct
             // will allways be false here so we have to deinit the instances no matter what.
             self.safeDeinit(self);
-            self.set.deinit();
+            self.set.destroy();
             self.construction.deinit();
             self.update.deinit();
             self.destruction.deinit();
-
-            if (self.allocator) |allocator| {
-                allocator.destroy(self);
-            }
         }
 
-        pub fn onConstruct(self: *Self) Sink(.{*Registry, Entity}) {
+        pub fn onConstruct(self: *Self) Sink(.{ *Registry, Entity }) {
             return self.construction.sink();
         }
 
-        pub fn onUpdate(self: *Self) Sink(.{*Registry, Entity}) {
+        pub fn onUpdate(self: *Self) Sink(.{ *Registry, Entity }) {
             return self.update.sink();
         }
 
-        pub fn onDestruct(self: *Self) Sink(.{*Registry, Entity}) {
+        pub fn onDestruct(self: *Self) Sink(.{ *Registry, Entity }) {
             return self.destruction.sink();
         }
 
@@ -154,7 +121,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
         /// Assigns an entity to a storage and assigns its object
         pub fn add(self: *Self, entity: Entity, value: Component) void {
             if (!is_empty_struct) {
-                _ = self.instances.append(value) catch unreachable;
+                _ = self.instances.append(self.allocator, value) catch unreachable;
             }
             self.set.add(entity);
             self.construction.publish(.{ self.registry, entity });
@@ -322,8 +289,8 @@ test "add/get/remove" {
 }
 
 test "iterate" {
-    var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
-    defer store.deinit();
+    var store = ComponentStorage(f32, u32).create(std.testing.allocator);
+    defer store.destroy();
 
     store.add(3, 66.45);
     store.add(5, 66.45);
@@ -345,8 +312,8 @@ test "iterate" {
 test "empty component" {
     const Empty = struct {};
 
-    var store = ComponentStorage(Empty, u32).initPtr(std.testing.allocator);
-    defer store.deinit();
+    var store = ComponentStorage(Empty, u32).create(std.testing.allocator);
+    defer store.destroy();
 
     store.add(3, Empty{});
     store.remove(3);
@@ -386,8 +353,8 @@ test "signals" {
 test "sort empty component" {
     const Empty = struct {};
 
-    var store = ComponentStorage(Empty, u32).initPtr(std.testing.allocator);
-    defer store.deinit();
+    var store = ComponentStorage(Empty, u32).create(std.testing.allocator);
+    defer store.destroy();
 
     store.add(1, Empty{});
     store.add(2, Empty{});
@@ -409,8 +376,8 @@ test "sort empty component" {
 }
 
 test "sort by entity" {
-    var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
-    defer store.deinit();
+    var store = ComponentStorage(f32, u32).create(std.testing.allocator);
+    defer store.destroy();
 
     store.add(22, @as(f32, 2.2));
     store.add(11, @as(f32, 1.1));
@@ -436,8 +403,8 @@ test "sort by entity" {
 }
 
 test "sort by component" {
-    var store = ComponentStorage(f32, u32).initPtr(std.testing.allocator);
-    defer store.deinit();
+    var store = ComponentStorage(f32, u32).create(std.testing.allocator);
+    defer store.destroy();
 
     store.add(22, @as(f32, 2.2));
     store.add(11, @as(f32, 1.1));

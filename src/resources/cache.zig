@@ -8,55 +8,54 @@ pub fn Cache(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        safe_deinit: *const fn (*@This()) void,
-        resources: std.AutoHashMap(u32, *T),
-        allocator: ?std.mem.Allocator = null,
+        safe_deinit: *const fn (*Self) void,
+        resources: std.AutoHashMapUnmanaged(u32, *T),
+        allocator: std.mem.Allocator,
 
-        pub fn initPtr(allocator: std.mem.Allocator) *@This() {
-            var cache = allocator.create(@This()) catch unreachable;
-            cache.safe_deinit = struct {
-                fn deinit(self: *Self) void {
-                    self.clear();
-                    self.resources.deinit();
-                    self.allocator.?.destroy(self);
-                }
-            }.deinit;
-            cache.resources = std.AutoHashMap(u32, *T).init(allocator);
-            cache.allocator = allocator;
+        pub fn create(allocator: std.mem.Allocator) *Self {
+            const cache = allocator.create(Self) catch unreachable;
+            cache.* = Self.init(allocator);
             return cache;
         }
 
-        pub fn init(allocator: std.mem.Allocator) @This() {
+        pub fn destroy(self: *Self) void {
+            const allocator = self.allocator;
+            self.deinit();
+            allocator.destroy(self);
+        }
+
+        pub fn init(allocator: std.mem.Allocator) Self {
             return .{
                 .safe_deinit = struct {
                     fn deinit(self: *Self) void {
                         self.clear();
-                        self.resources.deinit();
+                        self.resources.deinit(self.allocator);
                     }
                 }.deinit,
-                .resources = std.AutoHashMap(u32, *T).init(allocator),
+                .resources = std.AutoHashMapUnmanaged(u32, *T){},
+                .allocator = allocator,
             };
         }
 
-        pub fn deinit(self: *@This()) void {
+        pub fn deinit(self: *Self) void {
             self.safe_deinit(self);
         }
 
-        pub fn load(self: *@This(), id: u32, comptime loader: anytype) @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.? {
+        pub fn load(self: *Self, id: u32, comptime loader: anytype) @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.? {
             if (self.resources.get(id)) |resource| {
                 return resource;
             }
 
             const resource = loader.load(loader);
-            _ = self.resources.put(id, resource) catch unreachable;
+            _ = self.resources.put(self.allocator, id, resource) catch unreachable;
             return resource;
         }
 
-        pub fn contains(self: *@This(), id: u32) bool {
+        pub fn contains(self: *Self, id: u32) bool {
             return self.resources.contains(id);
         }
 
-        pub fn remove(self: *@This(), id: u32) void {
+        pub fn remove(self: *Self, id: u32) void {
             if (self.resources.fetchRemove(id)) |kv| {
                 if (@hasDecl(T, "deinit")) {
                     @call(.always_inline, T.deinit, .{kv.value});
@@ -64,7 +63,7 @@ pub fn Cache(comptime T: type) type {
             }
         }
 
-        pub fn clear(self: *@This()) void {
+        pub fn clear(self: *Self) void {
             // optionally deinit any resources that have a deinit method
             if (@hasDecl(T, "deinit")) {
                 var iter = self.resources.iterator();
@@ -72,10 +71,10 @@ pub fn Cache(comptime T: type) type {
                     @call(.always_inline, T.deinit, .{kv.value_ptr.*});
                 }
             }
-            self.resources.clearAndFree();
+            self.resources.clearAndFree(self.allocator);
         }
 
-        pub fn size(self: @This()) usize {
+        pub fn size(self: Self) usize {
             return self.resources.count();
         }
     };

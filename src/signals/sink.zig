@@ -48,14 +48,14 @@ pub fn SinkFromTuple(comptime Params: type) type {
         /// NOTE: each free_fn can only be connected ONCE to the same sink
         pub fn connect(self: Self, free_fn: Delegate(Params).FreeFn) void {
             std.debug.assert(self.indexOf(free_fn) == null);
-            _ = owning_signal.calls.insert(self.insert_index, Delegate(Params).initFree(free_fn)) catch unreachable;
+            _ = owning_signal.calls.insert(owning_signal.allocator, self.insert_index, Delegate(Params).initFree(free_fn)) catch unreachable;
         }
 
         /// connects a context `Delegate(Params).BindFn(@TypeOf(ctx_ptr))` to this sink
         /// NOTE: each ctx_ptr can only be connected ONCE to the same sink
         pub fn connectBound(self: Self, ctx_ptr: anytype, bind_fn: Delegate(Params).BindFn(@TypeOf(ctx_ptr))) void {
             std.debug.assert(self.indexOfBound(ctx_ptr) == null);
-            _ = owning_signal.calls.insert(self.insert_index, Delegate(Params).initBind(ctx_ptr, bind_fn)) catch unreachable;
+            _ = owning_signal.calls.insert(owning_signal.allocator, self.insert_index, Delegate(Params).initBind(ctx_ptr, bind_fn)) catch unreachable;
         }
 
         pub fn disconnect(self: Self, free_fn: Delegate(Params).FreeFn) void {
