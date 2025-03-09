@@ -1,7 +1,7 @@
 .{
-    .name = .zig_ecs,
+    .name = .entt,
     .version = "1.0.0",
-    .fingerprint = 0x8b33ab094c23970c,
+    .fingerprint = 0x73ce37d06ced93a8,
     .minimum_zig_version = "0.14.0",
     .dependencies = .{},
     .paths = .{
