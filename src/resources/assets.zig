@@ -38,7 +38,7 @@ pub const Assets = struct {
     }
 
     fn ReturnType(comptime loader: anytype, comptime strip_ptr: bool) type {
-        const ret = @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).Pointer.child).Fn.return_type.?;
+        const ret = @typeInfo(@typeInfo(@TypeOf(@field(loader, "load"))).pointer.child).@"fn".return_type.?;
         if (strip_ptr) {
             return std.meta.Child(ret);
         }

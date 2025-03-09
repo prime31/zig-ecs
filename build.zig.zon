@@ -1,11 +1,14 @@
 .{
-  .name = "entt",
-  .version = "1.0.0",
-  .paths = .{
-    "src",
-    "tests",
-    "examples",
-    "build.zig",
-    "build.zig.zon",
-  },
+    .name = .zig_ecs,
+    .version = "1.0.0",
+    .fingerprint = 0x8b33ab094c23970c,
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{},
+    .paths = .{
+        "src",
+        "tests",
+        "examples",
+        "build.zig",
+        "build.zig.zon",
+    },
 }

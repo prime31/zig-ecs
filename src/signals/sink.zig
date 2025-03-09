@@ -36,7 +36,7 @@ pub fn SinkFromTuple(comptime Params: type) type {
         }
 
         pub fn beforeBound(self: Self, ctx_ptr: anytype) Self {
-            if (@typeInfo(@TypeOf(ctx_ptr)) == .Pointer) {
+            if (@typeInfo(@TypeOf(ctx_ptr)) == .pointer) {
                 if (self.indexOfBound(ctx_ptr)) |index| {
                     return Self{ .insert_index = index };
                 }
