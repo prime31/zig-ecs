@@ -20,12 +20,15 @@ pub fn build(b: *std.Build) void {
     for (examples, 0..) |example, i| {
         const name = if (i == 0) "ecs" else example[0];
         const source = example[1];
-
-        const exe = b.addExecutable(.{
-            .name = name,
+        const example_module = b.createModule(.{
             .root_source_file = b.path(source),
             .optimize = optimize,
             .target = target,
+        });
+
+        const exe = b.addExecutable(.{
+            .name = name,
+            .root_module = example_module,
         });
         exe.root_module.addImport("ecs", ecs_module);
         exe.linkLibC();
@@ -94,13 +97,13 @@ pub fn linkArtifact(b: *std.Build, artifact: *std.Build.Step.Compile, lib_type: 
     const target = b.standardTargetOptions(.{});
     switch (lib_type) {
         .static => {
-            const lib = b.addStaticLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize, .target = target});
+            const lib = b.addStaticLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize, .target = target });
             b.installArtifact(lib);
 
             artifact.linkLibrary(lib);
         },
         .dynamic => {
-            const lib = b.addSharedLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize, .target = target});
+            const lib = b.addSharedLibrary(.{ .name = "ecs", .root_source_file = "ecs.zig", .optimize = optimize, .target = target });
             b.installArtifact(lib);
 
             artifact.linkLibrary(lib);
