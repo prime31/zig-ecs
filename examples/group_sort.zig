@@ -4,7 +4,6 @@ const ecs = @import("ecs");
 // override the EntityTraits used by ecs
 pub const EntityTraits = ecs.EntityTraitsType(.medium);
 
-pub const EmptyStruct = struct {};
 pub const Velocity = struct { x: f32, y: f32 };
 pub const Position = struct { x: f32, y: f32 };
 
@@ -28,7 +27,6 @@ fn createEntities(reg: *ecs.Registry) void {
         const e1 = reg.create();
         reg.add(e1, Position{ .x = 1, .y = r.random().float(f32) * 100 });
         reg.add(e1, Velocity{ .x = 1, .y = r.random().float(f32) * 100 });
-        reg.add(e1, EmptyStruct{});
     }
 
     const end = timer.lap();
@@ -36,7 +34,7 @@ fn createEntities(reg: *ecs.Registry) void {
 }
 
 fn owningGroup(reg: *ecs.Registry) void {
-    var group = reg.group(.{ EmptyStruct, Velocity, Position }, .{}, .{});
+    var group = reg.group(.{ Velocity, Position }, .{}, .{});
 
     // var group_iter = group.iterator(struct { vel: *Velocity, pos: *Position });
     // while (group_iter.next()) |e| {
@@ -64,3 +62,4 @@ fn owningGroup(reg: *ecs.Registry) void {
     //     std.debug.print("pos.y {d:.3}, ent: {}\n", .{e.pos.y, group_iter2.entity()});
     // }
 }
+
