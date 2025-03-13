@@ -153,86 +153,103 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             return self.set.len();
         }
 
-        pub usingnamespace if (is_empty_struct)
-            struct {
-                /// Sort Entities according to the given comparison function. Only T == Entity is allowed. The constraint param only exists for
-                /// parity with non-empty Components
-                pub fn sort(self: Self, comptime T: type, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
-                    std.debug.assert(T == Entity);
-                    self.set.sort(context, lessThan);
-                }
+        /// Direct access to the array of objects
+        pub fn raw(self: Self) []Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
             }
-        else
-            struct {
-                /// Direct access to the array of objects
-                pub fn raw(self: Self) []Component {
-                    return self.instances.items;
-                }
+            return self.instances.items;
+        }
 
-                /// Replaces the given component for an entity
-                pub fn replace(self: *Self, entity: Entity, value: Component) void {
-                    self.get(entity).* = value;
-                    self.update.publish(.{ self.registry, entity });
-                }
+        /// Replaces the given component for an entity
+        pub fn replace(self: *Self, entity: Entity, value: Component) void {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
+            self.get(entity).* = value;
+            self.update.publish(.{ self.registry, entity });
+        }
 
-                /// Returns the object associated with an entity
-                pub fn get(self: *Self, entity: Entity) *Component {
-                    std.debug.assert(self.contains(entity));
-                    return &self.instances.items[self.set.index(entity)];
-                }
+        /// Returns the object associated with an entity
+        pub fn get(self: *Self, entity: Entity) *Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
+            std.debug.assert(self.contains(entity));
+            return &self.instances.items[self.set.index(entity)];
+        }
 
-                pub fn getConst(self: *Self, entity: Entity) Component {
-                    return self.instances.items[self.set.index(entity)];
-                }
+        pub fn getConst(self: *Self, entity: Entity) Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
+            return self.instances.items[self.set.index(entity)];
+        }
 
-                /// Returns a pointer to the object associated with an entity, if any.
-                pub fn tryGet(self: *Self, entity: Entity) ?*Component {
-                    return if (self.set.contains(entity)) &self.instances.items[self.set.index(entity)] else null;
-                }
+        /// Returns a pointer to the object associated with an entity, if any.
+        pub fn tryGet(self: *Self, entity: Entity) ?*Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
+            return if (self.set.contains(entity)) &self.instances.items[self.set.index(entity)] else null;
+        }
 
-                pub fn tryGetConst(self: *Self, entity: Entity) ?Component {
-                    return if (self.set.contains(entity)) self.instances.items[self.set.index(entity)] else null;
-                }
+        pub fn tryGetConst(self: *Self, entity: Entity) ?Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
+            return if (self.set.contains(entity)) self.instances.items[self.set.index(entity)] else null;
+        }
 
-                /// Sort Entities or Components according to the given comparison function. Valid types for T are Entity or Component.
-                pub fn sort(self: *Self, comptime T: type, length: usize, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
-                    std.debug.assert(T == Entity or T == Component);
+        pub fn sortEmpty(self: Self, comptime T: type, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
+            if (!is_empty_struct) {
+                @compileError("This method is only available to zero-sized components");
+            }
+            std.debug.assert(T == Entity);
+            self.set.sort(context, lessThan);
+        }
 
-                    // we have to perform a swap after the sort for all moved entities so we make a helper struct for that. In the
-                    // case of a Component sort we also wrap that into the struct so we can get the Component data to pass to the
-                    // lessThan method passed in.
-                    if (T == Entity) {
-                        const SortContext = struct {
-                            storage: *Self,
+        /// Sort Entities or Components according to the given comparison function. Valid types for T are Entity or Component.
+        pub fn sort(self: *Self, comptime T: type, length: usize, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
+            std.debug.assert(T == Entity or T == Component);
 
-                            pub fn swap(this: @This(), a: Entity, b: Entity) void {
-                                this.storage.safeSwap(this.storage, a, b, true);
-                            }
-                        };
-                        const swap_context = SortContext{ .storage = self };
-                        self.set.arrange(length, context, lessThan, swap_context);
-                    } else {
-                        const SortContext = struct {
-                            storage: *Self,
-                            wrapped_context: @TypeOf(context),
-                            lessThan: *const fn (@TypeOf(context), T, T) bool,
+            // we have to perform a swap after the sort for all moved entities so we make a helper struct for that. In the
+            // case of a Component sort we also wrap that into the struct so we can get the Component data to pass to the
+            // lessThan method passed in.
+            if (T == Entity) {
+                const SortContext = struct {
+                    storage: *Self,
 
-                            fn sort(this: @This(), a: Entity, b: Entity) bool {
-                                const real_a = this.storage.getConst(a);
-                                const real_b = this.storage.getConst(b);
-                                return this.lessThan(this.wrapped_context, real_a, real_b);
-                            }
-
-                            pub fn swap(this: @This(), a: Entity, b: Entity) void {
-                                this.storage.safeSwap(this.storage, a, b, true);
-                            }
-                        };
-
-                        const swap_context = SortContext{ .storage = self, .wrapped_context = context, .lessThan = lessThan };
-                        self.set.arrange(length, swap_context, SortContext.sort, swap_context);
+                    pub fn swap(this: @This(), a: Entity, b: Entity) void {
+                        this.storage.safeSwap(this.storage, a, b, true);
                     }
-                }
-            };
+                };
+                const swap_context = SortContext{ .storage = self };
+                self.set.arrange(length, context, lessThan, swap_context);
+            } else {
+                const SortContext = struct {
+                    storage: *Self,
+                    wrapped_context: @TypeOf(context),
+                    lessThan: *const fn (@TypeOf(context), T, T) bool,
+
+                    fn sort(this: @This(), a: Entity, b: Entity) bool {
+                        const real_a = this.storage.getConst(a);
+                        const real_b = this.storage.getConst(b);
+                        return this.lessThan(this.wrapped_context, real_a, real_b);
+                    }
+
+                    pub fn swap(this: @This(), a: Entity, b: Entity) void {
+                        this.storage.safeSwap(this.storage, a, b, true);
+                    }
+                };
+
+                const swap_context = SortContext{ .storage = self, .wrapped_context = context, .lessThan = lessThan };
+                self.set.arrange(length, swap_context, SortContext.sort, swap_context);
+            }
+        }
 
         /// Direct access to the array of entities
         pub fn data(self: Self) []const Entity {
@@ -361,13 +378,13 @@ test "sort empty component" {
     store.add(0, Empty{});
 
     const asc_u32 = comptime std.sort.asc(u32);
-    store.sort(u32, {}, asc_u32);
+    store.sortEmpty(u32, {}, asc_u32);
     for (store.data(), 0..) |e, i| {
         try std.testing.expectEqual(@as(u32, @intCast(i)), e);
     }
 
     const desc_u32 = comptime std.sort.desc(u32);
-    store.sort(u32, {}, desc_u32);
+    store.sortEmpty(u32, {}, desc_u32);
     var counter: u32 = 2;
     for (store.data()) |e| {
         try std.testing.expectEqual(counter, e);

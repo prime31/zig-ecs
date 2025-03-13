@@ -62,3 +62,4 @@ fn owningGroup(reg: *ecs.Registry) void {
     //     std.debug.print("pos.y {d:.3}, ent: {}\n", .{e.pos.y, group_iter2.entity()});
     // }
 }
+
