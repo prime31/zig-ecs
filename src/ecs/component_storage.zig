@@ -155,41 +155,65 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
 
         /// Direct access to the array of objects
         pub fn raw(self: Self) []Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
             return self.instances.items;
         }
 
         /// Replaces the given component for an entity
         pub fn replace(self: *Self, entity: Entity, value: Component) void {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
             self.get(entity).* = value;
             self.update.publish(.{ self.registry, entity });
         }
 
         /// Returns the object associated with an entity
         pub fn get(self: *Self, entity: Entity) *Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
             std.debug.assert(self.contains(entity));
             return &self.instances.items[self.set.index(entity)];
         }
 
         pub fn getConst(self: *Self, entity: Entity) Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
             return self.instances.items[self.set.index(entity)];
         }
 
         /// Returns a pointer to the object associated with an entity, if any.
         pub fn tryGet(self: *Self, entity: Entity) ?*Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
             return if (self.set.contains(entity)) &self.instances.items[self.set.index(entity)] else null;
         }
 
         pub fn tryGetConst(self: *Self, entity: Entity) ?Component {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
             return if (self.set.contains(entity)) self.instances.items[self.set.index(entity)] else null;
         }
 
         pub fn sortEmpty(self: Self, comptime T: type, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
+            if (!is_empty_struct) {
+                @compileError("This method is only available to zero-sized components");
+            }
             std.debug.assert(T == Entity);
             self.set.sort(context, lessThan);
         }
 
         /// Sort Entities or Components according to the given comparison function. Valid types for T are Entity or Component.
         pub fn sort(self: *Self, comptime T: type, length: usize, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
+            if (is_empty_struct) {
+                @compileError("This method is not available to zero-sized components");
+            }
             std.debug.assert(T == Entity or T == Component);
 
             // we have to perform a swap after the sort for all moved entities so we make a helper struct for that. In the
