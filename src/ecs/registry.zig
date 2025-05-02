@@ -547,7 +547,7 @@ pub const Registry = struct {
             excludes_arr[i] = utils.typeId(t);
         }
 
-        return MultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
+        return MultiView(includes.len, excludes.len, includes, excludes).init(self);
     }
 
     pub fn basicView(self: *Registry, comptime Component: anytype) BasicView(Component) {
@@ -563,7 +563,7 @@ pub const Registry = struct {
     /// returns the Type that a view will be based on the includes and excludes
     fn ViewType(comptime includes: anytype, comptime excludes: anytype) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
-        return MultiView(includes.len, excludes.len);
+        return MultiView(includes.len, excludes.len, includes, excludes);
     }
 
     /// creates an optimized group for iterating components

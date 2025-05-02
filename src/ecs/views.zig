@@ -58,20 +58,36 @@ pub fn BasicView(comptime T: type) type {
     };
 }
 
-pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
+pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptime includes: [n_includes]type, comptime excludes: [n_excludes]type) type {
+    if (n_includes == 0) {
+        @compileError("n_includes must be at least 1 for any view");
+    }
+    const include_type_ids = include_type_ids: {
+        var ids: [n_includes]u32 = undefined;
+        for (includes, 0..) |t, i| {
+            ids[i] = utils.typeId(t);
+        }
+        break :include_type_ids ids;
+    };
+    const exclude_type_ids = exclude_type_ids: {
+        var ids: [n_excludes]u32 = undefined;
+        for (excludes, 0..) |t, i| {
+            ids[i] = utils.typeId(t);
+        }
+        break :exclude_type_ids ids;
+    };
     return struct {
         const Self = @This();
 
         registry: *Registry,
-        type_ids: [n_includes]u32,
-        exclude_type_ids: [n_excludes]u32,
+        order: [n_includes]u32,
 
         pub const Iterator = struct {
             view: *Self,
             internal_it: ReverseSliceIterator(Entity),
 
             pub fn init(view: *Self) Iterator {
-                const ptr = view.registry.components.get(view.type_ids[0]).?;
+                const ptr = view.registry.components.get(view.order[0]).?;
                 const internal_it = @as(*Storage(u8), @ptrFromInt(ptr)).set.reverseIterator();
                 return .{ .view = view, .internal_it = internal_it };
             }
@@ -79,7 +95,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             pub fn next(it: *Iterator) ?Entity {
                 while (it.internal_it.next()) |entity| blk: {
                     // entity must be in all other Storages
-                    for (it.view.type_ids) |tid| {
+                    for (it.view.order) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
                         if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
                             break :blk;
@@ -87,7 +103,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
                     }
 
                     // entity must not be in all other excluded Storages
-                    for (it.view.exclude_type_ids) |tid| {
+                    inline for (exclude_type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
                         if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
                             break :blk;
@@ -107,16 +123,15 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             }
 
             fn getInternalIteratorInstance(it: *Iterator) ReverseSliceIterator(Entity) {
-                const ptr = it.view.registry.components.get(it.view.type_ids[0]).?;
+                const ptr = it.view.registry.components.get(it.view.order[0]).?;
                 return @as(*Storage(u8), @ptrFromInt(ptr)).set.reverseIterator();
             }
         };
 
-        pub fn init(registry: *Registry, type_ids: [n_includes]u32, exclude_type_ids: [n_excludes]u32) Self {
+        pub fn init(registry: *Registry) Self {
             return Self{
                 .registry = registry,
-                .type_ids = type_ids,
-                .exclude_type_ids = exclude_type_ids,
+                .order = include_type_ids,
             };
         }
 
@@ -131,7 +146,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
         fn sort(self: *Self) void {
             // get our component counts in an array so we can sort the type_ids based on how many entities are in each
             var sub_items: [n_includes]usize = undefined;
-            for (self.type_ids, 0..) |tid, i| {
+            for (include_type_ids, 0..) |tid, i| {
                 const ptr = self.registry.components.get(tid).?;
                 const store = @as(*Storage(u8), @ptrFromInt(ptr));
                 sub_items[i] = store.len();
@@ -143,7 +158,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
                 }
             };
 
-            utils.sortSub(usize, u32, sub_items[0..], self.type_ids[0..], asc_usize.sort);
+            utils.sortSub(usize, u32, sub_items[0..], self.order[0..], asc_usize.sort);
         }
 
         pub fn entityIterator(self: *Self) Iterator {
@@ -163,54 +178,6 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             const new_n_includes = ArrayAttributeLength(view1_type, .type_ids) + ArrayAttributeLength(view2_type, .type_ids);
             const new_n_excludes = ArrayAttributeLength(view1_type, .exclude_type_ids) + ArrayAttributeLength(view2_type, .exclude_type_ids);
             return MultiView(new_n_includes, new_n_excludes);
-        }
-
-        /// Merge views, resulting in a new one.
-        /// There must no component overlap between the views.
-        pub fn extendNonOverlapping(self: *Self, multiview: anytype) ExtendNonOverlappingReturnType(@TypeOf(self.*), @TypeOf(multiview)) {
-            const new_n_includes = n_includes + ArrayAttributeLength(@TypeOf(multiview), .type_ids);
-            const new_n_excludes = n_excludes + ArrayAttributeLength(@TypeOf(multiview), .exclude_type_ids);
-
-            if (comptime new_n_includes != n_includes) {
-                // views can't share components
-                std.debug.assert(null == std.mem.indexOf(u32, &self.type_ids, &multiview.type_ids));
-                // views can't share components
-                std.debug.assert(null == std.mem.indexOf(u32, &self.exclude_type_ids, &multiview.type_ids));
-            }
-            if (comptime new_n_excludes != n_excludes) {
-                // views can't share components
-                std.debug.assert(null == std.mem.indexOf(u32, &self.type_ids, &multiview.exclude_type_ids));
-                // views can't share components
-                std.debug.assert(null == std.mem.indexOf(u32, &self.exclude_type_ids, &multiview.exclude_type_ids));
-            }
-
-            var new_include_ids: [new_n_includes]u32 = undefined;
-            std.mem.copyForwards(u32, new_include_ids[0..n_includes], &self.type_ids);
-            std.mem.copyForwards(u32, new_include_ids[n_includes..new_n_includes], &multiview.type_ids);
-
-            var new_exclude_ids: [new_n_excludes]u32 = undefined;
-            std.mem.copyForwards(u32, new_exclude_ids[0..n_excludes], &self.exclude_type_ids);
-            std.mem.copyForwards(u32, new_exclude_ids[n_excludes..new_n_excludes], &multiview.exclude_type_ids);
-
-            return MultiView(new_n_includes, new_n_excludes).init(
-                self.registry,
-                new_include_ids,
-                new_exclude_ids,
-            );
-        }
-
-        /// Create a new view where the given component is included.
-        /// The component must not already be included or excluded from the view.
-        pub fn include(self: *Self, comptime T: type) MultiView(n_includes + 1, n_excludes) {
-            const multiview = MultiView(1, 0).init(self.registry, .{utils.typeId(T)}, .{});
-            return self.extendNonOverlapping(multiview);
-        }
-
-        /// Create a new view where the given type is excluded.
-        /// The component must not already be included or excluded from the view.
-        pub fn exclude(self: *Self, comptime T: type) MultiView(n_includes, n_excludes + 1) {
-            const multiview = MultiView(0, 1).init(self.registry, .{}, .{utils.typeId(T)});
-            return self.extendNonOverlapping(multiview);
         }
     };
 }
@@ -343,126 +310,6 @@ test "basic multi view with excludes" {
 
     var iterated_entities: usize = 0;
     var iter = view.entityIterator();
-    while (iter.next()) |_| {
-        iterated_entities += 1;
-    }
-
-    try std.testing.expectEqual(iterated_entities, 1);
-    iterated_entities = 0;
-
-    reg.remove(u8, e2);
-
-    iter.reset();
-    while (iter.next()) |_| {
-        iterated_entities += 1;
-    }
-
-    try std.testing.expectEqual(iterated_entities, 2);
-}
-
-test "create one multiview by including more types to another" {
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    const e0 = reg.create();
-    const e1 = reg.create();
-    const e2 = reg.create();
-
-    reg.add(e0, @as(i32, 0));
-    reg.add(e1, @as(i32, -1));
-    reg.add(e2, @as(i32, -2));
-
-    reg.add(e0, @as(u32, 0));
-    reg.add(e2, @as(u32, 2));
-
-    reg.add(e2, @as(u8, 255));
-
-    var view1 = reg.view(.{i32}, .{u8});
-    var view2 = view1.include(u32);
-
-    var iterated_entities: usize = 0;
-    var iter = view2.entityIterator();
-    while (iter.next()) |_| {
-        iterated_entities += 1;
-    }
-
-    try std.testing.expectEqual(iterated_entities, 1);
-    iterated_entities = 0;
-
-    reg.remove(u8, e2);
-
-    iter.reset();
-    while (iter.next()) |_| {
-        iterated_entities += 1;
-    }
-
-    try std.testing.expectEqual(iterated_entities, 2);
-}
-
-test "create one multiview by excluding types from another" {
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    const e0 = reg.create();
-    const e1 = reg.create();
-    const e2 = reg.create();
-
-    reg.add(e0, @as(i32, 0));
-    reg.add(e1, @as(i32, -1));
-    reg.add(e2, @as(i32, -2));
-
-    reg.add(e0, @as(u32, 0));
-    reg.add(e2, @as(u32, 2));
-
-    reg.add(e2, @as(u8, 255));
-
-    var view1 = reg.view(.{ i32, u32 }, .{});
-    var view2 = view1.exclude(u8);
-
-    var iterated_entities: usize = 0;
-    var iter = view2.entityIterator();
-    while (iter.next()) |_| {
-        iterated_entities += 1;
-    }
-
-    try std.testing.expectEqual(iterated_entities, 1);
-    iterated_entities = 0;
-
-    reg.remove(u8, e2);
-
-    iter.reset();
-    while (iter.next()) |_| {
-        iterated_entities += 1;
-    }
-
-    try std.testing.expectEqual(iterated_entities, 2);
-}
-
-test "create one multiview by extending another" {
-    var reg = Registry.init(std.testing.allocator);
-    defer reg.deinit();
-
-    const e0 = reg.create();
-    reg.add(e0, @as(u2, 2));
-    const e1 = reg.create();
-    reg.add(e1, @as(u2, 2));
-    const e2 = reg.create();
-    reg.add(e2, @as(u2, 2));
-
-    reg.add(e0, @as(i32, 0));
-    reg.add(e1, @as(i32, -1));
-    reg.add(e2, @as(i32, -2));
-
-    reg.add(e0, @as(u32, 0));
-    reg.add(e2, @as(u32, 2));
-
-    reg.add(e2, @as(u8, 255));
-
-    var view1 = reg.view(.{u2}, .{u1});
-    var view2 = view1.extendNonOverlapping(reg.view(.{ u32, i32 }, .{u8}));
-
-    var iterated_entities: usize = 0;
-    var iter = view2.entityIterator();
     while (iter.next()) |_| {
         iterated_entities += 1;
     }
