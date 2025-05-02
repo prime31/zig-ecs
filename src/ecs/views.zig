@@ -165,16 +165,22 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             return MultiView(new_n_includes, new_n_excludes);
         }
 
+        /// Merge views, resulting in a new one.
+        /// There must no component overlap between the views.
         pub fn extendNonOverlapping(self: *Self, multiview: anytype) ExtendNonOverlappingReturnType(@TypeOf(self.*), @TypeOf(multiview)) {
             const new_n_includes = n_includes + ArrayAttributeLength(@TypeOf(multiview), .type_ids);
             const new_n_excludes = n_excludes + ArrayAttributeLength(@TypeOf(multiview), .exclude_type_ids);
 
             if (comptime new_n_includes != n_includes) {
+                // views can't share components
                 std.debug.assert(null == std.mem.indexOf(u32, &self.type_ids, &multiview.type_ids));
+                // views can't share components
                 std.debug.assert(null == std.mem.indexOf(u32, &self.exclude_type_ids, &multiview.type_ids));
             }
             if (comptime new_n_excludes != n_excludes) {
+                // views can't share components
                 std.debug.assert(null == std.mem.indexOf(u32, &self.type_ids, &multiview.exclude_type_ids));
+                // views can't share components
                 std.debug.assert(null == std.mem.indexOf(u32, &self.exclude_type_ids, &multiview.exclude_type_ids));
             }
 
@@ -193,11 +199,15 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             );
         }
 
+        /// Create a new view where the given component is included.
+        /// The component must not already be included or excluded from the view.
         pub fn include(self: *Self, comptime T: type) MultiView(n_includes + 1, n_excludes) {
             const multiview = MultiView(1, 0).init(self.registry, .{utils.typeId(T)}, .{});
             return self.extendNonOverlapping(multiview);
         }
 
+        /// Create a new view where the given type is excluded.
+        /// The component must not already be included or excluded from the view.
         pub fn exclude(self: *Self, comptime T: type) MultiView(n_includes, n_excludes + 1) {
             const multiview = MultiView(0, 1).init(self.registry, .{}, .{utils.typeId(T)});
             return self.extendNonOverlapping(multiview);
