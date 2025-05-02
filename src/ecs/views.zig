@@ -58,26 +58,29 @@ pub fn BasicView(comptime T: type) type {
     };
 }
 
-pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptime includes: [n_includes]type, comptime excludes: [n_excludes]type) type {
+pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptime _includes: [n_includes]type, comptime _excludes: [n_excludes]type) type {
     if (n_includes == 0) {
         @compileError("n_includes must be at least 1 for any view");
     }
     const include_type_ids = include_type_ids: {
         var ids: [n_includes]u32 = undefined;
-        for (includes, 0..) |t, i| {
+        for (_includes, 0..) |t, i| {
             ids[i] = utils.typeId(t);
         }
         break :include_type_ids ids;
     };
     const exclude_type_ids = exclude_type_ids: {
         var ids: [n_excludes]u32 = undefined;
-        for (excludes, 0..) |t, i| {
+        for (_excludes, 0..) |t, i| {
             ids[i] = utils.typeId(t);
         }
         break :exclude_type_ids ids;
     };
     return struct {
         const Self = @This();
+
+        comptime includes: @TypeOf(_includes) = _includes,
+        comptime excludes: @TypeOf(_excludes) = _excludes,
 
         registry: *Registry,
         order: [n_includes]u32,
@@ -172,12 +175,6 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptim
             }
             const field_type_info = @typeInfo(std.meta.fieldInfo(T, field).type);
             return field_type_info.array.len;
-        }
-
-        fn ExtendNonOverlappingReturnType(comptime view1_type: type, comptime view2_type: type) type {
-            const new_n_includes = ArrayAttributeLength(view1_type, .type_ids) + ArrayAttributeLength(view2_type, .type_ids);
-            const new_n_excludes = ArrayAttributeLength(view1_type, .exclude_type_ids) + ArrayAttributeLength(view2_type, .exclude_type_ids);
-            return MultiView(new_n_includes, new_n_excludes);
         }
     };
 }
