@@ -150,6 +150,58 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize) type {
             self.sort();
             return Iterator.init(self);
         }
+
+        fn ArrayAttributeLength(comptime T: type, field: std.meta.FieldEnum(T)) comptime_int {
+            if (@typeInfo(T) != .@"struct") {
+                @compileError("T should be a struct");
+            }
+            const field_type_info = @typeInfo(std.meta.fieldInfo(T, field).type);
+            return field_type_info.array.len;
+        }
+
+        fn ExtendNonOverlappingReturnType(comptime view1_type: type, comptime view2_type: type) type {
+            const new_n_includes = ArrayAttributeLength(view1_type, .type_ids) + ArrayAttributeLength(view2_type, .type_ids);
+            const new_n_excludes = ArrayAttributeLength(view1_type, .exclude_type_ids) + ArrayAttributeLength(view2_type, .exclude_type_ids);
+            return MultiView(new_n_includes, new_n_excludes);
+        }
+
+        pub fn extendNonOverlapping(self: *Self, multiview: anytype) ExtendNonOverlappingReturnType(@TypeOf(self.*), @TypeOf(multiview)) {
+            const new_n_includes = n_includes + ArrayAttributeLength(@TypeOf(multiview), .type_ids);
+            const new_n_excludes = n_excludes + ArrayAttributeLength(@TypeOf(multiview), .exclude_type_ids);
+
+            if (comptime new_n_includes != n_includes) {
+                std.debug.assert(null == std.mem.indexOf(u32, &self.type_ids, &multiview.type_ids));
+                std.debug.assert(null == std.mem.indexOf(u32, &self.exclude_type_ids, &multiview.type_ids));
+            }
+            if (comptime new_n_excludes != n_excludes) {
+                std.debug.assert(null == std.mem.indexOf(u32, &self.type_ids, &multiview.exclude_type_ids));
+                std.debug.assert(null == std.mem.indexOf(u32, &self.exclude_type_ids, &multiview.exclude_type_ids));
+            }
+
+            var new_include_ids: [new_n_includes]u32 = undefined;
+            std.mem.copyForwards(u32, new_include_ids[0..n_includes], &self.type_ids);
+            std.mem.copyForwards(u32, new_include_ids[n_includes..new_n_includes], &multiview.type_ids);
+
+            var new_exclude_ids: [new_n_excludes]u32 = undefined;
+            std.mem.copyForwards(u32, new_exclude_ids[0..n_excludes], &self.exclude_type_ids);
+            std.mem.copyForwards(u32, new_exclude_ids[n_excludes..new_n_excludes], &multiview.exclude_type_ids);
+
+            return MultiView(new_n_includes, new_n_excludes).init(
+                self.registry,
+                new_include_ids,
+                new_exclude_ids,
+            );
+        }
+
+        pub fn include(self: *Self, comptime T: type) MultiView(n_includes + 1, n_excludes) {
+            const multiview = MultiView(1, 0).init(self.registry, .{utils.typeId(T)}, .{});
+            return self.extendNonOverlapping(multiview);
+        }
+
+        pub fn exclude(self: *Self, comptime T: type) MultiView(n_includes, n_excludes + 1) {
+            const multiview = MultiView(0, 1).init(self.registry, .{}, .{utils.typeId(T)});
+            return self.extendNonOverlapping(multiview);
+        }
     };
 }
 
@@ -281,6 +333,126 @@ test "basic multi view with excludes" {
 
     var iterated_entities: usize = 0;
     var iter = view.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "create one multiview by including more types to another" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(u32, 0));
+    reg.add(e2, @as(u32, 2));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view1 = reg.view(.{i32}, .{u8});
+    var view2 = view1.include(u32);
+
+    var iterated_entities: usize = 0;
+    var iter = view2.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "create one multiview by excluding types from another" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(u32, 0));
+    reg.add(e2, @as(u32, 2));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view1 = reg.view(.{ i32, u32 }, .{});
+    var view2 = view1.exclude(u8);
+
+    var iterated_entities: usize = 0;
+    var iter = view2.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "create one multiview by extending another" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    reg.add(e0, @as(u2, 2));
+    const e1 = reg.create();
+    reg.add(e1, @as(u2, 2));
+    const e2 = reg.create();
+    reg.add(e2, @as(u2, 2));
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(u32, 0));
+    reg.add(e2, @as(u32, 2));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view1 = reg.view(.{u2}, .{u1});
+    var view2 = view1.extendNonOverlapping(reg.view(.{ u32, i32 }, .{u8}));
+
+    var iterated_entities: usize = 0;
+    var iter = view2.entityIterator();
     while (iter.next()) |_| {
         iterated_entities += 1;
     }
