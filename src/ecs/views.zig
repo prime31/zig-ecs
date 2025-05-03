@@ -58,7 +58,9 @@ pub fn BasicView(comptime T: type) type {
     };
 }
 
-pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptime _includes: [n_includes]type, comptime _excludes: [n_excludes]type) type {
+pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type {
+    const n_includes = _includes.len;
+    const n_excludes = _excludes.len;
     if (n_includes == 0) {
         @compileError("n_includes must be at least 1 for any view");
     }
@@ -83,7 +85,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptim
         comptime excludes: @TypeOf(_excludes) = _excludes,
 
         registry: *Registry,
-        order: [n_includes]u32,
+        order: [n_includes]u32 = include_type_ids,
 
         pub const Iterator = struct {
             view: *Self,
@@ -106,7 +108,7 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptim
                     }
 
                     // entity must not be in all other excluded Storages
-                    inline for (exclude_type_ids) |tid| {
+                    for (exclude_type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
                         if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
                             break :blk;
@@ -134,7 +136,6 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptim
         pub fn init(registry: *Registry) Self {
             return Self{
                 .registry = registry,
-                .order = include_type_ids,
             };
         }
 
@@ -167,14 +168,6 @@ pub fn MultiView(comptime n_includes: usize, comptime n_excludes: usize, comptim
         pub fn entityIterator(self: *Self) Iterator {
             self.sort();
             return Iterator.init(self);
-        }
-
-        fn ArrayAttributeLength(comptime T: type, field: std.meta.FieldEnum(T)) comptime_int {
-            if (@typeInfo(T) != .@"struct") {
-                @compileError("T should be a struct");
-            }
-            const field_type_info = @typeInfo(std.meta.fieldInfo(T, field).type);
-            return field_type_info.array.len;
         }
     };
 }
