@@ -59,20 +59,15 @@ pub fn BasicView(comptime T: type) type {
 }
 
 pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type {
-    const n_includes = _includes.len;
-    const n_excludes = _excludes.len;
-    if (n_includes == 0) {
-        @compileError("n_includes must be at least 1 for any view");
-    }
     const include_type_ids = include_type_ids: {
-        var ids: [n_includes]u32 = undefined;
+        var ids: [_includes.len]u32 = undefined;
         for (_includes, 0..) |t, i| {
             ids[i] = utils.typeId(t);
         }
         break :include_type_ids ids;
     };
     const exclude_type_ids = exclude_type_ids: {
-        var ids: [n_excludes]u32 = undefined;
+        var ids: [_excludes.len]u32 = undefined;
         for (_excludes, 0..) |t, i| {
             ids[i] = utils.typeId(t);
         }
@@ -81,11 +76,13 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
     return struct {
         const Self = @This();
 
+        comptime n_includes: usize = _includes.len,
+        comptime n_excludes: usize = _excludes.len,
         comptime includes: @TypeOf(_includes) = _includes,
         comptime excludes: @TypeOf(_excludes) = _excludes,
 
         registry: *Registry,
-        order: [n_includes]u32 = include_type_ids,
+        order: [_includes.len]u32 = include_type_ids,
 
         pub const Iterator = struct {
             view: *Self,
@@ -149,7 +146,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
 
         fn sort(self: *Self) void {
             // get our component counts in an array so we can sort the type_ids based on how many entities are in each
-            var sub_items: [n_includes]usize = undefined;
+            var sub_items: [_includes.len]usize = undefined;
             for (include_type_ids, 0..) |tid, i| {
                 const ptr = self.registry.components.get(tid).?;
                 const store = @as(*Storage(u8), @ptrFromInt(ptr));
@@ -168,6 +165,51 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
         pub fn entityIterator(self: *Self) Iterator {
             self.sort();
             return Iterator.init(self);
+        }
+
+        fn hasOverlap(a: []const type, b: []const type) bool {
+            if (a.len == 0 or b.len == 0) return false;
+            return std.mem.indexOf(type, a, b) != null;
+        }
+
+        //// merge multiviews types, returning a new multiview type.
+        pub fn extendType(Diff: type) type {
+            const self_includes: [_includes.len]type = std.meta.fieldInfo(Self, .includes).defaultValue().?;
+            const self_excludes: [_excludes.len]type = std.meta.fieldInfo(Self, .excludes).defaultValue().?;
+
+            const diff_n_includes = comptime std.meta.fieldInfo(Diff, .n_includes).defaultValue().?;
+            const diff_n_excludes = comptime std.meta.fieldInfo(Diff, .n_excludes).defaultValue().?;
+
+            const diff_includes: [diff_n_includes]type = std.meta.fieldInfo(Diff, .includes).defaultValue().?;
+            const diff_excludes: [diff_n_excludes]type = std.meta.fieldInfo(Diff, .excludes).defaultValue().?;
+
+            if (hasOverlap(&self_includes, &diff_includes)) {
+                @compileError("Overlap between base.includes and diff.includes detected!");
+            }
+            if (hasOverlap(&self_includes, &diff_excludes)) {
+                @compileError("Overlap between base.includes and diff.excludes detected!");
+            }
+            if (hasOverlap(&self_excludes, &diff_includes)) {
+                @compileError("Overlap between base.excludes and diff.includes detected!");
+            }
+            if (hasOverlap(&self_excludes, &diff_excludes)) {
+                @compileError("Overlap between base.excludes and diff.excludes detected!");
+            }
+
+            return MultiView(self_includes ++ diff_includes, self_excludes ++ diff_excludes);
+        }
+
+        pub fn extend(self: *Self, new_includes: anytype, new_excludes: anytype) extendType(MultiView(new_includes, new_excludes)) {
+            const NewMultiViewType = Self.extendType(MultiView(new_includes, new_excludes));
+            return NewMultiViewType.init(self.registry);
+        }
+
+        pub fn include(self: *Self, comptime Include: type) extendType(MultiView(.{Include}, .{})) {
+            return self.extend(.{Include}, .{});
+        }
+
+        pub fn exclude(self: *Self, comptime Exclude: type) extendType(MultiView(.{}, .{Exclude})) {
+            return self.extend(.{}, .{Exclude});
         }
     };
 }
@@ -297,6 +339,49 @@ test "basic multi view with excludes" {
     reg.add(e2, @as(u8, 255));
 
     var view = reg.view(.{ i32, u32 }, .{u8});
+
+    var iterated_entities: usize = 0;
+    var iter = view.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "extend view type" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view = MultiView(.{}, .{})
+        .extendType(MultiView(.{f32}, .{}))
+        .extendType(MultiView(.{}, .{}))
+        .extendType(MultiView(.{i32}, .{}))
+        .extendType(MultiView(.{}, .{}))
+        .extendType(MultiView(.{}, .{u8})).init(&reg);
 
     var iterated_entities: usize = 0;
     var iter = view.entityIterator();
