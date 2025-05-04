@@ -105,7 +105,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
                     }
 
                     // entity must not be in all other excluded Storages
-                    for (exclude_type_ids) |tid| {
+                    inline for (exclude_type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
                         if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
                             break :blk;
@@ -131,6 +131,12 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
         };
 
         pub fn init(registry: *Registry) Self {
+            inline for (_includes) |include_type| {
+                _ = registry.assure(include_type);
+            }
+            inline for (_excludes) |exclude_type| {
+                _ = registry.assure(exclude_type);
+            }
             return Self{
                 .registry = registry,
             };
@@ -172,42 +178,68 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             return std.mem.indexOf(type, a, b) != null;
         }
 
+        fn countOverlap(a: []const type, b: []const type) usize {
+            if (a.len == 0 or b.len == 0) return 0;
+            return std.mem.count(type, a, b);
+        }
+
+        fn copyFiltered(to: []type, from: []const type, filter: []const type) usize {
+            var count = 0;
+            for (from) |t| {
+                if (std.mem.indexOfScalar(type, filter, t) != null) continue;
+                to[count] = t;
+                count += 1;
+            }
+            return count;
+        }
+
         //// merge multiviews types, returning a new multiview type.
         pub fn extendType(Diff: type) type {
             const self_includes: [_includes.len]type = std.meta.fieldInfo(Self, .includes).defaultValue().?;
             const self_excludes: [_excludes.len]type = std.meta.fieldInfo(Self, .excludes).defaultValue().?;
 
-            const diff_n_includes = comptime std.meta.fieldInfo(Diff, .n_includes).defaultValue().?;
-            const diff_n_excludes = comptime std.meta.fieldInfo(Diff, .n_excludes).defaultValue().?;
+            const diff_n_includes = std.meta.fieldInfo(Diff, .n_includes).defaultValue().?;
+            const diff_n_excludes = std.meta.fieldInfo(Diff, .n_excludes).defaultValue().?;
 
             const diff_includes: [diff_n_includes]type = std.meta.fieldInfo(Diff, .includes).defaultValue().?;
             const diff_excludes: [diff_n_excludes]type = std.meta.fieldInfo(Diff, .excludes).defaultValue().?;
 
             if (hasOverlap(&self_includes, &diff_includes)) {
-                @compileError("Overlap between base.includes and diff.includes detected!");
-            }
-            if (hasOverlap(&self_includes, &diff_excludes)) {
-                @compileError("Overlap between base.includes and diff.excludes detected!");
-            }
-            if (hasOverlap(&self_excludes, &diff_includes)) {
-                @compileError("Overlap between base.excludes and diff.includes detected!");
+                @compileError(std.fmt.comptimePrint("Overlap between current include types {any} and new include types {any} detected!", .{ self_includes, diff_includes }));
             }
             if (hasOverlap(&self_excludes, &diff_excludes)) {
-                @compileError("Overlap between base.excludes and diff.excludes detected!");
+                @compileError(std.fmt.comptimePrint("Overlap between current exclude types {any} and new exclude types {any} detected!", .{ self_excludes, diff_excludes }));
+            }
+            if (hasOverlap(&diff_includes, &diff_excludes)) {
+                @compileError(std.fmt.comptimePrint("Overlap between new include types {any} and new exclude types {any} detected!", .{ diff_includes, diff_excludes }));
             }
 
-            return MultiView(self_includes ++ diff_includes, self_excludes ++ diff_excludes);
+            const num_include_exclude_overlap = countOverlap(&self_includes, &diff_excludes);
+            const num_exclude_include_overlap = countOverlap(&self_excludes, &diff_includes);
+
+            var new_includes: [self_includes.len + diff_includes.len - num_include_exclude_overlap]type = undefined;
+            const n_copied_self_includes = copyFiltered(&new_includes, &self_includes, &diff_excludes);
+            std.mem.copyForwards(type, new_includes[n_copied_self_includes..], &diff_includes);
+
+            var new_excludes: [self_excludes.len + diff_excludes.len - num_exclude_include_overlap]type = undefined;
+            const n_copied_self_excludes = copyFiltered(&new_excludes, &self_excludes, &diff_includes);
+            std.mem.copyForwards(type, new_excludes[n_copied_self_excludes..], &diff_excludes);
+
+            return MultiView(new_includes, new_excludes);
         }
 
+        /// extend current view, returning an instance of the new view type
         pub fn extend(self: *Self, new_includes: anytype, new_excludes: anytype) extendType(MultiView(new_includes, new_excludes)) {
             const NewMultiViewType = Self.extendType(MultiView(new_includes, new_excludes));
             return NewMultiViewType.init(self.registry);
         }
 
+        /// extend current view with a new include type, returning an instance of the new view type
         pub fn include(self: *Self, comptime Include: type) extendType(MultiView(.{Include}, .{})) {
             return self.extend(.{Include}, .{});
         }
 
+        /// extend current view with a new exclude type, returning an instance of the new view type
         pub fn exclude(self: *Self, comptime Exclude: type) extendType(MultiView(.{}, .{Exclude})) {
             return self.extend(.{}, .{Exclude});
         }
@@ -359,7 +391,7 @@ test "basic multi view with excludes" {
     try std.testing.expectEqual(iterated_entities, 2);
 }
 
-test "extend view type" {
+test "extend view type with non overlapping types" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
@@ -382,6 +414,45 @@ test "extend view type" {
         .extendType(MultiView(.{i32}, .{}))
         .extendType(MultiView(.{}, .{}))
         .extendType(MultiView(.{}, .{u8})).init(&reg);
+
+    var iterated_entities: usize = 0;
+    var iter = view.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "extend view type with overlapping types (including an excluded type)" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view = MultiView(.{f32}, .{i32})
+        .extendType(MultiView(.{i32}, .{ bool, u8 })).init(&reg);
 
     var iterated_entities: usize = 0;
     var iter = view.entityIterator();
