@@ -59,6 +59,10 @@ pub fn BasicView(comptime T: type) type {
 }
 
 pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type {
+    @setEvalBranchQuota(1_000_000);
+    if (std.mem.indexOfAny(type, &_includes, &_excludes) != null) {
+        @compileError("Included and excluded types must not overlap");
+    }
     const include_type_ids = include_type_ids: {
         var ids: [_includes.len]u32 = undefined;
         for (_includes, 0..) |t, i| {
@@ -194,15 +198,15 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
         }
 
         //// merge multiviews types, returning a new multiview type.
-        pub fn extendType(Diff: type) type {
-            const self_includes: [_includes.len]type = std.meta.fieldInfo(Self, .includes).defaultValue().?;
-            const self_excludes: [_excludes.len]type = std.meta.fieldInfo(Self, .excludes).defaultValue().?;
-
+        pub fn extendType(comptime Diff: type) type {
             const diff_n_includes = std.meta.fieldInfo(Diff, .n_includes).defaultValue().?;
             const diff_n_excludes = std.meta.fieldInfo(Diff, .n_excludes).defaultValue().?;
 
             const diff_includes: [diff_n_includes]type = std.meta.fieldInfo(Diff, .includes).defaultValue().?;
             const diff_excludes: [diff_n_excludes]type = std.meta.fieldInfo(Diff, .excludes).defaultValue().?;
+
+            const self_includes: [_includes.len]type = std.meta.fieldInfo(Self, .includes).defaultValue().?;
+            const self_excludes: [_excludes.len]type = std.meta.fieldInfo(Self, .excludes).defaultValue().?;
 
             if (std.mem.indexOfAny(type, &self_includes, &diff_includes) != null) {
                 @compileError(std.fmt.comptimePrint("Overlap between current include types {any} and new include types {any} detected!", .{ self_includes, diff_includes }));
