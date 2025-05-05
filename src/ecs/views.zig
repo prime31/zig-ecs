@@ -173,14 +173,14 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             return Iterator.init(self);
         }
 
-        fn hasOverlap(a: []const type, b: []const type) bool {
-            if (a.len == 0 or b.len == 0) return false;
-            return std.mem.indexOf(type, a, b) != null;
-        }
-
         fn countOverlap(a: []const type, b: []const type) usize {
-            if (a.len == 0 or b.len == 0) return 0;
-            return std.mem.count(type, a, b);
+            var found = 0;
+            for (a) |a_elem| {
+                if (std.mem.indexOfScalar(type, b, a_elem) != null) {
+                    found += 1;
+                }
+            }
+            return found;
         }
 
         fn copyFiltered(to: []type, from: []const type, filter: []const type) usize {
@@ -204,13 +204,13 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             const diff_includes: [diff_n_includes]type = std.meta.fieldInfo(Diff, .includes).defaultValue().?;
             const diff_excludes: [diff_n_excludes]type = std.meta.fieldInfo(Diff, .excludes).defaultValue().?;
 
-            if (hasOverlap(&self_includes, &diff_includes)) {
+            if (std.mem.indexOfAny(type, &self_includes, &diff_includes) != null) {
                 @compileError(std.fmt.comptimePrint("Overlap between current include types {any} and new include types {any} detected!", .{ self_includes, diff_includes }));
             }
-            if (hasOverlap(&self_excludes, &diff_excludes)) {
+            if (std.mem.indexOfAny(type, &self_excludes, &diff_excludes) != null) {
                 @compileError(std.fmt.comptimePrint("Overlap between current exclude types {any} and new exclude types {any} detected!", .{ self_excludes, diff_excludes }));
             }
-            if (hasOverlap(&diff_includes, &diff_excludes)) {
+            if (std.mem.indexOfAny(type, &diff_includes, &diff_excludes) != null) {
                 @compileError(std.fmt.comptimePrint("Overlap between new include types {any} and new exclude types {any} detected!", .{ diff_includes, diff_excludes }));
             }
 
@@ -452,10 +452,205 @@ test "extend view type with overlapping types (including an excluded type)" {
     reg.add(e2, @as(u8, 255));
 
     var view = MultiView(.{f32}, .{i32})
+        .extendType(MultiView(.{i32}, .{u8})).init(&reg);
+
+    var iterated_entities: usize = 0;
+    var iter = view.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "extend view type with overlapping types (excluding an included type)" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view = MultiView(.{ f32, bool, i32 }, .{})
+        .extendType(MultiView(.{}, .{ bool, u8 })).init(&reg);
+
+    var iterated_entities: usize = 0;
+    var iter = view.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "extend view type with overlapping types (excluding an included type and including an excluded type at the same time)" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view = MultiView(.{ f32, bool }, .{i32})
         .extendType(MultiView(.{i32}, .{ bool, u8 })).init(&reg);
 
     var iterated_entities: usize = 0;
     var iter = view.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "extend view with overlapping types, getting an instance of the new view type" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view1 = reg.view(.{ f32, bool }, .{i32});
+    var view2 = view1.extend(.{i32}, .{ bool, u8 });
+
+    var iterated_entities: usize = 0;
+    var iter = view2.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "include type in view" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view1 = reg.view(.{f32}, .{u8});
+    var view2 = view1.include(i32);
+
+    var iterated_entities: usize = 0;
+    var iter = view2.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "exclude type from view" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view1 = reg.view(.{ f32, i32 }, .{});
+    var view2 = view1.exclude(u8);
+
+    var iterated_entities: usize = 0;
+    var iter = view2.entityIterator();
     while (iter.next()) |_| {
         iterated_entities += 1;
     }
