@@ -527,27 +527,15 @@ pub const Registry = struct {
     }
 
     pub fn view(self: *Registry, comptime includes: anytype, comptime excludes: anytype) ViewType(includes, excludes) {
-        std.debug.assert(@typeInfo(@TypeOf(includes)) == .@"struct");
-        std.debug.assert(@typeInfo(@TypeOf(excludes)) == .@"struct");
-        std.debug.assert(includes.len > 0);
+        if (comptime @typeInfo(@TypeOf(includes)) != .@"struct") @compileError("'includes' argument must be a tuple");
+        if (comptime @typeInfo(@TypeOf(excludes)) != .@"struct") @compileError("'excludes' argument must be a tuple");
+        if (comptime includes.len < 1) @compileError("'includes' must have at least one element");
 
         // just one include so use the optimized BasicView
         if (includes.len == 1 and excludes.len == 0)
             return BasicView(includes[0]).init(self.assure(includes[0]));
 
-        var includes_arr: [includes.len]u32 = undefined;
-        inline for (includes, 0..) |t, i| {
-            _ = self.assure(t);
-            includes_arr[i] = utils.typeId(t);
-        }
-
-        var excludes_arr: [excludes.len]u32 = undefined;
-        inline for (excludes, 0..) |t, i| {
-            _ = self.assure(t);
-            excludes_arr[i] = utils.typeId(t);
-        }
-
-        return MultiView(includes.len, excludes.len).init(self, includes_arr, excludes_arr);
+        return MultiView(includes, excludes).init(self);
     }
 
     pub fn basicView(self: *Registry, comptime Component: anytype) BasicView(Component) {
@@ -563,7 +551,7 @@ pub const Registry = struct {
     /// returns the Type that a view will be based on the includes and excludes
     fn ViewType(comptime includes: anytype, comptime excludes: anytype) type {
         if (includes.len == 1 and excludes.len == 0) return BasicView(includes[0]);
-        return MultiView(includes.len, excludes.len);
+        return MultiView(includes, excludes);
     }
 
     /// creates an optimized group for iterating components
