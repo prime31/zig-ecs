@@ -147,15 +147,6 @@ pub fn isComptime(comptime T: type) bool {
     };
 }
 
-pub fn getTypeSequenceNumberOfCharacters(comptime types: anytype) usize {
-    @setEvalBranchQuota(1000 * types.len);
-    var sum = 0;
-    inline for (types) |t| {
-        sum += @typeName(t).len;
-    }
-    return sum;
-}
-
 test "ReverseSliceIterator" {
     const slice = std.testing.allocator.alloc(usize, 10) catch unreachable;
     defer std.testing.allocator.free(slice);
