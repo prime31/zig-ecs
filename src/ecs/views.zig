@@ -154,6 +154,25 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             return self.registry.assure(T).getConst(entity);
         }
 
+        pub fn contains(self: *Self, entity: Entity) bool {
+            // entity must be in all other Storages
+            inline for (include_type_ids) |tid| {
+                const ptr = self.registry.components.get(tid).?;
+                if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
+                    return false;
+                }
+            }
+
+            // entity must not be in all other excluded Storages
+            inline for (exclude_type_ids) |tid| {
+                const ptr = self.registry.components.get(tid).?;
+                if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         fn sort(self: *Self) void {
             // get our component counts in an array so we can sort the type_ids based on how many entities are in each
             var sub_items: [_includes.len]usize = undefined;
@@ -652,6 +671,51 @@ test "exclude type from view" {
 
     var view1 = reg.view(.{ f32, i32 }, .{});
     var view2 = view1.exclude(u8);
+
+    var iterated_entities: usize = 0;
+    var iter = view2.entityIterator();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 1);
+    iterated_entities = 0;
+
+    reg.remove(u8, e2);
+
+    iter.reset();
+    while (iter.next()) |_| {
+        iterated_entities += 1;
+    }
+
+    try std.testing.expectEqual(iterated_entities, 2);
+}
+
+test "check if entity belongs to view without iterating over everything" {
+    var reg = Registry.init(std.testing.allocator);
+    defer reg.deinit();
+
+    const e0 = reg.create();
+    const e1 = reg.create();
+    const e2 = reg.create();
+    const e4 = reg.create();
+
+    reg.add(e0, @as(i32, 0));
+    reg.add(e1, @as(i32, -1));
+    reg.add(e2, @as(i32, -2));
+    reg.add(e4, @as(i32, -3));
+
+    reg.add(e0, @as(f32, 0.0));
+    reg.add(e2, @as(f32, 2.0));
+
+    reg.add(e2, @as(u8, 255));
+
+    var view1 = reg.view(.{ f32, i32 }, .{});
+    try std.testing.expect(view1.contains(e2));
+    try std.testing.expect(view1.contains(e2));
+    try std.testing.expect(!view1.contains(e4));
+    var view2 = view1.exclude(u8);
+    try std.testing.expect(!view2.contains(e2));
 
     var iterated_entities: usize = 0;
     var iter = view2.entityIterator();
