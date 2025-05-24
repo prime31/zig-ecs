@@ -441,7 +441,18 @@ pub const Registry = struct {
 
     pub fn get(self: *Registry, comptime T: type, entity: Entity) *T {
         assert(self.valid(entity));
-        return self.assure(T).get(entity);
+        const comp_ptr = self.assure(T).get(entity);
+
+        switch (@typeInfo(T)) {
+            .@"struct", .@"enum", .@"union", .@"opaque" => {},
+            else => return comp_ptr,
+        }
+
+        if (std.meta.hasMethod(T, "_setRegistry")) {
+            comp_ptr._setRegistry(self);
+        }
+
+        return comp_ptr;
     }
 
     pub fn getConst(self: *Registry, comptime T: type, entity: Entity) T {
@@ -731,3 +742,24 @@ pub const Registry = struct {
         }
     }
 };
+
+test "_setRegistry" {
+    const TestComponent = struct {
+        const Self = @This();
+
+        _registry: *Registry = undefined,
+
+        pub fn _setRegistry(self: *Self, registry: *Registry) void {
+            self._registry = registry;
+        }
+    };
+
+    const allocator = std.testing.allocator;
+    var reg = Registry.init(allocator);
+    defer reg.deinit();
+
+    const entity = reg.create();
+    reg.add(entity, TestComponent{});
+    const comp_ptr = reg.get(TestComponent, entity);
+    assert(comp_ptr._registry == &reg);
+}
