@@ -251,7 +251,7 @@ pub const Registry = struct {
 
     /// Direct access to the list of entities of a given pool
     pub fn data(self: *Registry, comptime T: type) []Entity {
-        return self.assure(T).data().*;
+        return self.assure(T).dataPtr().*;
     }
 
     pub fn valid(self: *Registry, entity: Entity) bool {
