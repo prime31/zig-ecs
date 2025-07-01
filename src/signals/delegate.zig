@@ -34,46 +34,50 @@ pub fn DelegateFromTuple(comptime Params: type) type {
             } });
         }
 
-        ctx_ptr: usize = 0,
-        bind_ptr: usize = 0,
-        free_ptr: usize = 0,
+        ctx_ptr: ?*anyopaque = null,
+        bind_ptr: ?*const anyopaque = null,
+        free_ptr: ?*const anyopaque = null,
 
         /// sets a bind function as the Delegate callback
         pub fn initBind(ctx_ptr: anytype, bind_fn: BindFn(@TypeOf(ctx_ptr))) Self {
             const T = @TypeOf(ctx_ptr);
             const Temp = struct {
                 fn cb(self: Self, params: Params) void {
-                    @call(.auto, @as(BindFn(T), @ptrFromInt(self.bind_ptr)), .{@as(T, @ptrFromInt(self.ctx_ptr))} ++ params);
+                    @call(
+                        .auto,
+                        @as(BindFn(T), @alignCast(@ptrCast(self.bind_ptr))),
+                        .{@as(T, @alignCast(@ptrCast(self.ctx_ptr)))} ++ params,
+                    );
                 }
             };
             return Self{
-                .ctx_ptr = @intFromPtr(ctx_ptr),
-                .free_ptr = @intFromPtr(&Temp.cb),
-                .bind_ptr = @intFromPtr(bind_fn),
+                .ctx_ptr = @ptrCast(ctx_ptr),
+                .free_ptr = @ptrCast(&Temp.cb),
+                .bind_ptr = @ptrCast(bind_fn),
             };
         }
 
         /// sets a free function as the Delegate callback
         pub fn initFree(free_fn: FreeFn) Self {
             return Self{
-                .free_ptr = @intFromPtr(free_fn),
+                .free_ptr = @ptrCast(free_fn),
             };
         }
 
         pub fn trigger(self: Self, params: Params) void {
-            if (self.ctx_ptr == 0) {
-                @call(.auto, @as(FreeFn, @ptrFromInt(self.free_ptr)), params);
+            if (self.ctx_ptr == null) {
+                @call(.auto, @as(FreeFn, @ptrCast(self.free_ptr)), params);
             } else {
-                @as(*const fn (Self, Params) void, @ptrFromInt(self.free_ptr))(self, params);
+                @as(*const fn (Self, Params) void, @ptrCast(self.free_ptr))(self, params);
             }
         }
 
         pub fn containsFree(self: Self, free_fn: FreeFn) bool {
-            return self.ctx_ptr == 0 and self.free_ptr == @intFromPtr(free_fn);
+            return self.ctx_ptr == null and @intFromPtr(self.free_ptr) == @intFromPtr(free_fn);
         }
 
         pub fn containsBound(self: Self, ctx: anytype) bool {
-            return self.ctx_ptr == @intFromPtr(ctx);
+            return @intFromPtr(self.ctx_ptr) == @intFromPtr(ctx);
         }
     };
 }

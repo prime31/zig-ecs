@@ -31,8 +31,8 @@ pub fn Storage(comptime CompT: type) type {
 /// no errors to keep the API clean and because if a component array cant be allocated you've got bigger problems.
 pub const Registry = struct {
     handles: EntityHandles,
-    components: std.AutoHashMapUnmanaged(u32, usize),
-    contexts: std.AutoHashMapUnmanaged(u32, usize),
+    components: std.AutoHashMapUnmanaged(u32, *anyopaque),
+    contexts: std.AutoHashMapUnmanaged(u32, *anyopaque),
     groups: std.ArrayListUnmanaged(*GroupData),
     type_store: TypeStore,
     allocator: std.mem.Allocator,
@@ -81,19 +81,19 @@ pub const Registry = struct {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
                     const ptr = registry.components.get(tid).?;
-                    if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
+                    if (!@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity))
                         break :blk false;
                 }
 
                 for (self.include) |tid| {
                     const ptr = registry.components.get(tid).?;
-                    if (!@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
+                    if (!@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity))
                         break :blk false;
                 }
 
                 for (self.exclude) |tid| {
                     const ptr = registry.components.get(tid).?;
-                    if (@as(*Storage(u1), @ptrFromInt(ptr)).contains(entity))
+                    if (@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity))
                         break :blk false;
                 }
                 break :blk true;
@@ -106,11 +106,11 @@ pub const Registry = struct {
             } else {
                 if (isValid) {
                     const ptr = registry.components.get(self.owned[0]).?;
-                    if (!(@as(*Storage(u1), @ptrFromInt(ptr)).set.index(entity) < self.current)) {
+                    if (!(@as(*Storage(u1), @alignCast(@ptrCast(ptr))).set.index(entity) < self.current)) {
                         for (self.owned) |tid| {
                             // store.swap hides a safe version that types it correctly
                             const store_ptr = registry.components.get(tid).?;
-                            var store = @as(*Storage(u1), @ptrFromInt(store_ptr));
+                            var store = @as(*Storage(u1), @alignCast(@ptrCast(store_ptr)));
                             store.swap(store.data()[self.current], entity);
                         }
                         self.current += 1;
@@ -127,12 +127,12 @@ pub const Registry = struct {
                 }
             } else {
                 const ptr = registry.components.get(self.owned[0]).?;
-                var store = @as(*Storage(u1), @ptrFromInt(ptr));
+                var store = @as(*Storage(u1), @alignCast(@ptrCast(ptr)));
                 if (store.contains(entity) and store.set.index(entity) < self.current) {
                     self.current -= 1;
                     for (self.owned) |tid| {
                         const store_ptr = registry.components.get(tid).?;
-                        store = @as(*Storage(u1), @ptrFromInt(store_ptr));
+                        store = @as(*Storage(u1), @alignCast(@ptrCast(store_ptr)));
                         store.swap(store.data()[self.current], entity);
                     }
                 }
@@ -185,8 +185,8 @@ pub const Registry = struct {
     pub fn init(allocator: std.mem.Allocator) Registry {
         return Registry{
             .handles = EntityHandles.init(allocator),
-            .components = std.AutoHashMapUnmanaged(u32, usize){},
-            .contexts = std.AutoHashMapUnmanaged(u32, usize){},
+            .components = .empty,
+            .contexts = .empty,
             .groups = std.ArrayListUnmanaged(*GroupData){},
             .type_store = TypeStore.init(allocator),
             .allocator = allocator,
@@ -197,7 +197,7 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var storage = @as(*Storage(u1), @ptrFromInt(ptr.*));
+            var storage = @as(*Storage(u1), @alignCast(@ptrCast(ptr.*)));
             storage.destroy();
         }
 
@@ -219,13 +219,12 @@ pub const Registry = struct {
 
         const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
-            return @as(*Storage(T), @ptrFromInt(kv.value_ptr.*));
+            return @as(*Storage(T), @alignCast(@ptrCast(kv.value_ptr.*)));
         }
 
         const comp_set = Storage(T).create(self.allocator);
         comp_set.registry = self;
-        const comp_set_ptr = @intFromPtr(comp_set);
-        _ = self.components.put(self.allocator, type_id, comp_set_ptr) catch unreachable;
+        _ = self.components.put(self.allocator, type_id, @ptrCast(comp_set)) catch unreachable;
         return comp_set;
     }
 
@@ -429,7 +428,7 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |value| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
-            var store = @as(*Storage(u1), @ptrFromInt(value.*));
+            var store = @as(*Storage(u1), @alignCast(@ptrCast(value.*)));
             store.removeIfContains(entity);
         }
     }
@@ -491,23 +490,20 @@ pub const Registry = struct {
         std.debug.assert(@typeInfo(@TypeOf(context)) == .pointer);
 
         const type_id = utils.typeId(@typeInfo(@TypeOf(context)).pointer.child);
-        _ = self.contexts.put(self.allocator, type_id, @intFromPtr(context)) catch unreachable;
+        _ = self.contexts.put(self.allocator, type_id, @ptrCast(context)) catch unreachable;
     }
 
     /// Unsets a context variable if it exists
     pub fn unsetContext(self: *Registry, comptime T: type) void {
         std.debug.assert(@typeInfo(T) != .pointer);
-        _ = self.contexts.put(self.allocator, utils.typeId(T), 0) catch unreachable;
+        _ = self.contexts.remove(utils.typeId(T));
     }
 
     /// Returns a pointer to an object in the context of the registry
     pub fn getContext(self: *Registry, comptime T: type) ?*T {
         std.debug.assert(@typeInfo(T) != .pointer);
 
-        return if (self.contexts.get(utils.typeId(T))) |ptr|
-            return if (ptr > 0) @as(*T, @ptrFromInt(ptr)) else null
-        else
-            null;
+        return @alignCast(@ptrCast(self.contexts.get(utils.typeId(T))));
     }
 
     /// provides access to a TypeStore letting you add singleton components to the registry
