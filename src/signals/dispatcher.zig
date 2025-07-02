@@ -5,12 +5,12 @@ const Tuple = @import("delegate.zig").Tuple;
 const utils = @import("../ecs/utils.zig");
 
 pub const Dispatcher = struct {
-    signals: std.AutoHashMap(u32, usize),
+    signals: std.AutoHashMap(u32, *anyopaque),
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Dispatcher {
         return Dispatcher{
-            .signals = std.AutoHashMap(u32, usize).init(allocator),
+            .signals = .init(allocator),
             .allocator = allocator,
         };
     }
@@ -19,7 +19,7 @@ pub const Dispatcher = struct {
         var iter = self.signals.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var signal = @as(*Signal(.{}), @ptrFromInt(ptr.value_ptr.*));
+            var signal: *Signal(.{}) = @alignCast(@ptrCast(ptr.value_ptr.*));
             signal.destroy();
         }
 
@@ -29,12 +29,11 @@ pub const Dispatcher = struct {
     fn assure(self: *Dispatcher, comptime Params: anytype) *Signal(Params) {
         const type_id = utils.typeId(Tuple(Params));
         if (self.signals.get(type_id)) |value| {
-            return @as(*Signal(Params), @ptrFromInt(value));
+            return @as(*Signal(Params), @alignCast(@ptrCast(value)));
         }
 
         const signal = Signal(Params).create(self.allocator);
-        const signal_ptr = @intFromPtr(signal);
-        _ = self.signals.put(type_id, signal_ptr) catch unreachable;
+        _ = self.signals.put(type_id, @ptrCast(signal)) catch unreachable;
         return signal;
     }
 

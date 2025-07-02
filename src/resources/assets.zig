@@ -3,12 +3,12 @@ const utils = @import("../ecs/utils.zig");
 const Cache = @import("cache.zig").Cache;
 
 pub const Assets = struct {
-    caches: std.AutoHashMap(u32, usize),
+    caches: std.AutoHashMap(u32, *anyopaque),
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Assets {
         return Assets{
-            .caches = std.AutoHashMap(u32, usize).init(allocator),
+            .caches = .init(allocator),
             .allocator = allocator,
         };
     }
@@ -17,7 +17,8 @@ pub const Assets = struct {
         var iter = self.caches.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            @as(*Cache(u1), @ptrFromInt(ptr.value_ptr.*)).destroy();
+            const cache: *Cache(u1) = @alignCast(@ptrCast(ptr.value_ptr.*));
+            cache.destroy();
         }
 
         self.caches.deinit();
@@ -25,11 +26,11 @@ pub const Assets = struct {
 
     pub fn get(self: *Assets, comptime AssetT: type) *Cache(AssetT) {
         if (self.caches.get(utils.typeId(AssetT))) |tid| {
-            return @as(*Cache(AssetT), @ptrFromInt(tid));
+            return @as(*Cache(AssetT), @alignCast(@ptrCast(tid)));
         }
 
         const cache = Cache(AssetT).create(self.allocator);
-        _ = self.caches.put(utils.typeId(AssetT), @intFromPtr(cache)) catch unreachable;
+        _ = self.caches.put(utils.typeId(AssetT), @ptrCast(cache)) catch unreachable;
         return cache;
     }
 

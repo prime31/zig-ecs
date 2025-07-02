@@ -142,7 +142,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             std.debug.assert(!self.contains(sparse));
 
             // assure(page(entt))[offset(entt)] = packed.size()
-            self.assure(self.page(sparse))[self.offset(sparse)] = @as(SparseT, @intCast(self.dense.items.len));
+            self.assure(self.page(sparse))[self.offset(sparse)] = @intCast(self.dense.items.len);
             _ = self.dense.append(self.allocator, sparse) catch unreachable;
         }
 
@@ -175,7 +175,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             std_sort_insertionSort_clone(SparseT, self.dense.items, context, lessThan);
 
             for (self.dense.items, 0..) |_, i| {
-                const item = @as(SparseT, @intCast(i));
+                const item: SparseT = @intCast(i);
                 self.sparse.items[self.page(self.dense.items[self.page(item)])].?[self.offset(self.dense.items[self.page(item)])] = @as(SparseT, @intCast(i));
             }
         }
@@ -186,7 +186,7 @@ pub fn SparseSet(comptime SparseT: type) type {
             std_sort_insertionSort_clone(SparseT, self.dense.items[0..length], context, lessThan);
 
             for (self.dense.items[0..length], 0..) |_, pos| {
-                var curr = @as(SparseT, @intCast(pos));
+                var curr: SparseT = @intCast(pos);
                 var next = self.index(self.dense.items[curr]);
 
                 while (curr != next) {
@@ -201,8 +201,8 @@ pub fn SparseSet(comptime SparseT: type) type {
 
         /// Sort entities according to their order in another sparse set. Other is the master in this case.
         pub fn respect(self: *Self, other: *Self) void {
-            var pos = @as(SparseT, 0);
-            var i = @as(SparseT, 0);
+            var pos: SparseT = 0;
+            var i: SparseT = 0;
             while (i < other.dense.items.len) : (i += 1) {
                 if (self.contains(other.dense.items[i])) {
                     if (other.dense.items[i] != self.dense.items[pos]) {
@@ -265,9 +265,9 @@ test "grow" {
     var set = SparseSet(u32).create(std.testing.allocator);
     defer set.destroy();
 
-    var i = @as(usize, std.math.maxInt(u8));
+    var i: usize = std.math.maxInt(u8);
     while (i > 0) : (i -= 1) {
-        set.add(@as(u32, @intCast(i)));
+        set.add(@intCast(i));
     }
 
     try std.testing.expectEqual(set.len(), std.math.maxInt(u8));

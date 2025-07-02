@@ -30,7 +30,7 @@ pub const TypeStore = struct {
 
     pub fn get(self: *TypeStore, comptime T: type) *T {
         if (self.map.get(utils.typeId(T))) |bytes| {
-            return @as(*T, @ptrCast(@alignCast(bytes)));
+            return @ptrCast(@alignCast(bytes));
         }
         unreachable;
     }
