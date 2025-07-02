@@ -19,7 +19,7 @@ pub const Dispatcher = struct {
         var iter = self.signals.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var signal = @as(*Signal(.{}), @alignCast(@ptrCast(ptr.value_ptr.*)));
+            var signal: *Signal(.{}) = @alignCast(@ptrCast(ptr.value_ptr.*));
             signal.destroy();
         }
 

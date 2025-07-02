@@ -54,7 +54,7 @@ pub const Registry = struct {
             // std.debug.assert(std.mem.indexOfAny(u32, include, exclude) == null);
             var group_data = allocator.create(GroupData) catch unreachable;
             group_data.hash = hash;
-            group_data.size = @as(u8, @intCast(owned.len + include.len + exclude.len));
+            group_data.size = @intCast(owned.len + include.len + exclude.len);
             if (owned.len == 0) {
                 group_data.entity_set = SparseSet(Entity).init(allocator);
             }
@@ -77,64 +77,68 @@ pub const Registry = struct {
             allocator.destroy(self);
         }
 
+        /// On entity component update, adds the entity to our lists if it is valid
         pub fn maybeValidIf(self: *GroupData, registry: *Registry, entity: Entity) void {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
-                    const ptr = registry.components.get(tid).?;
-                    if (!@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity))
+                    const storage_ptr = registry.components.get(tid).?;
+                    const storage: *Storage(u1) = @alignCast(@ptrCast(storage_ptr));
+                    if (!storage.contains(entity))
                         break :blk false;
                 }
 
                 for (self.include) |tid| {
-                    const ptr = registry.components.get(tid).?;
-                    if (!@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity))
+                    const storage_ptr = registry.components.get(tid).?;
+                    const storage: *Storage(u1) = @alignCast(@ptrCast(storage_ptr));
+                    if (!storage.contains(entity))
                         break :blk false;
                 }
 
                 for (self.exclude) |tid| {
                     const ptr = registry.components.get(tid).?;
-                    if (@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity))
+                    const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                    if (storage.contains(entity))
                         break :blk false;
                 }
                 break :blk true;
             };
 
+            if (!isValid) return;
+
+            // If this is not an owning group, just add the entity to our set of tracked entities
             if (self.owned.len == 0) {
-                if (isValid and !self.entity_set.contains(entity)) {
-                    self.entity_set.add(entity);
-                }
-            } else {
-                if (isValid) {
-                    const ptr = registry.components.get(self.owned[0]).?;
-                    if (!(@as(*Storage(u1), @alignCast(@ptrCast(ptr))).set.index(entity) < self.current)) {
-                        for (self.owned) |tid| {
-                            // store.swap hides a safe version that types it correctly
-                            const store_ptr = registry.components.get(tid).?;
-                            var store = @as(*Storage(u1), @alignCast(@ptrCast(store_ptr)));
-                            store.swap(store.data()[self.current], entity);
-                        }
-                        self.current += 1;
-                    }
-                }
-                std.debug.assert(self.owned.len >= 0);
+                if (!self.entity_set.contains(entity)) self.entity_set.add(entity);
+                return;
             }
+
+            const first_owned_ptr = registry.components.get(self.owned[0]).?;
+            const first_owned: *Storage(u1) = @alignCast(@ptrCast(first_owned_ptr));
+            if (first_owned.set.index(entity) < self.current) return;
+
+            for (self.owned) |owned_type| {
+                // store.swap hides a safe version that types it correctly
+                const storage_ptr = registry.components.get(owned_type).?;
+                var storage: *Storage(u1) = @alignCast(@ptrCast(storage_ptr));
+                storage.swap(storage.data()[self.current], entity);
+            }
+            std.debug.assert(self.owned.len >= 0);
+            self.current += 1;
         }
 
         pub fn discardIf(self: *GroupData, registry: *Registry, entity: Entity) void {
             if (self.owned.len == 0) {
-                if (self.entity_set.contains(entity)) {
-                    self.entity_set.remove(entity);
-                }
-            } else {
-                const ptr = registry.components.get(self.owned[0]).?;
-                var store = @as(*Storage(u1), @alignCast(@ptrCast(ptr)));
-                if (store.contains(entity) and store.set.index(entity) < self.current) {
-                    self.current -= 1;
-                    for (self.owned) |tid| {
-                        const store_ptr = registry.components.get(tid).?;
-                        store = @as(*Storage(u1), @alignCast(@ptrCast(store_ptr)));
-                        store.swap(store.data()[self.current], entity);
-                    }
+                if (self.entity_set.contains(entity)) self.entity_set.remove(entity);
+                return;
+            }
+
+            const ptr = registry.components.get(self.owned[0]).?;
+            var storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+            if (storage.contains(entity) and storage.set.index(entity) < self.current) {
+                self.current -= 1;
+                for (self.owned) |tid| {
+                    const store_ptr = registry.components.get(tid).?;
+                    storage = @alignCast(@ptrCast(store_ptr));
+                    storage.swap(storage.data()[self.current], entity);
                 }
             }
         }
@@ -197,7 +201,7 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var storage = @as(*Storage(u1), @alignCast(@ptrCast(ptr.*)));
+            var storage: *Storage(u1) = @alignCast(@ptrCast(ptr.*));
             storage.destroy();
         }
 
@@ -219,7 +223,7 @@ pub const Registry = struct {
 
         const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
-            return @as(*Storage(T), @alignCast(@ptrCast(kv.value_ptr.*)));
+            return @alignCast(@ptrCast(kv.value_ptr.*));
         }
 
         const comp_set = Storage(T).create(self.allocator);
@@ -264,7 +268,7 @@ pub const Registry = struct {
 
     /// Returns the version stored along with an entity identifier
     pub fn version(_: *Registry, entity: Entity) entity_traits.version_type {
-        return @as(entity_traits.version_type, @truncate(entity >> entity_traits.entity_shift));
+        return @truncate(entity >> entity_traits.entity_shift);
     }
 
     /// Creates a new entity and returns it
@@ -428,8 +432,8 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |value| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
-            var store = @as(*Storage(u1), @alignCast(@ptrCast(value.*)));
-            store.removeIfContains(entity);
+            var storage: *Storage(u1) = @alignCast(@ptrCast(value.*));
+            storage.removeIfContains(entity);
         }
     }
 

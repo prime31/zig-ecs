@@ -94,7 +94,8 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
 
             pub fn init(view: *Self) Iterator {
                 const ptr = view.registry.components.get(view.order[0]).?;
-                const internal_it = @as(*Storage(u8), @alignCast(@ptrCast(ptr))).set.reverseIterator();
+                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                const internal_it = storage.set.reverseIterator();
                 return .{ .view = view, .internal_it = internal_it };
             }
 
@@ -103,7 +104,8 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
                     // entity must be in all other Storages
                     for (it.view.order) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
-                        if (!@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity)) {
+                        const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                        if (!storage.contains(entity)) {
                             break :blk;
                         }
                     }
@@ -111,7 +113,8 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
                     // entity must not be in all other excluded Storages
                     inline for (exclude_type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
-                        if (@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity)) {
+                        const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                        if (storage.contains(entity)) {
                             break :blk;
                         }
                     }
@@ -130,7 +133,8 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
 
             fn getInternalIteratorInstance(it: *Iterator) ReverseSliceIterator(Entity) {
                 const ptr = it.view.registry.components.get(it.view.order[0]).?;
-                return @as(*Storage(u8), @alignCast(@ptrCast(ptr))).set.reverseIterator();
+                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                return storage.set.reverseIterator();
             }
         };
 
@@ -158,7 +162,8 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             // entity must be in all other Storages
             inline for (include_type_ids) |tid| {
                 const ptr = self.registry.components.get(tid).?;
-                if (!@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity)) {
+                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                if (!storage.contains(entity)) {
                     return false;
                 }
             }
@@ -166,7 +171,8 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             // entity must not be in all other excluded Storages
             inline for (exclude_type_ids) |tid| {
                 const ptr = self.registry.components.get(tid).?;
-                if (@as(*Storage(u1), @alignCast(@ptrCast(ptr))).contains(entity)) {
+                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                if (storage.contains(entity)) {
                     return false;
                 }
             }
@@ -178,8 +184,8 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             var sub_items: [_includes.len]usize = undefined;
             for (include_type_ids, 0..) |tid, i| {
                 const ptr = self.registry.components.get(tid).?;
-                const store = @as(*Storage(u8), @alignCast(@ptrCast(ptr)));
-                sub_items[i] = store.len();
+                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                sub_items[i] = storage.len();
             }
 
             const asc_usize = struct {

@@ -17,7 +17,8 @@ pub const Assets = struct {
         var iter = self.caches.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            @as(*Cache(u1), @alignCast(@ptrCast(ptr.value_ptr.*))).destroy();
+            const cache: *Cache(u1) = @alignCast(@ptrCast(ptr.value_ptr.*));
+            cache.destroy();
         }
 
         self.caches.deinit();

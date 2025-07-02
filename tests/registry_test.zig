@@ -94,7 +94,7 @@ test "destroy" {
     var reg = Registry.init(std.testing.allocator);
     defer reg.deinit();
 
-    var i = @as(u8, 0);
+    var i: u8 = 0;
     while (i < 255) : (i += 1) {
         const e = reg.create();
         reg.add(e, Position{ .x = @as(f32, @floatFromInt(i)), .y = @as(f32, @floatFromInt(i)) });
