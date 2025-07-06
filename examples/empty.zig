@@ -2,7 +2,7 @@ const std = @import("std");
 const ecs = @import("ecs");
 
 // override the EntityTraits used by ecs
-pub const EntityTraits = ecs.EntityTraitsType(.medium);
+pub const Entity = ecs.EntityClass(.medium);
 
 pub const Empty = struct {};
 pub const Velocity = struct { x: f32, y: f32 };

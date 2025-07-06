@@ -201,7 +201,7 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
             return if (self.set.contains(entity)) self.instances.items[self.set.index(entity)] else null;
         }
 
-        pub fn sortEmpty(self: Self, comptime T: type, context: anytype, comptime lessThan: *const fn (@TypeOf(context), T, T) bool) void {
+        pub fn sortEmpty(self: Self, comptime T: type, context: anytype, comptime lessThan: fn (@TypeOf(context), T, T) bool) void {
             if (!is_empty_struct) {
                 @compileError("This method is only available to zero-sized components");
             }
@@ -276,141 +276,166 @@ pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
 }
 
 test "add/try-get/remove/clear" {
-    var store = ComponentStorage(f32, u32).init(std.testing.allocator);
+    const Entity = @import("entity.zig").DefaultEntity;
+    var store = ComponentStorage(f32, Entity).init(std.testing.allocator);
     defer store.deinit();
 
-    store.add(3, 66.45);
-    try std.testing.expectEqual(store.tryGetConst(3).?, 66.45);
-    if (store.tryGet(3)) |found| {
+    store.add(.{ .index = 3, .version = 0 }, 66.45);
+    try std.testing.expectEqual(store.tryGetConst(.{ .index = 3, .version = 0 }).?, 66.45);
+    if (store.tryGet(.{ .index = 3, .version = 0 })) |found| {
         try std.testing.expectEqual(@as(f32, 66.45), found.*);
     }
 
-    store.remove(3);
+    store.remove(.{ .index = 3, .version = 0 });
 
-    const val_null = store.tryGet(3);
+    const val_null = store.tryGet(.{ .index = 3, .version = 0 });
     try std.testing.expectEqual(val_null, null);
 
     store.clear();
 }
 
 test "add/get/remove" {
-    var store = ComponentStorage(f32, u32).init(std.testing.allocator);
+    const Entity = @import("entity.zig").DefaultEntity;
+
+    var store = ComponentStorage(f32, Entity).init(std.testing.allocator);
     defer store.deinit();
 
-    store.add(3, 66.45);
-    if (store.tryGet(3)) |found| try std.testing.expectEqual(@as(f32, 66.45), found.*);
-    try std.testing.expectEqual(store.tryGetConst(3).?, 66.45);
+    store.add(.{ .index = 3, .version = 0 }, 66.45);
+    if (store.tryGet(.{ .index = 3, .version = 0 })) |found| try std.testing.expectEqual(@as(f32, 66.45), found.*);
+    try std.testing.expectEqual(store.tryGetConst(.{ .index = 3, .version = 0 }).?, 66.45);
 
-    store.remove(3);
-    try std.testing.expectEqual(store.tryGet(3), null);
+    store.remove(.{ .index = 3, .version = 0 });
+    try std.testing.expectEqual(store.tryGet(.{ .index = 3, .version = 0 }), null);
 }
 
 test "iterate" {
-    var store = ComponentStorage(f32, u32).create(std.testing.allocator);
+    const Entity = @import("entity.zig").DefaultEntity;
+
+    var store = ComponentStorage(f32, Entity).create(std.testing.allocator);
     defer store.destroy();
 
-    store.add(3, 66.45);
-    store.add(5, 66.45);
-    store.add(7, 66.45);
+    store.add(.{ .index = 3, .version = 0 }, 66.45);
+    store.add(.{ .index = 5, .version = 0 }, 66.45);
+    store.add(.{ .index = 7, .version = 0 }, 66.45);
 
     for (store.data(), 0..) |entity, i| {
         if (i == 0) {
-            try std.testing.expectEqual(entity, 3);
+            try std.testing.expectEqual(@as(Entity, .{ .index = 3, .version = 0 }), entity);
         }
         if (i == 1) {
-            try std.testing.expectEqual(entity, 5);
+            try std.testing.expectEqual(@as(Entity, .{ .index = 5, .version = 0 }), entity);
         }
         if (i == 2) {
-            try std.testing.expectEqual(entity, 7);
+            try std.testing.expectEqual(@as(Entity, .{ .index = 7, .version = 0 }), entity);
         }
     }
 }
 
 test "empty component" {
+    const Entity = @import("entity.zig").DefaultEntity;
+
     const Empty = struct {};
 
-    var store = ComponentStorage(Empty, u32).create(std.testing.allocator);
+    var store = ComponentStorage(Empty, Entity).create(std.testing.allocator);
     defer store.destroy();
 
-    store.add(3, Empty{});
-    store.remove(3);
-}
-
-fn construct(_: *Registry, e: u32) void {
-    std.debug.assert(e == 3);
-}
-fn update(_: *Registry, e: u32) void {
-    std.debug.assert(e == 3);
-}
-fn destruct(_: *Registry, e: u32) void {
-    std.debug.assert(e == 3);
+    store.add(.{ .index = 0, .version = 0 }, Empty{});
+    store.remove(.{ .index = 0, .version = 0 });
 }
 
 test "signals" {
-    var store = ComponentStorage(f32, u32).init(std.testing.allocator);
+    const Entity = @import("entity.zig").DefaultEntity;
+
+    var store = ComponentStorage(f32, Entity).init(std.testing.allocator);
     defer store.deinit();
 
-    store.onConstruct().connect(construct);
-    store.onUpdate().connect(update);
-    store.onDestruct().connect(destruct);
+    const Callbacks = struct {
+        fn construct(_: *Registry, e: Entity) void {
+            std.debug.assert(e.index == 3);
+        }
+        fn update(_: *Registry, e: Entity) void {
+            std.debug.assert(e.index == 3);
+        }
+        fn destruct(_: *Registry, e: Entity) void {
+            std.debug.assert(e.index == 3);
+        }
+    };
 
-    store.add(3, 66.45);
-    store.replace(3, 45.64);
-    store.remove(3);
+    store.onConstruct().connect(Callbacks.construct);
+    store.onUpdate().connect(Callbacks.update);
+    store.onDestruct().connect(Callbacks.destruct);
 
-    store.onConstruct().disconnect(construct);
-    store.onUpdate().disconnect(update);
-    store.onDestruct().disconnect(destruct);
+    store.add(.{ .index = 3, .version = 0 }, 66.45);
+    store.replace(.{ .index = 3, .version = 0 }, 45.64);
+    store.remove(.{ .index = 3, .version = 0 });
 
-    store.add(4, 66.45);
-    store.replace(4, 45.64);
-    store.remove(4);
+    store.onConstruct().disconnect(Callbacks.construct);
+    store.onUpdate().disconnect(Callbacks.update);
+    store.onDestruct().disconnect(Callbacks.destruct);
+
+    store.add(.{ .index = 4, .version = 0 }, 66.45);
+    store.replace(.{ .index = 4, .version = 0 }, 45.64);
+    store.remove(.{ .index = 4, .version = 0 });
 }
 
 test "sort empty component" {
+    const Entity = @import("entity.zig").DefaultEntity;
+
     const Empty = struct {};
 
-    var store = ComponentStorage(Empty, u32).create(std.testing.allocator);
+    var store = ComponentStorage(Empty, Entity).create(std.testing.allocator);
     defer store.destroy();
 
-    store.add(1, Empty{});
-    store.add(2, Empty{});
-    store.add(0, Empty{});
+    store.add(.{ .index = 1, .version = 0 }, Empty{});
+    store.add(.{ .index = 2, .version = 0 }, Empty{});
+    store.add(.{ .index = 0, .version = 0 }, Empty{});
 
-    const asc_u32 = comptime std.sort.asc(u32);
-    store.sortEmpty(u32, {}, asc_u32);
+    const asc = struct {
+        fn sort(_: void, a: Entity, b: Entity) bool {
+            return a.index < b.index;
+        }
+    }.sort;
+
+    store.sortEmpty(Entity, {}, asc);
     for (store.data(), 0..) |e, i| {
-        try std.testing.expectEqual(@as(u32, @intCast(i)), e);
+        try std.testing.expectEqual(@as(Entity, .{ .index = @intCast(i), .version = 0 }), e);
     }
 
-    const desc_u32 = comptime std.sort.desc(u32);
-    store.sortEmpty(u32, {}, desc_u32);
-    var counter: u32 = 2;
+    const desc = struct {
+        fn sort(_: void, a: Entity, b: Entity) bool {
+            return a.index > b.index;
+        }
+    }.sort;
+
+    store.sortEmpty(Entity, {}, desc);
+    var counter: Entity.Index = 2;
     for (store.data()) |e| {
-        try std.testing.expectEqual(counter, e);
+        try std.testing.expectEqual(@as(Entity, .{ .index = counter, .version = 0 }), e);
         if (counter > 0) counter -= 1;
     }
 }
 
 test "sort by entity" {
-    var store = ComponentStorage(f32, u32).create(std.testing.allocator);
+    const Entity = @import("entity.zig").DefaultEntity;
+
+    var store = ComponentStorage(f32, Entity).create(std.testing.allocator);
     defer store.destroy();
 
-    store.add(22, @as(f32, 2.2));
-    store.add(11, @as(f32, 1.1));
-    store.add(33, @as(f32, 3.3));
+    store.add(.{ .index = 22, .version = 0 }, @as(f32, 2.2));
+    store.add(.{ .index = 11, .version = 0 }, @as(f32, 1.1));
+    store.add(.{ .index = 33, .version = 0 }, @as(f32, 3.3));
 
     const SortContext = struct {
-        store: *ComponentStorage(f32, u32),
+        store: *ComponentStorage(f32, Entity),
 
-        fn sort(this: @This(), a: u32, b: u32) bool {
+        fn sort(this: @This(), a: Entity, b: Entity) bool {
             const real_a = this.store.getConst(a);
             const real_b = this.store.getConst(b);
             return real_a > real_b;
         }
     };
     const context = SortContext{ .store = store };
-    store.sort(u32, store.len(), context, SortContext.sort);
+    store.sort(Entity, store.len(), context, SortContext.sort);
 
     var compare: f32 = 5;
     for (store.raw()) |val| {
@@ -420,12 +445,14 @@ test "sort by entity" {
 }
 
 test "sort by component" {
-    var store = ComponentStorage(f32, u32).create(std.testing.allocator);
+    const Entity = @import("entity.zig").DefaultEntity;
+
+    var store = ComponentStorage(f32, Entity).create(std.testing.allocator);
     defer store.destroy();
 
-    store.add(22, @as(f32, 2.2));
-    store.add(11, @as(f32, 1.1));
-    store.add(33, @as(f32, 3.3));
+    store.add(.{ .index = 22, .version = 0 }, @as(f32, 2.2));
+    store.add(.{ .index = 11, .version = 0 }, @as(f32, 1.1));
+    store.add(.{ .index = 33, .version = 0 }, @as(f32, 3.3));
 
     const desc_f32 = comptime std.sort.desc(f32);
     store.sort(f32, store.len(), {}, desc_f32);

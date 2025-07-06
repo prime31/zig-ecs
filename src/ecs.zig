@@ -1,6 +1,5 @@
 // ecs
-pub const EntityTraitsType = @import("ecs/entity.zig").EntityTraitsType;
-
+pub const EntityClass = @import("ecs/entity.zig").EntityClass;
 pub const Entity = @import("ecs/registry.zig").Entity;
 pub const Registry = @import("ecs/registry.zig").Registry;
 pub const EntityHandles = @import("ecs/registry.zig").EntityHandles;

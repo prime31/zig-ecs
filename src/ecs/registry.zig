@@ -11,11 +11,10 @@ const TypeStore = @import("type_store.zig").TypeStore;
 
 // allow overriding EntityTraits by setting in root via: EntityTraits = EntityTraitsType(.medium);
 const root = @import("root");
-pub const entity_traits = if (@hasDecl(root, "EntityTraits")) root.EntityTraits.init() else @import("entity.zig").EntityTraits.init();
+pub const Entity = if (@hasDecl(root, "Entity")) root.Entity else @import("entity.zig").DefaultEntity;
 
 // setup the Handles type based on the type set in EntityTraits
-pub const EntityHandles = Handles(entity_traits.entity_type, entity_traits.index_type, entity_traits.version_type);
-pub const Entity = entity_traits.entity_type;
+pub const EntityHandles = Handles(Entity);
 
 const BasicView = @import("views.zig").BasicView;
 const MultiView = @import("views.zig").MultiView;
@@ -259,16 +258,6 @@ pub const Registry = struct {
 
     pub fn valid(self: *Registry, entity: Entity) bool {
         return self.handles.alive(entity);
-    }
-
-    /// Returns the entity identifier without the version
-    pub fn entityId(_: Registry, entity: Entity) Entity {
-        return entity & entity_traits.entity_mask;
-    }
-
-    /// Returns the version stored along with an entity identifier
-    pub fn version(_: *Registry, entity: Entity) entity_traits.version_type {
-        return @truncate(entity >> entity_traits.entity_shift);
     }
 
     /// Creates a new entity and returns it

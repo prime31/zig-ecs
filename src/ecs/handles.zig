@@ -4,23 +4,21 @@ const registry = @import("registry.zig");
 /// generates versioned "handles" (https://floooh.github.io/2018/06/17/handles-vs-pointers.html)
 /// you choose the type of the handle (aka its size) and how much of that goes to the index and the version.
 /// the bitsize of version + id must equal the handle size.
-pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime VersionType: type) type {
-    std.debug.assert(std.meta.Int(.unsigned, @bitSizeOf(HandleType)) == HandleType);
-    std.debug.assert(std.meta.Int(.unsigned, @bitSizeOf(IndexType)) == IndexType);
-    std.debug.assert(std.meta.Int(.unsigned, @bitSizeOf(VersionType)) == VersionType);
-
-    if (@bitSizeOf(IndexType) + @bitSizeOf(VersionType) != @bitSizeOf(HandleType))
-        @compileError("IndexType and VersionType must sum to HandleType's bit count");
-
+pub fn Handles(comptime HandleType: type) type {
     return struct {
         const Self = @This();
 
         handles: []HandleType,
-        append_cursor: IndexType = 0,
-        last_destroyed: ?IndexType = null,
+        /// When creating a new entity, if there are no free slots (indicated by last_destroyed being null),
+        /// create a new entity at this index
+        append_cursor: HandleType.Index = 0,
+        /// A linked list of unused slots
+        /// This field points to the index of the latest freed slot
+        /// The index of the next free slot is stored in the `index` field of the handle
+        free_slot: ?HandleType.Index = null,
         allocator: std.mem.Allocator,
 
-        const invalid_id = std.math.maxInt(IndexType);
+        const invalid_id = std.math.maxInt(HandleType.Index);
 
         pub const Iterator = struct {
             hm: Self,
@@ -48,7 +46,7 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
         }
 
         pub fn initWithCapacity(allocator: std.mem.Allocator, capacity: usize) Self {
-            return Self{
+            return .{
                 .handles = allocator.alloc(HandleType, capacity) catch unreachable,
                 .allocator = allocator,
             };
@@ -58,61 +56,66 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
             self.allocator.free(self.handles);
         }
 
-        pub fn extractId(_: Self, handle: HandleType) IndexType {
-            return @intCast(handle & registry.entity_traits.entity_mask);
-        }
-
-        pub fn extractVersion(_: Self, handle: HandleType) VersionType {
-            return @truncate(handle >> registry.entity_traits.entity_shift);
-        }
-
-        fn forge(id: IndexType, version: VersionType) HandleType {
-            return id | (@as(HandleType, version) << registry.entity_traits.entity_shift);
-        }
-
         pub fn create(self: *Self) HandleType {
-            if (self.last_destroyed == null) {
-                // ensure capacity and grow if needed
-                if (self.handles.len - 1 == self.append_cursor) {
-                    self.handles = self.allocator.realloc(self.handles, self.handles.len * 2) catch unreachable;
-                }
+            // we have a free slot, consume it
+            if (self.free_slot) |free_index| {
+                const version = self.handles[free_index].version;
+                // the index of the next free slot
+                const next_free_index = self.handles[free_index].index;
 
-                const id = self.append_cursor;
-                const handle = forge(self.append_cursor, 0);
-                self.handles[id] = handle;
+                const handle: HandleType = .{ .index = free_index, .version = version };
+                self.handles[free_index] = handle;
 
-                self.append_cursor += 1;
+                // set the head of our linked list to point at the next free index
+                self.free_slot = if (next_free_index == invalid_id) null else next_free_index;
+
                 return handle;
             }
 
-            const version = self.extractVersion(self.handles[self.last_destroyed.?]);
-            const destroyed_id = self.extractId(self.handles[self.last_destroyed.?]);
+            // we have no free slots, so append to the end of array
 
-            const handle = forge(self.last_destroyed.?, version);
-            self.handles[self.last_destroyed.?] = handle;
+            // ensure capacity and grow if needed
+            if (self.handles.len - 1 == self.append_cursor) {
+                self.handles = self.allocator.realloc(self.handles, self.handles.len * 2) catch unreachable;
+            }
 
-            self.last_destroyed = if (destroyed_id == invalid_id) null else destroyed_id;
+            const handle: HandleType = .{ .index = self.append_cursor, .version = 0 };
+            self.handles[self.append_cursor] = handle;
 
+            self.append_cursor += 1;
             return handle;
         }
 
         pub fn remove(self: *Self, handle: HandleType) !void {
-            const id = self.extractId(handle);
-            if (id > self.append_cursor or self.handles[id] != handle)
-                return error.RemovedInvalidHandle;
+            const index = handle.index;
+            if (!self.alive(handle)) return error.RemovedInvalidHandle;
 
-            const next_id = self.last_destroyed orelse invalid_id;
-            if (next_id == id) return error.ExhaustedEntityRemoval;
+            const next_id = self.free_slot orelse invalid_id;
 
-            const version = self.extractVersion(handle);
-            self.handles[id] = forge(next_id, version +% 1);
+            // cannot free the last slot
+            // TODO: just make the last invalid (happens due to tombstones in SparseSet anyways)
+            if (next_id == index) {
+                std.debug.assert(index == invalid_id);
+                return error.ExhaustedEntityRemoval;
+            }
 
-            self.last_destroyed = id;
+            const version = handle.version;
+
+            // point entry at next free slot
+            // TODO: Do not allow overflow, permanently retire entity instead
+            self.handles[index] = .{ .index = next_id, .version = version +% 1 };
+
+            self.free_slot = index;
         }
 
         pub fn alive(self: Self, handle: HandleType) bool {
-            const id = self.extractId(handle);
-            return id < self.append_cursor and self.handles[id] == handle;
+            return
+            // we couldn't possibly have allocated this handle yet
+            handle.index < self.append_cursor and
+                // when we hand out a... handle, we always set the corresponding slot in the array to the handle
+                // when we free it, we use the handle's index field as a index to the next free slot (or maxInt
+                // if no other free slots exist), so double-frees are always caught
+                self.handles[handle.index] == handle;
         }
 
         pub fn iterator(self: Self) Iterator {
@@ -122,40 +125,46 @@ pub fn Handles(comptime HandleType: type, comptime IndexType: type, comptime Ver
 }
 
 test "handles" {
-    var hm = Handles(u32, u20, u12).init(std.testing.allocator);
-    defer hm.deinit();
+    const entity = @import("entity.zig");
 
-    const e0 = hm.create();
-    const e1 = hm.create();
-    const e2 = hm.create();
+    var handles: Handles(entity.EntityClass(.{
+        .total_bits = 8,
+        .index_bits = 4,
+        .version_bits = 4,
+    })) = .init(std.testing.allocator);
+    defer handles.deinit();
 
-    std.debug.assert(hm.alive(e0));
-    std.debug.assert(hm.alive(e1));
-    std.debug.assert(hm.alive(e2));
+    const e0 = handles.create();
+    const e1 = handles.create();
+    const e2 = handles.create();
 
-    hm.remove(e1) catch unreachable;
-    std.debug.assert(!hm.alive(e1));
+    std.debug.assert(handles.alive(e0));
+    std.debug.assert(handles.alive(e1));
+    std.debug.assert(handles.alive(e2));
 
-    try std.testing.expectError(error.RemovedInvalidHandle, hm.remove(e1));
+    handles.remove(e1) catch unreachable;
+    std.debug.assert(!handles.alive(e1));
 
-    var e_tmp = hm.create();
-    std.debug.assert(hm.alive(e_tmp));
+    try std.testing.expectError(error.RemovedInvalidHandle, handles.remove(e1));
 
-    hm.remove(e_tmp) catch unreachable;
-    std.debug.assert(!hm.alive(e_tmp));
+    var e_tmp = handles.create();
+    std.debug.assert(handles.alive(e_tmp));
 
-    hm.remove(e0) catch unreachable;
-    std.debug.assert(!hm.alive(e0));
+    handles.remove(e_tmp) catch unreachable;
+    std.debug.assert(!handles.alive(e_tmp));
 
-    hm.remove(e2) catch unreachable;
-    std.debug.assert(!hm.alive(e2));
+    handles.remove(e0) catch unreachable;
+    std.debug.assert(!handles.alive(e0));
 
-    e_tmp = hm.create();
-    std.debug.assert(hm.alive(e_tmp));
+    handles.remove(e2) catch unreachable;
+    std.debug.assert(!handles.alive(e2));
 
-    e_tmp = hm.create();
-    std.debug.assert(hm.alive(e_tmp));
+    e_tmp = handles.create();
+    std.debug.assert(handles.alive(e_tmp));
 
-    e_tmp = hm.create();
-    std.debug.assert(hm.alive(e_tmp));
+    e_tmp = handles.create();
+    std.debug.assert(handles.alive(e_tmp));
+
+    e_tmp = handles.create();
+    std.debug.assert(handles.alive(e_tmp));
 }
