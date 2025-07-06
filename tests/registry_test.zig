@@ -8,7 +8,7 @@ const Empty = struct {};
 const BigOne = struct { pos: Position, vel: Velocity, accel: Velocity };
 
 test "entity traits" {
-    _ = ecs.EntityTraitsType(.large).init();
+    _ = ecs.EntityClass(.large){ .version = 0, .index = 0 };
 }
 
 test "Registry" {
