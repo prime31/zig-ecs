@@ -275,30 +275,20 @@ pub fn SparseSet(comptime Entity: type) type {
         ) void {
             // first, sort dense array
             std_sort_insertionSort_clone(Entity, self.dense.items[0..length], context, lessThan);
-            // we have to figure out where the element in the dense array went
-            // iterating over sorted elements on dense array...
-
             for (0..length) |i| {
-                var pos_current: Entity.Index = @intCast(i);
-                var curr_entity = self.dense.items[pos_current];
-                // where the entity at dense[curr] used to be in dense before sorting
-                var pos_before_sorting: Entity.Index = self.index(curr_entity);
+                var curr: Entity.Index = @intCast(i);
+                var next = self.index(self.dense.items[curr]);
 
-                // if we have already finished this cycle, this will immediately be true
-                // otherwise, we permute the entire cycle, stopping when we wrap aroun to the start
-                while (pos_current != pos_before_sorting) {
-                    // update sparse array
-                    // this also marks this index as complete so we don't repeat cycles
+                while (curr != next) {
+                    swap_context.swap(self.dense.items[curr], self.dense.items[next]);
                     self.sparse.items[
-                        self.pageIndex(curr_entity)
+                        self.pageIndex(self.dense.items[curr])
                     ].?[
-                        self.pageOffset(curr_entity)
-                    ] = pos_current;
-                    swap_context.swap(self.dense.items[pos_current], self.dense.items[pos_before_sorting]);
+                        self.pageOffset(self.dense.items[curr])
+                    ] = curr;
 
-                    pos_current = pos_before_sorting;
-                    curr_entity = self.dense.items[pos_current];
-                    pos_before_sorting = self.index(curr_entity);
+                    curr = next;
+                    next = self.index(self.dense.items[curr]);
                 }
             }
             self.detectCorruption();
