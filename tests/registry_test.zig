@@ -100,13 +100,16 @@ test "destroy" {
         reg.add(e, Position{ .x = @as(f32, @floatFromInt(i)), .y = @as(f32, @floatFromInt(i)) });
     }
 
-    reg.destroy(3);
-    reg.destroy(4);
+    reg.destroy(.{ .index = 3, .version = 0 });
+    reg.destroy(.{ .index = 4, .version = 0 });
 
     i = 0;
     while (i < 6) : (i += 1) {
         if (i != 3 and i != 4)
-            try std.testing.expectEqual(Position{ .x = @as(f32, @floatFromInt(i)), .y = @as(f32, @floatFromInt(i)) }, reg.getConst(Position, i));
+            try std.testing.expectEqual(
+                Position{ .x = @as(f32, @floatFromInt(i)), .y = @as(f32, @floatFromInt(i)) },
+                reg.getConst(Position, .{ .index = i, .version = 0 }),
+            );
     }
 }
 
