@@ -18,6 +18,7 @@ pub fn Handles(comptime HandleType: type) type {
         free_slot: ?HandleType.Index = null,
         allocator: std.mem.Allocator,
 
+        pub const max_active_entities = std.math.maxInt(HandleType.Index);
         const invalid_id = std.math.maxInt(HandleType.Index);
 
         pub const Iterator = struct {
@@ -56,7 +57,7 @@ pub fn Handles(comptime HandleType: type) type {
             self.allocator.free(self.handles);
         }
 
-        pub fn create(self: *Self) HandleType {
+        pub fn create(self: *Self) !HandleType {
             // we have a free slot, consume it
             if (self.free_slot) |free_index| {
                 const version = self.handles[free_index].version;
@@ -74,12 +75,15 @@ pub fn Handles(comptime HandleType: type) type {
 
             // we have no free slots, so append to the end of array
 
+            // we are out of handles that can be active at once
+            if (self.append_cursor == invalid_id) return error.OutOfActiveHandles;
+
             // ensure capacity and grow if needed
             if (self.handles.len - 1 == self.append_cursor) {
-                self.handles = self.allocator.realloc(self.handles, self.handles.len * 2) catch unreachable;
+                self.handles = self.allocator.realloc(self.handles, @min(max_active_entities, self.handles.len * 2)) catch unreachable;
             }
 
-            const handle: HandleType = .{ .index = self.append_cursor, .version = 0 };
+            const handle: HandleType = .{ .index = @intCast(self.append_cursor), .version = 0 };
             self.handles[self.append_cursor] = handle;
 
             self.append_cursor += 1;
@@ -90,20 +94,9 @@ pub fn Handles(comptime HandleType: type) type {
             const index = handle.index;
             if (!self.alive(handle)) return error.RemovedInvalidHandle;
 
-            const next_id = self.free_slot orelse invalid_id;
-
-            // cannot free the last slot
-            // TODO: just make the last invalid (happens due to tombstones in SparseSet anyways)
-            if (next_id == index) {
-                std.debug.assert(index == invalid_id);
-                return error.ExhaustedEntityRemoval;
-            }
-
-            const version = handle.version;
-
             // point entry at next free slot
             // TODO: Do not allow overflow, permanently retire entity instead
-            self.handles[index] = .{ .index = next_id, .version = version +% 1 };
+            self.handles[index] = .{ .index = self.free_slot orelse invalid_id, .version = handle.version +% 1 };
 
             self.free_slot = index;
         }
@@ -134,9 +127,9 @@ test "handles" {
     })) = .init(std.testing.allocator);
     defer handles.deinit();
 
-    const e0 = handles.create();
-    const e1 = handles.create();
-    const e2 = handles.create();
+    const e0 = try handles.create();
+    const e1 = try handles.create();
+    const e2 = try handles.create();
 
     std.debug.assert(handles.alive(e0));
     std.debug.assert(handles.alive(e1));
@@ -147,7 +140,7 @@ test "handles" {
 
     try std.testing.expectError(error.RemovedInvalidHandle, handles.remove(e1));
 
-    var e_tmp = handles.create();
+    var e_tmp = try handles.create();
     std.debug.assert(handles.alive(e_tmp));
 
     handles.remove(e_tmp) catch unreachable;
@@ -159,12 +152,12 @@ test "handles" {
     handles.remove(e2) catch unreachable;
     std.debug.assert(!handles.alive(e2));
 
-    e_tmp = handles.create();
+    e_tmp = try handles.create();
     std.debug.assert(handles.alive(e_tmp));
 
-    e_tmp = handles.create();
+    e_tmp = try handles.create();
     std.debug.assert(handles.alive(e_tmp));
 
-    e_tmp = handles.create();
+    e_tmp = try handles.create();
     std.debug.assert(handles.alive(e_tmp));
 }

@@ -262,7 +262,7 @@ pub const Registry = struct {
 
     /// Creates a new entity and returns it
     pub fn create(self: *Registry) Entity {
-        return self.handles.create();
+        return self.handles.create() catch unreachable;
     }
 
     /// Destroys an entity
