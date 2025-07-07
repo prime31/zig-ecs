@@ -279,14 +279,14 @@ test "single basic view" {
     var store = Storage(f32).init(std.testing.allocator);
     defer store.deinit();
 
-    store.add(3, 30);
-    store.add(5, 50);
-    store.add(7, 70);
+    store.add(.{ .index = 3, .version = 0 }, 30);
+    store.add(.{ .index = 5, .version = 0 }, 50);
+    store.add(.{ .index = 7, .version = 0 }, 70);
 
     var view = BasicView(f32).init(&store);
     try std.testing.expectEqual(view.len(), 3);
 
-    store.remove(7);
+    store.remove(.{ .index = 7, .version = 0 });
     try std.testing.expectEqual(view.len(), 2);
 
     var i: usize = 0;
@@ -301,11 +301,11 @@ test "single basic view" {
     var entIter = view.entityIterator();
     while (entIter.next()) |ent| {
         if (i == 0) {
-            try std.testing.expectEqual(ent, 5);
+            try std.testing.expectEqual(@as(Entity, .{ .index = 5, .version = 0 }), ent);
             try std.testing.expectEqual(view.getConst(ent), 50);
         }
         if (i == 1) {
-            try std.testing.expectEqual(ent, 3);
+            try std.testing.expectEqual(ent, @as(Entity, .{ .index = 3, .version = 0 }));
             try std.testing.expectEqual(view.getConst(ent), 30);
         }
         i += 1;
@@ -316,21 +316,21 @@ test "single basic view data" {
     var store = Storage(f32).init(std.testing.allocator);
     defer store.deinit();
 
-    store.add(3, 30);
-    store.add(5, 50);
-    store.add(7, 70);
+    store.add(.{ .index = 3, .version = 0 }, 30);
+    store.add(.{ .index = 5, .version = 0 }, 50);
+    store.add(.{ .index = 7, .version = 0 }, 70);
 
     var view = BasicView(f32).init(&store);
 
-    try std.testing.expectEqual(view.get(3).*, 30);
+    try std.testing.expectEqual(view.get(.{ .index = 3, .version = 0 }).*, 30);
 
     for (view.data(), 0..) |entity, i| {
         if (i == 0)
-            try std.testing.expectEqual(entity, 3);
+            try std.testing.expectEqual(entity, @as(Entity, .{ .index = 3, .version = 0 }));
         if (i == 1)
-            try std.testing.expectEqual(entity, 5);
+            try std.testing.expectEqual(entity, @as(Entity, .{ .index = 5, .version = 0 }));
         if (i == 2)
-            try std.testing.expectEqual(entity, 7);
+            try std.testing.expectEqual(entity, @as(Entity, .{ .index = 7, .version = 0 }));
     }
 
     for (view.raw(), 0..) |data, i| {

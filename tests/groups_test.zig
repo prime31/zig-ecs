@@ -234,7 +234,7 @@ test "nested OwningGroups entity order" {
     _ = reg.assure(Transform);
     // printStore(sprite_store, "Sprite");
 
-    reg.add(1, Transform{ .x = 1 });
+    reg.add(.{ .index = 1, .version = 0 }, Transform{ .x = 1 });
 
     // printStore(sprite_store, "Sprite");
     // printStore(transform_store, "Transform");
