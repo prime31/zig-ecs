@@ -1,6 +1,9 @@
 const std = @import("std");
 const ecs = @import("ecs");
 
+// override the EntityTraits used by ecs
+pub const EntityTraits = ecs.EntityTraitsType(.small);
+
 pub const Velocity = struct { x: f32, y: f32 };
 pub const Position = struct { x: f32, y: f32 };
 
