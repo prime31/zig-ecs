@@ -50,14 +50,14 @@ pub const Scheduler = struct {
 
     pub fn init(allocator: std.mem.Allocator) Scheduler {
         return .{
-            .processes = std.ArrayList(*Process).init(allocator),
+            .processes = std.ArrayList(*Process).empty,
             .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Scheduler) void {
         self.clear();
-        self.processes.deinit();
+        self.processes.deinit(self.allocator);
     }
 
     /// Schedules a process for the next tick
@@ -68,7 +68,7 @@ pub const Scheduler = struct {
         var process = createProcessHandler(T, data, self.allocator);
         process.tick();
 
-        self.processes.append(process) catch unreachable;
+        self.processes.append(self.allocator, process) catch unreachable;
         return Continuation.init(process, self.allocator);
     }
 
