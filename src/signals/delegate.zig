@@ -26,7 +26,7 @@ pub fn DelegateFromTuple(comptime Params: type) type {
                 };
             }
             return *const @Type(.{ .@"fn" = .{
-                .calling_convention = .Unspecified,
+                .calling_convention = .auto,
                 .is_generic = false,
                 .is_var_args = false,
                 .return_type = void,
@@ -93,7 +93,7 @@ fn Fn(comptime Params: type) type {
         };
     }
     return *const @Type(.{ .@"fn" = .{
-        .calling_convention = .Unspecified,
+        .calling_convention = .auto,
         .is_generic = false,
         .is_var_args = false,
         .return_type = void,

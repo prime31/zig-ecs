@@ -52,22 +52,27 @@ pub fn build(b: *std.Build) void {
     }
 
     // internal tests
-    const internal_test = b.addTest(.{
+    const internal_test_mod = b.addModule("internal_tests", .{
         .root_source_file = b.path("src/tests.zig"),
-        .optimize = optimize,
         .target = target,
-        .name = "internal_tests",
+        .optimize = optimize,
+    });
+    const internal_test = b.addTest(.{
+        .root_module = internal_test_mod,
     });
     b.installArtifact(internal_test);
 
     // public api tests
-    const public_test = b.addTest(.{
+
+    const public_test_mod = b.addModule("public_tests", .{
         .root_source_file = b.path("tests/tests.zig"),
         .optimize = optimize,
         .target = target,
-        .name = "public_tests",
     });
-    public_test.root_module.addImport("ecs", ecs_module);
+    public_test_mod.addImport("ecs", ecs_module);
+    const public_test = b.addTest(.{
+        .root_module = public_test_mod,
+    });
     b.installArtifact(public_test);
 
     const test_cmd = b.step("test", "Run the tests");
