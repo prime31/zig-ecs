@@ -2,7 +2,7 @@
     .name = .entt,
     .version = "1.0.0",
     .fingerprint = 0x73ce37d06ced93a8,
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.1",
     .dependencies = .{},
     .paths = .{
         "src",

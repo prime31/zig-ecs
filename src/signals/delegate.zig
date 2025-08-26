@@ -66,9 +66,9 @@ pub fn DelegateFromTuple(comptime Params: type) type {
 
         pub fn trigger(self: Self, params: Params) void {
             if (self.ctx_ptr == null) {
-                @call(.auto, @as(FreeFn, @ptrCast(self.free_ptr)), params);
+                @call(.auto, @as(FreeFn, @alignCast(@ptrCast(self.free_ptr))), params);
             } else {
-                @as(*const fn (Self, Params) void, @ptrCast(self.free_ptr))(self, params);
+                @as(*const fn (Self, Params) void, @alignCast(@ptrCast(self.free_ptr)))(self, params);
             }
         }
 
