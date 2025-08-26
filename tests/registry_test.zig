@@ -11,7 +11,7 @@ test "entity traits" {
     _ = ecs.EntityClass(.small){ .index = 299, .version = 15 };
     _ = ecs.EntityClass(.medium){ .index = 18953, .version = 543 };
     _ = ecs.EntityClass(.large){ .index = 15794, .version = 548273 };
-    _ = ecs.EntityClass(.{ .index_bits = 41, .version_bits = 91, .total_bits = 41 + 91 }){ .index = 89612, .version = 254739 };
+    _ = ecs.EntityClass(.{ .index_bits = 41, .version_bits = 91 }){ .index = 89612, .version = 254739 };
 }
 
 test "Registry" {

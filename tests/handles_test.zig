@@ -1,5 +1,5 @@
 test "handles stress test" {
-    const Entity = ecs.EntityClass(.{ .index_bits = 8, .version_bits = 4, .total_bits = 12 });
+    const Entity = ecs.EntityClass(.{ .index_bits = 8, .version_bits = 4 });
     const Handles = ecs.Handles(Entity);
 
     var handles: Handles = .init(std.testing.allocator);

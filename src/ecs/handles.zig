@@ -121,7 +121,6 @@ test "handles" {
     const entity = @import("entity.zig");
 
     var handles: Handles(entity.EntityClass(.{
-        .total_bits = 8,
         .index_bits = 4,
         .version_bits = 4,
     })) = .init(std.testing.allocator);
