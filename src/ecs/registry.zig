@@ -81,21 +81,21 @@ pub const Registry = struct {
             const isValid: bool = blk: {
                 for (self.owned) |tid| {
                     const storage_ptr = registry.components.get(tid).?;
-                    const storage: *Storage(u1) = @alignCast(@ptrCast(storage_ptr));
+                    const storage: *Storage(u1) = @ptrCast(@alignCast(storage_ptr));
                     if (!storage.contains(entity))
                         break :blk false;
                 }
 
                 for (self.include) |tid| {
                     const storage_ptr = registry.components.get(tid).?;
-                    const storage: *Storage(u1) = @alignCast(@ptrCast(storage_ptr));
+                    const storage: *Storage(u1) = @ptrCast(@alignCast(storage_ptr));
                     if (!storage.contains(entity))
                         break :blk false;
                 }
 
                 for (self.exclude) |tid| {
                     const ptr = registry.components.get(tid).?;
-                    const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                    const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                     if (storage.contains(entity))
                         break :blk false;
                 }
@@ -111,13 +111,13 @@ pub const Registry = struct {
             }
 
             const first_owned_ptr = registry.components.get(self.owned[0]).?;
-            const first_owned: *Storage(u1) = @alignCast(@ptrCast(first_owned_ptr));
+            const first_owned: *Storage(u1) = @ptrCast(@alignCast(first_owned_ptr));
             if (first_owned.set.index(entity) < self.current) return;
 
             for (self.owned) |owned_type| {
                 // store.swap hides a safe version that types it correctly
                 const storage_ptr = registry.components.get(owned_type).?;
-                var storage: *Storage(u1) = @alignCast(@ptrCast(storage_ptr));
+                var storage: *Storage(u1) = @ptrCast(@alignCast(storage_ptr));
                 storage.swap(storage.data()[self.current], entity);
             }
             std.debug.assert(self.owned.len >= 0);
@@ -131,12 +131,12 @@ pub const Registry = struct {
             }
 
             const ptr = registry.components.get(self.owned[0]).?;
-            var storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+            var storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
             if (storage.contains(entity) and storage.set.index(entity) < self.current) {
                 self.current -= 1;
                 for (self.owned) |tid| {
                     const store_ptr = registry.components.get(tid).?;
-                    storage = @alignCast(@ptrCast(store_ptr));
+                    storage = @ptrCast(@alignCast(store_ptr));
                     storage.swap(storage.data()[self.current], entity);
                 }
             }
@@ -200,7 +200,7 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            var storage: *Storage(u1) = @alignCast(@ptrCast(ptr.*));
+            var storage: *Storage(u1) = @ptrCast(@alignCast(ptr.*));
             storage.destroy();
         }
 
@@ -222,7 +222,7 @@ pub const Registry = struct {
 
         const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
-            return @alignCast(@ptrCast(kv.value_ptr.*));
+            return @ptrCast(@alignCast(kv.value_ptr.*));
         }
 
         const comp_set = Storage(T).create(self.allocator);
@@ -424,7 +424,7 @@ pub const Registry = struct {
         var iter = self.components.valueIterator();
         while (iter.next()) |value| {
             // HACK: we dont know the Type here but we need to be able to call methods on the Storage(T)
-            var storage: *Storage(u1) = @alignCast(@ptrCast(value.*));
+            var storage: *Storage(u1) = @ptrCast(@alignCast(value.*));
             storage.removeIfContains(entity);
         }
     }
@@ -499,7 +499,7 @@ pub const Registry = struct {
     pub fn getContext(self: *Registry, comptime T: type) ?*T {
         std.debug.assert(@typeInfo(T) != .pointer);
 
-        return @alignCast(@ptrCast(self.contexts.get(utils.typeId(T))));
+        return @ptrCast(@alignCast(self.contexts.get(utils.typeId(T))));
     }
 
     /// provides access to a TypeStore letting you add singleton components to the registry

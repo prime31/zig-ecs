@@ -27,8 +27,8 @@ pub fn DelegateFromTuple(comptime Params: type) type {
                 fn cb(self: Self, params: Params) void {
                     @call(
                         .auto,
-                        @as(BindFn(T), @alignCast(@ptrCast(self.bind_ptr))),
-                        .{@as(T, @alignCast(@ptrCast(self.ctx_ptr)))} ++ params,
+                        @as(BindFn(T), @ptrCast(@alignCast(self.bind_ptr))),
+                        .{@as(T, @ptrCast(@alignCast(self.ctx_ptr)))} ++ params,
                     );
                 }
             };
@@ -48,9 +48,9 @@ pub fn DelegateFromTuple(comptime Params: type) type {
 
         pub fn trigger(self: Self, params: Params) void {
             if (self.ctx_ptr == null) {
-                @call(.auto, @as(FreeFn, @alignCast(@ptrCast(self.free_ptr))), params);
+                @call(.auto, @as(FreeFn, @ptrCast(@alignCast(self.free_ptr))), params);
             } else {
-                @as(*const fn (Self, Params) void, @alignCast(@ptrCast(self.free_ptr)))(self, params);
+                @as(*const fn (Self, Params) void, @ptrCast(@alignCast(self.free_ptr)))(self, params);
             }
         }
 
