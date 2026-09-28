@@ -23,12 +23,14 @@ pub const TypeStore = struct {
 
     /// adds instance, returning a pointer to the item as it lives in the store
     pub fn add(self: *TypeStore, instance: anytype) void {
+        comptime utils.requireComponentValue(@TypeOf(instance));
         const bytes = self.allocator.alloc(u8, @sizeOf(@TypeOf(instance))) catch unreachable;
         @memcpy(bytes, std.mem.asBytes(&instance));
         _ = self.map.put(self.allocator, utils.typeId(@TypeOf(instance)), bytes) catch unreachable;
     }
 
     pub fn get(self: *TypeStore, comptime T: type) *T {
+        comptime utils.requireComponentValue(T);
         if (self.map.get(utils.typeId(T))) |bytes| {
             return @ptrCast(@alignCast(bytes));
         }
@@ -48,6 +50,7 @@ pub const TypeStore = struct {
     }
 
     pub fn remove(self: *TypeStore, comptime T: type) void {
+        comptime utils.requireComponentValue(T);
         if (self.map.get(utils.typeId(T))) |bytes| {
             self.allocator.free(bytes);
             _ = self.map.remove(utils.typeId(T));
@@ -55,6 +58,7 @@ pub const TypeStore = struct {
     }
 
     pub fn has(self: *TypeStore, comptime T: type) bool {
+        comptime utils.requireComponentValue(T);
         return self.map.contains(utils.typeId(T));
     }
 };

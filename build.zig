@@ -79,6 +79,24 @@ pub fn build(b: *std.Build) void {
     test_cmd.dependOn(b.getInstallStep());
     test_cmd.dependOn(&b.addRunArtifact(internal_test).step);
     test_cmd.dependOn(&b.addRunArtifact(public_test).step);
+
+    // Compile each invalid accessor call so no path can bypass the shared check.
+    const component_types = b.step("test-component-types", "Reject pointer component types");
+    test_cmd.dependOn(component_types);
+    for (0..42) |case_index| {
+        const options = b.addOptions();
+        options.addOption(usize, "case_index", case_index);
+        const fixture = b.createModule(.{
+            .root_source_file = b.path("tests/pointer_component_compile_fail.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        fixture.addImport("ecs", ecs_module);
+        fixture.addOptions("pointer_case", options);
+        const invalid = b.addTest(.{ .name = b.fmt("pointer-component-{d}", .{case_index}), .root_module = fixture });
+        invalid.expect_errors = .{ .contains = "ECS components must be value types, not pointer types. Received: *pointer_component_compile_fail.C" };
+        component_types.dependOn(&invalid.step);
+    }
 }
 
 pub const LibType = enum(i32) {

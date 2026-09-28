@@ -1,5 +1,12 @@
 const std = @import("std");
 
+// All component APIs share this check. Pointer fields inside values are allowed.
+pub fn requireComponentValue(comptime T: type) void {
+    if (@typeInfo(T) == .pointer) {
+        @compileError("ECS components must be value types, not pointer types. Received: " ++ @typeName(T));
+    }
+}
+
 pub const ErasedPtr = struct {
     ptr: usize,
 
