@@ -216,9 +216,7 @@ pub const Registry = struct {
     }
 
     pub fn assure(self: *Registry, comptime T: type) *Storage(T) {
-        if (@typeInfo(@TypeOf(T)) == .pointer) {
-            @compileError("assure must receive a value, not a pointer. Received: " ++ @typeName(T));
-        }
+        comptime utils.requireComponentValue(T);
 
         const type_id = comptime utils.typeId(T);
         if (self.components.getEntry(type_id)) |kv| {
@@ -306,17 +304,13 @@ pub const Registry = struct {
 
     /// shortcut for replacing raw comptime_int/float without having to @as cast
     pub fn replaceTyped(self: *Registry, comptime T: type, entity: Entity, value: T) void {
-        if (@typeInfo(@TypeOf(value)) == .pointer) {
-            @compileError("replaceTyped must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
-        }
+        comptime utils.requireComponentValue(T);
         self.replace(entity, value);
     }
 
     pub fn addOrReplace(self: *Registry, entity: Entity, value: anytype) void {
         assert(self.valid(entity));
-        if (@typeInfo(@TypeOf(value)) == .pointer) {
-            @compileError("addOrReplace must receive a value, not a pointer. Received: " ++ @typeName(@TypeOf(value)));
-        }
+        comptime utils.requireComponentValue(@TypeOf(value));
 
         const store = self.assure(@TypeOf(value));
 
@@ -338,7 +332,9 @@ pub const Registry = struct {
     }
 
     /// emits a signal for the onUpdate sink
+    /// Pass the stored component type. Pointer fields inside components are allowed.
     pub fn notifyUpdated(self: *Registry, comptime T: type, entity: Entity) void {
+        comptime utils.requireComponentValue(T);
         assert(self.valid(entity));
 
         const store = self.assure(T);

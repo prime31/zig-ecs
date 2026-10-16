@@ -218,3 +218,25 @@ test "destroy: component data is still readable in onDestruct signal" {
     try std.testing.expect(signal_saw_position);
     try std.testing.expect(!reg.valid(entity));
 }
+
+test "pointer fields and registry contexts remain supported" {
+    const Component = struct { value: *u32 };
+    var registry = Registry.init(std.testing.allocator);
+    defer registry.deinit();
+    const entity = registry.create();
+    var value: u32 = 7;
+    registry.add(entity, Component{ .value = &value });
+    registry.get(Component, entity).value.* = 9;
+    registry.notifyUpdated(Component, entity);
+    try std.testing.expectEqual(@as(u32, 9), registry.getConst(Component, entity).value.*);
+    registry.singletons().add(Component{ .value = &value });
+    try std.testing.expectEqual(@as(u32, 9), registry.singletons().get(Component).value.*);
+    registry.setContext(&value);
+    registry.getContext(u32).?.* = 11;
+    try std.testing.expectEqual(@as(u32, 11), registry.get(Component, entity).value.*);
+    registry.unsetContext(u32);
+    try std.testing.expect(registry.getContext(u32) == null);
+    registry.singletons().remove(Component);
+    registry.remove(Component, entity);
+    try std.testing.expect(!registry.has(Component, entity));
+}

@@ -8,6 +8,7 @@ const Sink = @import("../signals/sink.zig").Sink;
 
 /// Stores an ArrayList of components along with a SparseSet of entities
 pub fn ComponentStorage(comptime Component: type, comptime Entity: type) type {
+    comptime utils.requireComponentValue(Component);
     std.debug.assert(!utils.isComptime(Component));
 
     // empty (zero-sized) structs will not have an array created
