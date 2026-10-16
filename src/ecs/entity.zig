@@ -13,11 +13,11 @@ pub const EntityParameters = struct {
 
 pub fn EntityClass(comptime entity_parameters: EntityParameters) type {
     const total_bits = entity_parameters.index_bits + entity_parameters.version_bits;
-    const EntityBackingInt = std.meta.Int(.unsigned, total_bits);
+    const EntityBackingInt = @Int(.unsigned, total_bits);
 
     return packed struct(EntityBackingInt) {
-        pub const Index = std.meta.Int(.unsigned, entity_parameters.index_bits);
-        pub const Version = std.meta.Int(.unsigned, entity_parameters.version_bits);
+        pub const Index = @Int(.unsigned, entity_parameters.index_bits);
+        pub const Version = @Int(.unsigned, entity_parameters.version_bits);
 
         index: Index,
         version: Version,

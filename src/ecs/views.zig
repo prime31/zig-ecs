@@ -58,6 +58,12 @@ pub fn BasicView(comptime T: type) type {
     };
 }
 
+/// The default value of a comptime struct field.
+fn fieldDefault(comptime T: type, comptime name: []const u8) @FieldType(T, name) {
+    const attrs = @typeInfo(T).@"struct".field_attrs[std.meta.fieldIndex(T, name).?];
+    return attrs.defaultValue(@FieldType(T, name)).?;
+}
+
 pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type {
     @setEvalBranchQuota(1_000_000);
     if (std.mem.indexOfAny(type, &_includes, &_excludes) != null) {
@@ -94,7 +100,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
 
             pub fn init(view: *Self) Iterator {
                 const ptr = view.registry.components.get(view.order[0]).?;
-                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                 const internal_it = storage.set.reverseIterator();
                 return .{ .view = view, .internal_it = internal_it };
             }
@@ -104,7 +110,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
                     // entity must be in all other Storages
                     for (it.view.order) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
-                        const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                        const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                         if (!storage.contains(entity)) {
                             break :blk;
                         }
@@ -113,7 +119,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
                     // entity must not be in all other excluded Storages
                     inline for (exclude_type_ids) |tid| {
                         const ptr = it.view.registry.components.get(tid).?;
-                        const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                        const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                         if (storage.contains(entity)) {
                             break :blk;
                         }
@@ -133,7 +139,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
 
             fn getInternalIteratorInstance(it: *Iterator) ReverseSliceIterator(Entity) {
                 const ptr = it.view.registry.components.get(it.view.order[0]).?;
-                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                 return storage.set.reverseIterator();
             }
         };
@@ -162,7 +168,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             // entity must be in all other Storages
             inline for (include_type_ids) |tid| {
                 const ptr = self.registry.components.get(tid).?;
-                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                 if (!storage.contains(entity)) {
                     return false;
                 }
@@ -171,7 +177,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             // entity must not be in all other excluded Storages
             inline for (exclude_type_ids) |tid| {
                 const ptr = self.registry.components.get(tid).?;
-                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                 if (storage.contains(entity)) {
                     return false;
                 }
@@ -184,7 +190,7 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
             var sub_items: [_includes.len]usize = undefined;
             for (include_type_ids, 0..) |tid, i| {
                 const ptr = self.registry.components.get(tid).?;
-                const storage: *Storage(u1) = @alignCast(@ptrCast(ptr));
+                const storage: *Storage(u1) = @ptrCast(@alignCast(ptr));
                 sub_items[i] = storage.len();
             }
 
@@ -224,14 +230,14 @@ pub fn MultiView(comptime _includes: anytype, comptime _excludes: anytype) type 
 
         //// merge multiviews types, returning a new multiview type.
         pub fn extendType(comptime Diff: type) type {
-            const diff_n_includes = std.meta.fieldInfo(Diff, .n_includes).defaultValue().?;
-            const diff_n_excludes = std.meta.fieldInfo(Diff, .n_excludes).defaultValue().?;
+            const diff_n_includes = fieldDefault(Diff, "n_includes");
+            const diff_n_excludes = fieldDefault(Diff, "n_excludes");
 
-            const diff_includes: [diff_n_includes]type = std.meta.fieldInfo(Diff, .includes).defaultValue().?;
-            const diff_excludes: [diff_n_excludes]type = std.meta.fieldInfo(Diff, .excludes).defaultValue().?;
+            const diff_includes: [diff_n_includes]type = fieldDefault(Diff, "includes");
+            const diff_excludes: [diff_n_excludes]type = fieldDefault(Diff, "excludes");
 
-            const self_includes: [_includes.len]type = std.meta.fieldInfo(Self, .includes).defaultValue().?;
-            const self_excludes: [_excludes.len]type = std.meta.fieldInfo(Self, .excludes).defaultValue().?;
+            const self_includes: [_includes.len]type = fieldDefault(Self, "includes");
+            const self_excludes: [_excludes.len]type = fieldDefault(Self, "excludes");
 
             if (std.mem.indexOfAny(type, &self_includes, &diff_includes) != null) {
                 @compileError(std.fmt.comptimePrint("Overlap between current include types {any} and new include types {any} detected!", .{ self_includes, diff_includes }));
