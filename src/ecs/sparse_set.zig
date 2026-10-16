@@ -335,7 +335,7 @@ pub fn SparseSet(comptime Entity: type) type {
 
             // make sure that all elements only exist once
             for (self.dense.items, 0..) |entity, i| {
-                if (entities.fetchPut(self.allocator, entity, void{}) catch unreachable) |_| std.debug.panic("set corrupted: duplicate entry in dense list", .{});
+                if (entities.fetchPut(self.allocator, entity, {}) catch unreachable) |_| std.debug.panic("set corrupted: duplicate entry in dense list", .{});
                 if (!self.contains(entity)) std.debug.panic("set corrupted: orphaned entry in dense list", .{});
                 if (self.index(entity) != i) std.debug.panic("set corrupted: entry in sparse list points to wrong entity in dense list", .{});
             }
@@ -348,7 +348,7 @@ pub fn SparseSet(comptime Entity: type) type {
                 if (maybe_page) |page| {
                     for (page) |dense_index| {
                         if (dense_index == tombstone) continue;
-                        if (indices.fetchPut(self.allocator, dense_index, void{}) catch unreachable) |_| std.debug.panic("set corrupted: two locations in sparse list point to same entry", .{});
+                        if (indices.fetchPut(self.allocator, dense_index, {}) catch unreachable) |_| std.debug.panic("set corrupted: two locations in sparse list point to same entry", .{});
                     }
                 }
             }

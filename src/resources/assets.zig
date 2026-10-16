@@ -17,7 +17,7 @@ pub const Assets = struct {
         var iter = self.caches.iterator();
         while (iter.next()) |ptr| {
             // HACK: we dont know the Type here but we need to call deinit
-            const cache: *Cache(u1) = @alignCast(@ptrCast(ptr.value_ptr.*));
+            const cache: *Cache(u1) = @ptrCast(@alignCast(ptr.value_ptr.*));
             cache.destroy();
         }
 
@@ -26,7 +26,7 @@ pub const Assets = struct {
 
     pub fn get(self: *Assets, comptime AssetT: type) *Cache(AssetT) {
         if (self.caches.get(utils.typeId(AssetT))) |tid| {
-            return @as(*Cache(AssetT), @alignCast(@ptrCast(tid)));
+            return @as(*Cache(AssetT), @ptrCast(@alignCast(tid)));
         }
 
         const cache = Cache(AssetT).create(self.allocator);
